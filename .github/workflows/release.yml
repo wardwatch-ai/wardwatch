@@ -4,12 +4,13 @@ name: Release builds
 # artifacts for local testing:
 #   nightly:  every night that main changed (or Run workflow), versioned
 #             <next minor>-<days since 2026-01-01>, e.g. 0.2.0-312
+#             (.deb 0.2.0~312, .rpm 0.2.0-0.312)
 #   mainline: a pushed tag vX.Y.Z, which must match the app's version
 #
 # Nothing here signs, notarizes or uploads to downloads.wardwatch.ai. Those
 # steps get added once Matt has set up the signing keys, behind a GitHub
 # environment that needs his approval. GitHub-hosted runners only: these jobs
-# will hold signing keys.
+# will hold signing keys. macos-latest is Apple silicon, so the .dmg is arm64.
 
 on:
   schedule:
@@ -59,10 +60,11 @@ jobs:
           else
             echo "channel=nightly" >> "$GITHUB_OUTPUT"
           fi
-          # The scheduled nightly skips days when main didn't change.
+          # The scheduled nightly skips days when main didn't change. The window
+          # is longer than a day so schedule delays can't drop a commit.
           last=$(git log -1 --format=%ct)
-          if [[ "$EVENT" == schedule && $(( $(date +%s) - last )) -gt 86400 ]]; then
-            echo "No commits on main in the last day; no nightly."
+          if [[ "$EVENT" == schedule && $(( $(date +%s) - last )) -gt 129600 ]]; then
+            echo "No commits on main in the last 36 hours; no nightly."
             echo "build=false" >> "$GITHUB_OUTPUT"
           else
             echo "build=true" >> "$GITHUB_OUTPUT"
@@ -85,8 +87,15 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      # The Linux container installs its own toolchain; the host only needs Node.
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: runner.os == 'Linux'
+        with:
+          node-version: 22
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+        if: runner.os != 'Linux'
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: runner.os != 'Linux'
         with:
           node-version: 22
           cache: pnpm
@@ -106,6 +115,8 @@ jobs:
       - name: Install Rust
         if: runner.os != 'Linux'
         run: rustup toolchain install stable --profile minimal && rustup default stable
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        if: runner.os != 'Linux'
       - name: Build installers (unsigned)
         if: runner.os != 'Linux'
         shell: bash

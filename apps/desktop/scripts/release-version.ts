@@ -5,9 +5,11 @@
 //   node scripts/release-version.ts check vX.Y.Z           fail unless both files say X.Y.Z
 //
 // A nightly is the next minor release plus days since 2026-01-01, e.g. 0.2.0-312
-// while 0.1.x is current. It sorts above every 0.1.x and below 0.2.0, and each
-// night's number is higher than the last. The number stays numeric because the
-// Windows installer (MSI) only accepts a numeric pre-release up to 65535.
+// while 0.1.x is current. In semver (the app, its updater) it sorts above every
+// 0.1.x and below 0.2.0, and each night's number is higher than the last. The
+// number stays numeric because the Windows installer (MSI) only accepts a
+// numeric pre-release up to 65535. Linux packages spell it their own way so it
+// also sorts below 0.2.0 there (packaging/linux/build-in-container.sh).
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
