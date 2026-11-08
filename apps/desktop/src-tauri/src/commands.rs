@@ -12,6 +12,7 @@ use wardwatch_feed::Finding;
 use wardwatch_nudge::NudgePlan;
 use wardwatch_update::{Method, Progress};
 
+use crate::auto;
 use crate::fix::{self, FixResult, FixView};
 use crate::nudge;
 use crate::plan::{self, UpdatePlan};
@@ -245,6 +246,12 @@ pub async fn run_fix<R: Runtime>(
         })
     })
     .await
+}
+
+/// What the Update plan's Auto cells installed (or skipped) by themselves, newest first.
+#[tauri::command]
+pub fn list_auto_installs<R: Runtime>(app: AppHandle<R>) -> Result<Vec<auto::Entry>, String> {
+    auto::entries(&app)
 }
 
 #[cfg(test)]

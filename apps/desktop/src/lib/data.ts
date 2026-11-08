@@ -7,6 +7,7 @@ import {
   getNudges,
   getPlan,
   getSettings,
+  listAutoInstalls,
   listFindings,
   scanInventory,
   setPlan,
@@ -59,6 +60,10 @@ export function useSavePlan() {
     },
     onSettled: () => client.invalidateQueries({ queryKey: ["nudges"] }),
   });
+}
+
+export function useAutoInstalls() {
+  return useQuery({ queryKey: ["auto-installs"], queryFn: listAutoInstalls });
 }
 
 export function useSettings() {

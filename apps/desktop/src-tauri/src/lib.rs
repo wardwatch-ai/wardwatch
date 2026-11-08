@@ -4,6 +4,7 @@
 //! Scanning, the update feed and scoring live in their own crates under
 //! `crates/` and are exposed to the UI only through `commands`.
 
+mod auto;
 mod commands;
 mod fix;
 mod nudge;
@@ -42,7 +43,8 @@ pub fn run() {
             commands::run_fix,
             commands::get_nudges,
             commands::get_settings,
-            commands::set_settings
+            commands::set_settings,
+            commands::list_auto_installs
         ])
         .setup(|app| {
             tray::create(app.handle())?;

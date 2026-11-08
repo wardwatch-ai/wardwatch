@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "main",
-  "description": "The main window reads app info and this device's inventory, reads and saves the update plan, lists findings, plans and runs a fix, reads the nudge plan, reads and saves settings, and listens for the tray asking it to switch screens.",
+  "description": "The main window reads app info and this device's inventory, reads and saves the update plan, lists findings, plans and runs a fix, reads the nudge plan, reads and saves settings, reads the automatic install log, and listens for the tray asking it to switch screens.",
   "windows": ["main"],
   "permissions": [
     "allow-app-info",
@@ -14,6 +14,7 @@
     "allow-run-fix",
     "allow-get-settings",
     "allow-set-settings",
+    "allow-list-auto-installs",
     "core:event:allow-listen",
     "core:event:allow-unlisten"
   ]

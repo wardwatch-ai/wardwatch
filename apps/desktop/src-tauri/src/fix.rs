@@ -107,6 +107,11 @@ pub fn get_fix<R: Runtime>(app: &AppHandle<R>, source: &str, id: &str) -> Result
     })
 }
 
+/// Whether an update is running now.
+pub fn is_busy<R: Runtime>(app: &AppHandle<R>) -> bool {
+    app.state::<FixState>().busy.load(Ordering::SeqCst)
+}
+
 /// Clears `busy` however `run_fix` returns.
 struct Busy<'a>(&'a AtomicBool);
 
