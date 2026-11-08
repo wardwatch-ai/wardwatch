@@ -12,4 +12,4 @@ Report security problems privately to security@wardwatch.ai.
 
 ## License
 
-Copyright 2026 Matt Ward. Licensed under the [GNU General Public License v3.0 or later](LICENSE) (`GPL-3.0-or-later`).
+Copyright 2026 Matthew Ward. Licensed under the [GNU General Public License v3.0 or later](LICENSE) (`GPL-3.0-or-later`).

@@ -10,7 +10,7 @@ You sign by posting the comment the CLA bot asks for on your pull request. Your 
 
 **"You"** means the individual who signs this agreement.
 
-**"Maintainer"** means Matt Ward, an individual, who owns and maintains the Wardwatch project, and any person or legal entity to whom Matt Ward assigns or transfers stewardship of the Wardwatch project, together with their successors and assigns.
+**"Maintainer"** means Matthew Ward, an individual, who owns and maintains the Wardwatch project, and any person or legal entity to whom Matthew Ward assigns or transfers stewardship of the Wardwatch project, together with their successors and assigns.
 
 **"Wardwatch Project"** means any software, documentation or other material hosted in the `wardwatch-ai` GitHub organization or otherwise published by the Maintainer as part of Wardwatch.
 
