@@ -10,8 +10,8 @@
     "typecheck": "pnpm -r --if-present run typecheck",
     "test": "pnpm -r --if-present run test",
     "build": "pnpm -r --if-present run build",
-    "format": "prettier --write apps/desktop .github/workflows/desktop.yml README.md *.json *.yaml",
-    "format:check": "prettier --check apps/desktop .github/workflows/desktop.yml README.md *.json *.yaml"
+    "format": "prettier --write apps/desktop .github/workflows/desktop.yml .github/workflows/e2e.yml e2e README.md *.json *.yaml",
+    "format:check": "prettier --check apps/desktop .github/workflows/desktop.yml .github/workflows/e2e.yml e2e README.md *.json *.yaml"
   },
   "devDependencies": {
     "prettier": "^3.9.10"

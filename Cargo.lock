@@ -4146,6 +4146,7 @@ dependencies = [
  "jiff",
  "serde",
  "serde_json",
+ "wardwatch-catalog",
  "wardwatch-feed",
 ]
 

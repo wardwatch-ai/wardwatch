@@ -1,10 +1,12 @@
 name: End-to-end
 
 # Two end-to-end suites, both throwaway and unsigned:
-# - devices: the real scanner, matcher and 1-click updater inside fresh,
-#   offline distro containers with a planted vulnerable package.
-# - app: the real desktop app (debug build) driven through tauri-driver.
-#   macOS has no WebDriver for its webview, so it is Linux and Windows only.
+# - devices: the real scanner, matcher, nudge engine and 1-click updater
+#   inside fresh, offline distro containers with a planted vulnerable package.
+# - app: the real desktop app (debug build) driven through tauri-driver, on
+#   Linux. Windows is left out: WebView2 133+ no longer opens a WebDriver
+#   session (MicrosoftEdge/WebView2Feedback#5415, actions/runner-images#14738).
+#   macOS has no WebDriver for its webview.
 # Nothing here signs, uploads or publishes anything.
 
 on:
@@ -37,36 +39,21 @@ jobs:
       - name: Install packaging tools
         run: sudo apt-get update && sudo apt-get install -y apt-utils rpm createrepo-c
       # Static, so the same binaries run on every distro image.
-      - run: cargo build --release --locked --target x86_64-unknown-linux-musl -p wardwatch-feed --example check -p wardwatch-update --example fix
+      - run: cargo build --release --locked --target x86_64-unknown-linux-musl -p wardwatch-feed --example check -p wardwatch-update --example fix -p wardwatch-nudge --example nudge
       - run: tests/devices/run.sh
 
   app:
-    name: App (${{ matrix.os }})
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-24.04, windows-latest]
-    runs-on: ${{ matrix.os }}
+    name: App (Linux)
+    runs-on: ubuntu-24.04
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Install Linux system libraries and WebKitWebDriver
-        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev webkit2gtk-driver xvfb
-      - name: Edge WebDriver matching the WebView2 runtime
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          $key = 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}'
-          $version = (Get-ItemProperty $key).pv
-          Write-Output "WebView2 $version"
-          Invoke-WebRequest "https://msedgedriver.microsoft.com/$version/edgedriver_win64.zip" -OutFile edgedriver.zip
-          Expand-Archive edgedriver.zip -DestinationPath "$env:RUNNER_TEMP\edgedriver"
-          "NATIVE_DRIVER=$env:RUNNER_TEMP\edgedriver\msedgedriver.exe" >> $env:GITHUB_ENV
       - name: Install Rust
         run: rustup toolchain install stable --profile minimal && rustup default stable
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
@@ -81,8 +68,4 @@ jobs:
         working-directory: apps/desktop
         run: pnpm tauri build --debug --no-bundle --ci
       - name: Run end-to-end tests
-        if: runner.os == 'Linux'
         run: xvfb-run -a pnpm --filter @wardwatch/e2e e2e
-      - name: Run end-to-end tests
-        if: runner.os == 'Windows'
-        run: pnpm --filter @wardwatch/e2e e2e

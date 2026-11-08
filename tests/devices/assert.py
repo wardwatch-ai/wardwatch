@@ -8,8 +8,9 @@ import sys
 from pathlib import Path
 
 image, out = sys.argv[1], Path(sys.argv[2])
-family = "rpm" if image.startswith("fedora") else "deb"
-app = "fixture-vuln-rpm" if family == "rpm" else "fixture-vuln"
+meta = json.loads((out / "meta.json").read_text())  # written by device.sh
+app = meta["app"]
+family = "rpm" if app.endswith("-rpm") else "deb"
 old, new = ("1.0-1", "1.1-1")
 problems = []
 
@@ -40,8 +41,20 @@ expect("fixture-not-installed" not in by_id, "before: a package that isn't insta
 osf = by_id.get("fixture-os")
 expect(osf is not None, "before: OS not found")
 if osf:
-    want = image.split(":", 1)[1]
+    want = meta["os_version"]
     expect(osf["installed"] == want, f"before: OS version {osf['installed']!r}, want {want!r}")
+
+# The nudge: exploited, so urgent and same day, and the top card says under attack.
+plan = json.loads((out / "nudge-before.json").read_text())
+nudge = next((n for n in plan["nudges"] if n["key"] == app), None)
+expect(nudge is not None, "nudge: no nudge for the planted package")
+if nudge:
+    expect(nudge["strength"] == {"kind": "urgent"}, f"nudge: strength {nudge['strength']}")
+    expect(nudge["timing"] == "same_day", f"nudge: timing {nudge['timing']!r}")
+    expect(nudge["level"] == "serious", f"nudge: level {nudge['level']!r}")
+    expect(plan["nudges"][0]["key"] == app, "nudge: the exploited package isn't first")
+card = plan["top_card"]
+expect(card["kind"] == "under_attack" and app in card.get("keys", []), f"nudge: top card {card}")
 
 # The 1-click fix: the plan the fix screen shows, then the real update.
 fix = (out / "fix.txt").read_text()
@@ -64,6 +77,10 @@ expect(f is not None, f"after: {app} not found")
 if f:
     expect(f["installed"] == new, f"after: installed {f['installed']!r}, want {new!r}")
     expect(f["vulns"] == [] and f["severity"] is None and not f["exploited"], "after: still vulnerable after the fix")
+
+plan = json.loads((out / "nudge-after.json").read_text())
+expect(all(n["key"] != app for n in plan["nudges"]), "nudge after: still nudging for the fixed package")
+expect(plan["top_card"]["kind"] != "under_attack", "nudge after: still under attack")
 
 for p in problems:
     print(f"  {image}: {p}")

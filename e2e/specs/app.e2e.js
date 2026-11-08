@@ -22,6 +22,16 @@ const invoke = (cmd) =>
   );
 
 describe("Wardwatch desktop app", () => {
+  // The app opens two webviews (main and the hidden tray popover), both titled
+  // "Wardwatch". Drive the main one.
+  before(async () => {
+    for (const handle of await browser.getWindowHandles()) {
+      await browser.switchToWindow(handle);
+      if (!(await browser.getUrl()).includes("tray.html")) return;
+    }
+    throw new Error("no main window");
+  });
+
   it("opens the main window", async () => {
     await expect(browser).toHaveTitle("Wardwatch");
     await expect($("main")).toBeDisplayed();
