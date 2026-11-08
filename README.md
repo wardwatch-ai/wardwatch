@@ -2,6 +2,8 @@
 
 Wardwatch watches for critical vulnerabilities on your devices and helps you update promptly.
 
+This repository holds the open source Wardwatch client apps for macOS, Windows, Linux, Android and iOS.
+
 ## Layout
 
 | Path                     | What it is                                                                                               |
@@ -37,3 +39,13 @@ pnpm --filter @wardwatch/desktop tauri build  # unsigned local bundles in target
 CI runs the same checks and builds unsigned bundles on macOS, Windows and Linux. It never signs, uploads or publishes builds.
 
 End-to-end, CI also drives the real app with WebdriverIO and tauri-driver on Linux ([`e2e/`](e2e/README.md)), and runs the scanner, matcher, nudge engine and 1-click updater inside throwaway, offline distro containers with a planted vulnerable package ([`tests/devices/`](tests/devices/README.md)).
+
+## Contributing
+
+Contributions are welcome. Before your first pull request is merged, you sign our [Contributor License Agreement](CLA.md) by posting one comment; the CLA bot walks you through it. [CONTRIBUTING.md](CONTRIBUTING.md) explains why we ask.
+
+Report security problems privately to security@wardwatch.ai.
+
+## License
+
+Copyright 2026 Matthew Ward. Licensed under the [GNU General Public License v3.0 or later](LICENSE) (`GPL-3.0-or-later`).
