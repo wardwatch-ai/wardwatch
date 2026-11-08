@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Apps tab, list and detail</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&amp;family=Manrope:wght@800&amp;display=swap">
+<style>
+body{margin:0}
+.ww{--bg:#F3EDE2;--surface:#FBF8F2;--line:#E3D9C6;--text:#23211F;--muted:#6B6358;--brand:#A23B2C;--link:#A23B2C;--ok:#2F6F62;--ok-tint:#E4EFEA;--act-tint:#FFF4E0;--act-ink:#8A5300;--tower:#23211F;--sel:#EADFCB;background:var(--bg);color:var(--text);font-family:Inter,system-ui,sans-serif;font-size:15px;line-height:1.5}
+.ww.dark{--bg:#23211F;--surface:#2E2B28;--line:#45403A;--text:#F3EDE2;--muted:#B8AE9F;--brand:#C4503C;--link:#F0A08C;--ok:#7FCFA8;--ok-tint:#24352F;--act-tint:#3A2F1C;--act-ink:#F7C76A;--tower:#F3EDE2;--sel:#3A3632}
+.ww h1,.ww h2,.ww h3{font-family:Manrope,system-ui,sans-serif;font-weight:800;margin:0;letter-spacing:-0.01em}
+.ww a{color:var(--link)}.ww a:hover{color:var(--text)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 18px;border-radius:10px;border:1px solid transparent;font:600 15px/1 Inter,system-ui,sans-serif;cursor:pointer;text-decoration:none;box-sizing:border-box}
+.btn-act{background:#F2B33D;color:#23211F;border:2px solid #23211F}.ww.dark .btn-act{border-color:transparent}
+.ww a.btn-act,.ww a.btn-act:hover,.ww button.btn-act{color:#23211F}.ww a.btn-brand,.ww a.btn-brand:hover{color:#fff}
+.btn-brand{background:var(--brand);color:#fff}
+.btn-quiet{background:transparent;color:var(--text);border-color:var(--line)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px}
+.lbl{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.tab{display:inline-flex;align-items:center;min-height:64px;padding:0 14px;border-bottom:3px solid transparent;color:var(--muted);font-weight:600;text-decoration:none;box-sizing:border-box}
+.ww a.tab{color:var(--muted)}.ww a.tab:hover{color:var(--text)}
+.ww a.tab-on{color:var(--text);border-bottom-color:var(--brand)}
+.big{font-family:Manrope,system-ui,sans-serif;font-weight:800}
+.item{display:flex;align-items:center;gap:12px;width:100%;min-height:56px;padding:8px 12px;border:0;border-radius:10px;background:transparent;color:var(--text);font:15px Inter,system-ui,sans-serif;text-align:left;cursor:pointer}
+.item:hover{background:var(--bg)}
+.item-on{background:var(--sel)}
+.ico{width:32px;height:32px;border-radius:8px;flex:none}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px}
+.node{flex:1 1 180px;min-width:0;padding:14px;border-radius:12px;background:var(--bg)}
+.arrow{align-self:center;color:var(--muted);font-size:20px}
+.cve{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--line);font-size:14px}
+</style>
+</helmet>
+<div class="ww {{theme}}" style="min-height: 900px; box-sizing: border-box; display: flex; flex-direction: column">
+  <header style="display: flex; align-items: center; gap: 24px; flex-wrap: wrap; padding: 0 28px; border-bottom: 1px solid var(--line); background: var(--surface)">
+    <div style="display: flex; align-items: center; gap: 10px; min-height: 64px">
+      <svg width="30" height="30" viewBox="0 0 64 64" aria-hidden="true"><path d="M28 16.5 L3 9 L3 24 Z" fill="#F2B33D"></path><path d="M36 16.5 L61 9 L61 24 Z" fill="#F2B33D"></path><path d="M26 13 L32 7.5 L38 13 Z" fill="var(--tower)"></path><rect x="27.5" y="13" width="9" height="7" fill="#F2B33D"></rect><rect x="24" y="20" width="16" height="3" rx="1" fill="var(--tower)"></rect><path d="M26.5 23 L37.5 23 L39.2 40 L24.8 40 Z" fill="var(--brand)"></path><path d="M24.8 40 L39.2 40 L41 57 L23 57 Z" fill="#FFFFFF" stroke="#23211F" stroke-width="1.5"></path><rect x="21" y="57" width="22" height="3" rx="1" fill="var(--tower)"></rect></svg>
+      <span class="big" style="font-size: 19px">Wardwatch</span>
+    </div>
+    <nav aria-label="Main" style="flex: 1; display: flex; flex-wrap: wrap; gap: 4px">
+      <a class="tab" href="Harbor.dc.html">Home</a><a class="tab" href="Score6.dc.html">Score</a><a class="tab" href="Groups4.dc.html">Groups</a><a class="tab tab-on" href="#" aria-current="page">Apps</a><a class="tab" href="Plan4.dc.html">Update plan</a>
+    </nav>
+    <button type="button" style="display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 12px 0 6px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); color: var(--text); font: 600 14px Inter, system-ui, sans-serif; cursor: pointer"><span aria-hidden="true" style="width: 32px; height: 32px; border-radius: 50%; background: #2F6F62; color: #FFFFFF; display: flex; align-items: center; justify-content: center">M</span>Matt<span class="big" style="color: var(--ok)">84</span></button>
+  </header>
+
+  <div style="flex: 1; width: 100%; max-width: 1240px; margin: 0 auto; box-sizing: border-box; padding: 24px 28px; display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start">
+    <section class="card" style="flex: 1 1 300px; max-width: 360px; padding: 12px; display: flex; flex-direction: column; gap: 4px">
+      <label for="q" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Search programs</label>
+      <input id="q" type="search" placeholder="Search 139 programs" style="min-height: 44px; box-sizing: border-box; padding: 0 12px; margin-bottom: 6px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); color: var(--text); font: 14px Inter, system-ui, sans-serif">
+      <sc-for list="{{list}}" as="a" hint-placeholder-count="6">
+        <button type="button" class="{{a.cls}}" aria-current="{{a.current}}" onClick="{{a.pick}}">
+          <span class="ico" style="background: {{a.color}}" aria-hidden="true"></span>
+          <span style="flex: 1; min-width: 0"><span style="display: block; font-weight: 600">{{a.name}}</span><span class="mono" style="display: block; font-size: 12px; color: var(--muted)">{{a.have}}</span></span>
+          <span style="font-size: 12px; font-weight: 600; color: {{a.ink}}">{{a.short}}</span>
+        </button>
+      </sc-for>
+      <div style="padding: 8px 12px; font-size: 13px; color: var(--muted)">and 133 more, all up to date</div>
+    </section>
+
+    <main style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 18px">
+      <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap">
+        <span class="ico" style="width: 56px; height: 56px; border-radius: 14px; background: {{cur.color}}" aria-hidden="true"></span>
+        <div style="flex: 1; min-width: 0"><h1 style="font-size: 28px">{{cur.name}}</h1><div style="color: var(--muted)">{{cur.vendor}} · <span class="mono">{{cur.have}}</span></div></div>
+        <sc-if value="{{cur.urgent}}" hint-placeholder-val="{{ true }}"><a class="btn btn-act" href="#">Update now</a></sc-if>
+        <sc-if value="{{cur.tune}}" hint-placeholder-val="{{ false }}"><div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px"><button class="btn btn-quiet" type="button"><span aria-hidden="true" style="display: inline-flex; gap: 2px"><i style="display: block; width: 4px; height: 14px; border-radius: 2px; background: currentColor"></i><i style="display: block; width: 4px; height: 14px; border-radius: 2px; background: currentColor"></i><i style="display: block; width: 4px; height: 14px; border-radius: 2px; background: var(--line)"></i></span>Update now</button></div></sc-if>
+        <sc-if value="{{cur.held}}" hint-placeholder-val="{{ false }}"><button class="btn btn-quiet" type="button">Release hold</button></sc-if>
+        <sc-if value="{{cur.ok}}" hint-placeholder-val="{{ false }}"><span style="display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px; border-radius: 999px; background: var(--ok-tint); color: var(--ok); font-weight: 600"><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="currentColor"></circle></svg>Up to date</span></sc-if>
+        <sc-if value="{{cur.remote}}" hint-placeholder-val="{{ false }}"><span style="display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px; border-radius: 999px; border: 1px dashed var(--line); color: var(--muted); font-weight: 600; font-size: 14px; white-space: nowrap"><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="2" width="10" height="20" rx="2.5" fill="none" stroke="currentColor" stroke-width="2"></rect><path d="M11 18h2" stroke="currentColor" stroke-width="2"></path></svg>Update on the {{cur.dev}}</span></sc-if>
+      </div>
+
+      <sc-if value="{{cur.remote}}" hint-placeholder-val="{{ false }}"><div style="margin-top: -6px; font-size: 14px; color: var(--muted)">{{cur.remoteNote}}</div></sc-if>
+      <section class="card" style="padding: 20px">
+        <div class="lbl" style="margin-bottom: 12px">How we got here</div>
+        <div style="display: flex; flex-wrap: wrap; gap: 10px">
+          <div class="node"><div class="lbl">You have</div><div class="mono" style="font-size: 15px; font-weight: 600">{{cur.have}}</div><div style="font-size: 12px; color: var(--muted)">Found {{cur.found}}</div></div>
+          <span class="arrow" aria-hidden="true">→</span>
+          <div class="node"><div class="lbl">Newest</div><div class="mono" style="font-size: 15px; font-weight: 600">{{cur.latest}}</div><div style="font-size: 12px; color: var(--muted)">{{cur.released}}</div></div>
+          <span class="arrow" aria-hidden="true">→</span>
+          <div class="node" style="background: {{cur.holeBg}}"><div class="lbl">It closes</div><div style="font-size: 15px; font-weight: 600; color: {{cur.holeInk}}">{{cur.holes}}</div><div style="font-size: 12px; color: var(--muted)">{{cur.verdict}}</div></div>
+        </div>
+      </section>
+
+      <section class="card" style="padding: 8px 20px 10px">
+        <div class="lbl" style="padding: 12px 0 6px">The holes, in detail</div>
+        <sc-for list="{{cur.cves}}" as="c" hint-placeholder-count="2">
+          <div class="cve"><span class="mono" style="width: 150px">{{c.id}}</span><span style="flex: 1">{{c.what}}</span><span style="font-weight: 600; width: 130px; text-align: right; color: {{c.ink}}">{{c.sev}}</span></div>
+        </sc-for>
+        <sc-if value="{{cur.none}}" hint-placeholder-val="{{ false }}"><div class="cve">{{cur.noneText}}</div></sc-if>
+      </section>
+
+      <div style="display: flex; flex-wrap: wrap; gap: 16px">
+        <section class="card" style="flex: 1 1 260px; padding: 18px 20px"><div class="lbl" style="margin-bottom: 4px">Your history with it</div><div style="font-size: 14px">{{cur.history}}</div></section>
+        <sc-if value="{{cur.canHold}}" hint-placeholder-val="{{ true }}"><section class="card" style="flex: 1 1 260px; padding: 18px 20px; display: flex; align-items: center; gap: 12px"><div style="flex: 1; font-size: 14px">Need this version for a while?</div><button class="btn btn-quiet" type="button">Hold</button></section></sc-if>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"$preview":{"width":1280,"height":900}}'>
+class Component extends DCLogic {
+  constructor(p) { super(p); this.state = { sel: 'chrome' }; }
+  renderVals() {
+    const A = {
+      chrome: { name: 'Google Chrome', dev: 'MacBook Air', vendor: 'Google', color: '#4285F4', k: 'act', short: 'Now', have: '142.0.7444.59', latest: '142.0.7444.162', found: 'Nov 6', released: 'Released Nov 5 by Google', holes: '1 serious hole', verdict: 'Being exploited right now', history: 'Updated 9 times this year. You usually fix it in under a day.',
+        cves: [['CVE-2026-XXXXX', 'Memory bug in the JavaScript engine', 'Serious, exploited']] },
+      zoom: { name: 'Zoom', dev: 'MacBook Air', vendor: 'Zoom', color: '#2D8CFF', k: 'tune', short: 'Sunday', have: '6.4.2', latest: '6.5.0', found: 'Nov 3', released: 'Released Nov 2 by Zoom', holes: '2 moderate holes', verdict: 'Not known to be exploited', history: 'Updated 5 times this year, usually at the tune-up.',
+        cves: [['ZSB-XXXXX', 'Could let a meeting link run a file', 'Moderate'], ['ZSB-XXXXX', 'Leaks your display name', 'Moderate']] },
+      vlc: { name: 'VLC', dev: 'MacBook Air', vendor: 'VideoLAN', color: '#E8761B', k: 'tune', short: 'Sunday', have: '3.0.20', latest: '3.0.21', found: 'Nov 5', released: 'Released Nov 4 by VideoLAN', holes: '1 moderate hole', verdict: 'Not known to be exploited', history: 'Updated twice this year.',
+        cves: [['CVE-2026-XXXXX', 'A booby-trapped video file could crash it', 'Moderate']] },
+      macos: { name: 'macOS', dev: 'MacBook Air', vendor: 'Apple', color: '#6B6358', k: 'tune', short: 'Sunday', have: '16.1', latest: '16.1.1', found: 'Nov 5', released: 'Released Nov 4 by Apple', holes: '3 moderate holes', verdict: 'Not known to be exploited', history: 'Updated 7 times this year. Needs a restart.',
+        cves: [['CVE-2026-XXXXX', 'An app could read files it should not', 'Moderate'], ['CVE-2026-XXXXX', 'Bluetooth bug', 'Moderate'], ['CVE-2026-XXXXX', 'Kernel bug needing local access', 'Moderate']] },
+      fcp: { name: 'Final Cut Pro', dev: 'MacBook Air', vendor: 'Apple', color: '#23211F', k: 'held', short: 'Held', have: '11.1', latest: '11.2', found: 'Nov 1', released: 'Released Oct 30 by Apple', holes: 'No security fixes', verdict: 'Held by you since Nov 2', history: 'Held for a project. Still counts toward your score.', cves: [] },
+      firefox: { name: 'Firefox', dev: 'MacBook Air', vendor: 'Mozilla', color: '#FF7139', k: 'ok', short: 'Current', have: '145.0.1', latest: '145.0.1', found: 'Oct 29', released: 'You have the newest version', holes: 'Nothing open', verdict: 'No update to install', history: 'Last update took you 6 days in October. That slow fix rolls off your score Nov 22.', cves: [] }
+    };
+    const inks = { act: 'var(--act-ink)', tune: 'var(--text)', held: 'var(--muted)', ok: 'var(--ok)' };
+    const s = this.state.sel;
+    const list = Object.entries(A).map(([id, a]) => ({
+      name: a.name, have: a.have, color: a.color, short: a.short, ink: inks[a.k],
+      cls: 'item' + (s === id ? ' item-on' : ''), current: s === id ? 'true' : 'false',
+      pick: () => this.setState({ sel: id })
+    }));
+    const a = A[s];
+    const cur = {
+      ...a,
+      urgent: a.k === 'act' && !a.remote, tune: a.k === 'tune' && !a.remote, held: a.k === 'held', ok: a.k === 'ok', remote: !!a.remote && a.k !== 'ok',
+      canHold: (a.k === 'act' || a.k === 'tune') && !a.remote,
+      noneText: a.k === 'ok' ? 'No known holes in the version you have.' : 'No security fixes in this update.',
+      remoteNote: a.how || ('Update this on the ' + a.dev + '. Wardwatch there will walk you through it.'),
+      none: a.cves.length === 0,
+      holeBg: a.k === 'act' ? 'var(--act-tint)' : 'var(--bg)',
+      holeInk: a.k === 'act' ? 'var(--act-ink)' : 'var(--text)',
+      cves: a.cves.map(([id, what, sev]) => ({ id, what, sev, ink: sev.indexOf('exploited') >= 0 ? 'var(--act-ink)' : 'var(--text)' }))
+    };
+    return { list, cur, theme: (this.props.dark ?? false) ? 'dark' : '' };
+  }
+}
+</script>
+</body>
+</html>
