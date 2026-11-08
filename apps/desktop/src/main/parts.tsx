@@ -1,5 +1,12 @@
 // Small pieces several screens share.
-import { ActGlyph, Button, CheckGlyph, UncheckedGlyph, WaitGlyph } from "@wardwatch/ui";
+import {
+  ActGlyph,
+  Button,
+  CheckGlyph,
+  ChevronGlyph,
+  UncheckedGlyph,
+  WaitGlyph,
+} from "@wardwatch/ui";
 import type { ReactNode } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 import { type KindMarkState, type Program, fixPath } from "../lib/programs";
@@ -99,7 +106,8 @@ export function Select<T extends string>({
   onChange: (value: T) => void;
   className?: string;
 }) {
-  const shown = options.find((o) => o.value === value)?.label ?? value;
+  // Blank when the value isn't an option, as the native select itself shows nothing then.
+  const shown = options.find((o) => o.value === value)?.label ?? "";
   return (
     <div
       className={`relative flex min-h-10 items-center rounded-[8px] border border-edge bg-surface pr-7 pl-3 text-sm text-text has-[:focus-visible]:outline-3 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-text ${className}`}
@@ -107,22 +115,9 @@ export function Select<T extends string>({
       <span aria-hidden className="truncate">
         {shown}
       </span>
-      <svg
-        aria-hidden
-        width="12"
-        height="12"
-        viewBox="0 0 12 12"
-        className="pointer-events-none absolute right-2.5"
-      >
-        <path
-          d="M2.5 4.5 6 8l3.5-3.5"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
+      <span className="absolute right-2.5 flex">
+        <ChevronGlyph />
+      </span>
       <select
         aria-label={label}
         value={value}

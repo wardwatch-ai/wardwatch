@@ -160,4 +160,12 @@ describe("kindLine", () => {
     expect(full([finding(true)], true).mark).toBe("waiting");
     expect(full([finding(false)]).mark).toBe("current");
   });
+
+  it("never shows a check for a kind with nothing in it", () => {
+    const empty = { ...sampleInventory, software: [] };
+    expect(kindLine(summarize(buildPrograms(empty, [], []), true), "browsers")).toEqual({
+      mark: "unchecked",
+      text: "None found",
+    });
+  });
 });

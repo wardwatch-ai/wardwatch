@@ -179,6 +179,7 @@ export function kindLine(status: DeviceStatus, kind: Kind): { mark: KindMarkStat
   const k = status.byKind[kind];
   if (!status.checked) return { mark: "unchecked", text: `${String(k.total)} found` };
   if (k.urgent[0]) return { mark: "urgent", text: `${k.urgent[0].name} needs you` };
+  if (k.total === 0) return { mark: "unchecked", text: "None found" };
   if (k.current === k.total) return { mark: "current", text: "Current" };
   // Something has an update waiting for its plan slot (or is held); otherwise the
   // rest are programs the feed doesn't cover, so we make no claim about them.
