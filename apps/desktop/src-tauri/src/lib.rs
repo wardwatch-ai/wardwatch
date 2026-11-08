@@ -46,6 +46,7 @@ pub fn run() {
         ])
         .setup(|app| {
             tray::create(app.handle())?;
+            nudge::on_click(app.handle());
             nudge::spawn(app.handle().clone());
             Ok(())
         })
