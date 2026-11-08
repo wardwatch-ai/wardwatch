@@ -4135,6 +4135,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "wardwatch-nudge"
+version = "0.1.0"
+dependencies = [
+ "jiff",
+ "serde",
+ "serde_json",
+ "wardwatch-feed",
+]
+
+[[package]]
 name = "wasi"
 version = "0.11.1+wasi-snapshot-preview1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
