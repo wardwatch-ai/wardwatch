@@ -10,7 +10,12 @@ brand fonts.
 
 ## The loop
 
-1. **Review.** `pnpm visual:review` writes `out/`: for each screen the mock, the
+Font rendering differs between Linux machines, so the images Matt approves and
+the gate compares are always CI renders (`ubuntu-24.04`, Playwright's
+Chromium). Local runs are for building and checking the review flow.
+
+1. **Review.** When the gate fails, CI runs `pnpm visual:review` and uploads
+   `out/` as the `visual-review` artifact: for each screen the mock, the
    app, a pixel diff and `<id>.json` (how much differs, the commit, and whether the
    screen changed since its last verdict). Claude turns that into a review page where
    Matt marks each screen "Looks right" or "Needs fixing", with a note.
@@ -40,6 +45,5 @@ fails the gate until Matt reviews the screen again.
 
 ## Adding a screen
 
-Add a case to `cases.ts` with its artboard and route, render its mock, and run
-a review. Screens are compared only on Linux (`ubuntu-24.04`, Playwright's
-Chromium), so run the commands there.
+Add a case to `cases.ts` with its artboard and route and render its mock. Push:
+the gate fails on the new screen, and its CI render goes to Matt for review.

@@ -30,7 +30,10 @@ function pad(img: PNG, width: number, height: number): PNG {
 
 const approvals = readApprovals();
 // The commit the screens were rendered from, so approve.ts can refuse a stale review.
-const commit = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+// CI checks out a merge commit, so it passes the PR head as VISUAL_COMMIT.
+const commit =
+  process.env.VISUAL_COMMIT ||
+  execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
 
 test.beforeAll(() => {
   mkdirSync(outDir, { recursive: true });

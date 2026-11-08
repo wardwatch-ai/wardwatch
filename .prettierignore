@@ -6,3 +6,4 @@ apps/desktop/src-tauri/gen
 apps/desktop/e2e/visual/mocks/src
 apps/desktop/e2e/visual/out
 apps/desktop/e2e/visual/approved
+apps/desktop/e2e/results

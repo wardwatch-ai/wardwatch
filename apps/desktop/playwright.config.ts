@@ -6,9 +6,11 @@ const port = 4173;
 
 export default defineConfig({
   testDir: "e2e",
-  // Screenshots are only compared on Linux in CI, where fonts and rendering are pinned.
+  // Screenshots are compared only in CI (ubuntu-24.04, Playwright's Chromium): font
+  // rendering differs between Linux machines, so approved images come from CI runs.
   snapshotPathTemplate: "{testDir}/visual/approved/{arg}{ext}",
-  outputDir: "e2e/.results",
+  // Not a dot-folder: CI's artifact upload skips hidden files.
+  outputDir: "e2e/results",
   // Baselines change only through e2e/visual/approve.ts, never by a test run.
   updateSnapshots: "none",
   fullyParallel: false,
