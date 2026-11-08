@@ -15,7 +15,7 @@ import {
   withPreset,
   withRule,
 } from "../../lib/plan";
-import { Failed, Loading } from "../parts";
+import { Failed, Loading, Select } from "../parts";
 
 // As in the approved design (Plan 4): each timing has its own tint and icon, so the
 // grid reads at a glance; the label carries the meaning. Same day uses the amber
@@ -117,8 +117,7 @@ const kindIcon: Record<Kind, React.ReactNode> = {
   ),
 };
 
-const select =
-  "min-h-10 cursor-pointer rounded-[8px] border border-edge bg-surface px-2 text-sm text-text";
+const timingOptions = timings.map((o) => ({ value: o.id, label: o.label }));
 
 function Grid({ plan, save }: { plan: UpdatePlan; save: (p: UpdatePlan) => void }) {
   const th = "border-b border-line p-3 text-left align-bottom";
@@ -197,20 +196,15 @@ function Grid({ plan, save }: { plan: UpdatePlan; save: (p: UpdatePlan) => void 
                       <span className="flex size-[22px] flex-none items-center justify-center">
                         <TimingIcon timing={value} />
                       </span>
-                      <select
-                        aria-label={`${t.label}, ${k.label}`}
+                      <Select
+                        label={`${t.label}, ${k.label}`}
                         value={value}
-                        onChange={(e) => {
-                          save(withRule(plan, t.id, k.id, e.target.value as Timing));
+                        options={timingOptions}
+                        onChange={(v) => {
+                          save(withRule(plan, t.id, k.id, v));
                         }}
-                        className={`${select} w-full`}
-                      >
-                        {timings.map((o) => (
-                          <option key={o.id} value={o.id}>
-                            {o.label}
-                          </option>
-                        ))}
-                      </select>
+                        className="w-full"
+                      />
                     </div>
                   </td>
                 );
@@ -270,35 +264,31 @@ export function Plan() {
         <Eyebrow>Quiet hours</Eyebrow>
         <div className="flex flex-wrap items-center gap-2.5">
           <span>Quiet hours from</span>
-          <select
-            aria-label="Quiet hours start"
+          <Select
+            label="Quiet hours start"
             value={plan.quiet_hours.start}
-            onChange={(e) => {
-              setHours("start", e.target.value);
+            options={hourOptions(plan.quiet_hours.start).map((h) => ({
+              value: h,
+              label: hourLabel(h),
+            }))}
+            onChange={(v) => {
+              setHours("start", v);
             }}
-            className={select}
-          >
-            {hourOptions(plan.quiet_hours.start).map((h) => (
-              <option key={h} value={h}>
-                {hourLabel(h)}
-              </option>
-            ))}
-          </select>
+            className="min-w-24"
+          />
           <span>to</span>
-          <select
-            aria-label="Quiet hours end"
+          <Select
+            label="Quiet hours end"
             value={plan.quiet_hours.end}
-            onChange={(e) => {
-              setHours("end", e.target.value);
+            options={hourOptions(plan.quiet_hours.end).map((h) => ({
+              value: h,
+              label: hourLabel(h),
+            }))}
+            onChange={(v) => {
+              setHours("end", v);
             }}
-            className={select}
-          >
-            {hourOptions(plan.quiet_hours.end).map((h) => (
-              <option key={h} value={h}>
-                {hourLabel(h)}
-              </option>
-            ))}
-          </select>
+            className="min-w-24"
+          />
         </div>
         <p className="m-0 text-sm text-text-muted">
           We always ask before closing an app that's open, ask before big upgrades like macOS 16 to

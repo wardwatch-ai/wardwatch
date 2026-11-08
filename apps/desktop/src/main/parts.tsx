@@ -78,3 +78,64 @@ export function KindMark({ mark }: { mark: "urgent" | "current" | "none" }) {
   if (mark === "current") return <CheckGlyph />;
   return <span className="w-4 flex-none" />;
 }
+
+/**
+ * A dropdown whose visible label is ordinary page text. The native select sits on top,
+ * transparent, so the keyboard, screen readers and the OS menu work as usual; Chromium
+ * paints native select text slightly differently between machines, which made the
+ * design check flaky.
+ */
+export function Select<T extends string>({
+  label,
+  value,
+  options,
+  onChange,
+  className = "",
+}: {
+  label: string;
+  value: T;
+  options: readonly { value: T; label: string }[];
+  onChange: (value: T) => void;
+  className?: string;
+}) {
+  const shown = options.find((o) => o.value === value)?.label ?? value;
+  return (
+    <div
+      className={`relative flex min-h-10 items-center rounded-[8px] border border-edge bg-surface pr-7 pl-3 text-sm text-text has-[:focus-visible]:outline-3 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-text ${className}`}
+    >
+      <span aria-hidden className="truncate">
+        {shown}
+      </span>
+      <svg
+        aria-hidden
+        width="12"
+        height="12"
+        viewBox="0 0 12 12"
+        className="pointer-events-none absolute right-2.5"
+      >
+        <path
+          d="M2.5 4.5 6 8l3.5-3.5"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+      <select
+        aria-label={label}
+        value={value}
+        onChange={(e) => {
+          onChange(e.target.value as T);
+        }}
+        className="absolute inset-0 size-full cursor-pointer opacity-0"
+      >
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
