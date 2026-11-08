@@ -172,8 +172,18 @@ describe("summarize with the nudge plan", () => {
     const s = summarize(programs(), true, tuneUp);
     expect(s.attack).toEqual([]);
     expect(s.quietAttack.map((p) => p.name)).toEqual(["Google Chrome"]);
-    expect(s.tuneUp[0]?.name).toBe("Google Chrome");
-    expect(s.tuneUp).toHaveLength(s.waiting.length + 1);
+    // The tune-up is exactly the engine's keys, one program per finding.
+    expect(s.tuneUp.map((p) => p.name)).toEqual(["Google Chrome", "Zoom"]);
+  });
+
+  it("leads with one program per finding and keeps its other installs out of the quiet list", () => {
+    const list = programs();
+    const chrome = list.find((p) => p.finding === "google-chrome");
+    if (!chrome) throw new Error("no Chrome");
+    const twin = { ...chrome, key: "homebrew_cask:google-chrome", source: "homebrew_cask" as const };
+    const s = summarize([...list, twin], true, { kind: "under_attack", keys: ["google-chrome"] });
+    expect(s.attack).toHaveLength(1);
+    expect(s.quietAttack).toEqual([]);
   });
 
   it("falls back to every exploited program without a plan", () => {

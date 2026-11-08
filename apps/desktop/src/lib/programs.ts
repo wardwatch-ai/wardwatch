@@ -123,11 +123,19 @@ export interface DeviceStatus {
   attack: Program[];
   /** Being exploited, but not leading (its broad alert awaits approval, or it's held). */
   quietAttack: Program[];
-  /** Everything the tune-up covers: quiet exploited ones (unless held), then the waiting ones. */
+  /** What the tune-up covers: the engine's tune-up keys, or without them the quiet exploited ones, then the waiting ones. */
   tuneUp: Program[];
   total: number;
   current: number;
   byKind: Record<Kind, { total: number; current: number; urgent: Program[]; programs: Program[] }>;
+}
+
+/** The first program for each nudge key (finding key), in `keys` order. */
+function byFinding(programs: Program[], keys: string[]): Program[] {
+  return keys.flatMap((k) => {
+    const p = programs.find((q) => q.finding === k);
+    return p ? [p] : [];
+  });
 }
 
 /**
@@ -153,17 +161,12 @@ export function summarize(
   }
   const urgent = programs.filter((p) => p.state === "urgent");
   const waiting = programs.filter((p) => p.state === "update");
-  const leads = top?.kind === "under_attack" ? new Set(top.keys) : new Set<string>();
-  // One program per finding, so several installs of one app lead once.
-  const seen = new Set<string>();
-  const attack = top
-    ? urgent.filter((p) => {
-        if (p.finding === null || !leads.has(p.finding) || seen.has(p.finding)) return false;
-        seen.add(p.finding);
-        return true;
-      })
-    : urgent;
-  const quietAttack = urgent.filter((p) => !attack.includes(p));
+  const attack = top?.kind === "under_attack" ? byFinding(programs, top.keys) : top ? [] : urgent;
+  const leading = new Set(attack.map((p) => p.finding));
+  // The engine drops held programs, so a held one doesn't count here either.
+  const quietAttack = urgent.filter((p) => !leading.has(p.finding) && p.heldSince === null);
+  const tuneUp =
+    top?.kind === "tune_up" ? byFinding(programs, top.keys) : [...quietAttack, ...waiting];
   return {
     checked,
     urgent,
@@ -171,7 +174,7 @@ export function summarize(
     held: programs.filter((p) => p.state === "held"),
     attack,
     quietAttack,
-    tuneUp: [...quietAttack.filter((p) => p.heldSince === null), ...waiting],
+    tuneUp,
     total: programs.length,
     current: programs.filter((p) => p.state === "current").length,
     byKind,

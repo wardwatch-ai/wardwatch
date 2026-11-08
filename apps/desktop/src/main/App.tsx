@@ -100,7 +100,7 @@ function Account() {
 export function App() {
   const { data: info, error } = useAppInfo();
   const navigate = useNavigate();
-  const urgent = (useDevice().status?.urgent.length ?? 0) > 0;
+  const urgent = (useDevice().status?.attack.length ?? 0) > 0;
 
   // The tray opens screens here (Update now, Score, Update plan).
   // Subscribe once: navigate's identity changes with the location, and re-subscribing

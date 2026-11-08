@@ -23,11 +23,9 @@ export function useFindings() {
 
 /** The nudge engine's plan. It reads the saved plan, so saving one refetches it. */
 export function useNudges() {
-  const plan = usePlan().data;
   return useQuery({
     queryKey: ["nudges"],
     queryFn: getNudges,
-    enabled: plan !== undefined,
     staleTime: 10 * 60_000,
   });
 }

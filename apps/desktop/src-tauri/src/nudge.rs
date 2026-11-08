@@ -1,10 +1,7 @@
 //! Runs the nudge engine (crates/wardwatch-nudge) for Home and the tray.
 
-use tauri::{AppHandle, Runtime};
-use wardwatch_catalog::Inventory;
-use wardwatch_nudge::{ApprovedAlerts, History, NudgePlan};
+use wardwatch_nudge::{ApprovedAlerts, Finding, History, NudgePlan};
 
-use crate::fix;
 use crate::plan::UpdatePlan;
 
 /// The engine's view of the saved plan. Both sides use the same JSON shape,
@@ -14,17 +11,11 @@ fn engine_plan(stored: &UpdatePlan) -> Result<wardwatch_nudge::UpdatePlan, Strin
     wardwatch_nudge::UpdatePlan::from_json(&json)
 }
 
-pub fn plan_for<R: Runtime>(
-    app: &AppHandle<R>,
-    inventory: &Inventory,
-    stored: &UpdatePlan,
-) -> Result<NudgePlan, String> {
-    let catalog = fix::load_catalog(app)?;
-    let findings = wardwatch_feed::match_inventory(inventory, &catalog);
+pub fn plan_for(findings: &[Finding], stored: &UpdatePlan) -> Result<NudgePlan, String> {
     // Broad OS and browser alerts stay held until signed alerts.json exists.
     // History is empty because nothing sends notifications yet.
     Ok(wardwatch_nudge::plan(
-        &findings,
+        findings,
         &engine_plan(stored)?,
         &ApprovedAlerts::none(),
         &History::default(),

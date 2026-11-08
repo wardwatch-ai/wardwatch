@@ -72,7 +72,10 @@ function TopCard({ status }: { status: DeviceStatus }) {
         <Eyebrow>Sunday tune-up</Eyebrow>
         <div className="text-[15px] font-semibold">{listNames(status.tuneUp)}</div>
         <div className="text-[13px] text-text-muted">
-          Routine updates, no rush. We'll remind you Sunday morning.
+          {status.quietAttack.length > 0
+            ? "Attackers are using a hole in one of these, so do it soon."
+            : "Routine updates, no rush."}{" "}
+          We'll remind you Sunday morning.
         </div>
         <div className="flex gap-2">
           <Button

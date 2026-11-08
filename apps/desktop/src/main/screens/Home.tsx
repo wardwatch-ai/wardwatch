@@ -120,7 +120,7 @@ function ScoreCard() {
   );
 }
 
-function TuneUp({ waiting }: { waiting: Program[] }) {
+function TuneUp({ waiting, exploited }: { waiting: Program[]; exploited: boolean }) {
   const navigate = useNavigate();
   return (
     <Card className="flex flex-col gap-4 p-6">
@@ -128,7 +128,10 @@ function TuneUp({ waiting }: { waiting: Program[] }) {
         <div>
           <h2 className="text-xl">Sunday tune-up</h2>
           <p className="m-0 mt-1 text-text-muted">
-            Routine updates, no rush. Doing them before Sunday counts as a faster fix.
+            {exploited
+              ? "Attackers are using a hole in one of these, so it goes first."
+              : "Routine updates, no rush."}{" "}
+            Doing them before Sunday counts as a faster fix.
           </p>
         </div>
         <Button
@@ -216,7 +219,9 @@ export function Home() {
         <StatusCard status={status} />
         <ScoreCard />
       </div>
-      {status.tuneUp.length > 0 && <TuneUp waiting={status.tuneUp} />}
+      {status.tuneUp.length > 0 && (
+        <TuneUp waiting={status.tuneUp} exploited={status.quietAttack.length > 0} />
+      )}
       <div className="flex flex-wrap gap-6">
         <ThisDevice status={status} />
         <OtherDevices />
