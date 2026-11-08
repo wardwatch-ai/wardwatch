@@ -36,5 +36,5 @@ jobs:
           path-to-document: https://github.com/wardwatch-ai/wardwatch/blob/main/CLA.md
           path-to-signatures: signatures/v1/cla.json
           branch: cla-signatures
-          allowlist: theRealWardo,claude,*[bot]
+          allowlist: theRealWardo,Claude,claude,*[bot]
           lock-pullrequest-aftermerge: true
