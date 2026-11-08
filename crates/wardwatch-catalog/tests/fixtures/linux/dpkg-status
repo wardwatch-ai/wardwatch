@@ -1,0 +1,65 @@
+Package: firefox
+Status: install ok installed
+Priority: optional
+Section: web
+Installed-Size: 98
+Maintainer: Ubuntu Mozilla Team <ubuntu-mozillateam@lists.ubuntu.com>
+Architecture: amd64
+Version: 1:1snap1-0ubuntu5
+Depends: debconf, snapd
+Description: Transitional package - firefox -> firefox snap
+ This is a transitional dummy package. It can safely be removed.
+
+Package: google-chrome-stable
+Status: install ok installed
+Priority: optional
+Section: web
+Maintainer: Chrome Linux Team <chromium-dev@chromium.org>
+Architecture: amd64
+Version: 131.0.6778.85-1
+Description: The web browser from Google
+ Google Chrome is a browser that combines a minimal design with
+ sophisticated technology.
+
+Package: libssl3t64
+Status: install ok installed
+Priority: optional
+Section: libs
+Maintainer: Ubuntu Developers <ubuntu-devel-discuss@lists.ubuntu.com>
+Architecture: amd64
+Multi-Arch: same
+Source: openssl
+Version: 3.0.13-0ubuntu3.4
+Description: Secure Sockets Layer toolkit - shared libraries
+
+Package: oldthing
+Status: deinstall ok config-files
+Architecture: amd64
+Version: 1.0-1
+Conffiles:
+ /etc/oldthing.conf 0123456789abcdef
+
+Package: openssl
+Status: install ok installed
+Architecture: amd64
+Version: 3.0.13-0ubuntu3.4
+Description: Secure Sockets Layer toolkit - cryptographic utility
+
+Package: half-installed-pkg
+Status: install reinstreq half-installed
+Architecture: amd64
+Version: 2.0-1
+
+Package: tzdata
+Status: install ok triggers-awaited
+Architecture: all
+Version: 2024a-3ubuntu1.1
+
+Package: zlib1g
+Status: install ok installed
+Priority: required
+Architecture: amd64
+Multi-Arch: same
+Source: zlib (1:1.3.dfsg-3.1ubuntu2)
+Version: 1:1.3.dfsg-3.1ubuntu2.1
+Description: compression library - runtime
