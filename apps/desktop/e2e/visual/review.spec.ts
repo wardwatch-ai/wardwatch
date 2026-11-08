@@ -1,5 +1,5 @@
-// Builds the review set in out/: for each screen and theme, the mock, the app,
-// a diff of the two, and <id>.json saying whether the app changed since its last verdict.
+// Builds the review set in out/: for each screen and theme, the app, plus the mock
+// and a diff of the two when the screen has a mock, and <id>.json saying whether the app changed since its last verdict.
 // Matt marks each one "ok" or "fix"; approve.ts then records his verdicts.
 import { test } from "@playwright/test";
 import { execFileSync } from "node:child_process";
@@ -44,23 +44,31 @@ for (const c of cases) {
     const id = `${c.id}-${theme}`;
     test(id, async ({ page }) => {
       const app = await captureApp(page, c, theme);
-      const mock = readFileSync(mockPng(c.id, theme));
       const a = PNG.sync.read(app);
-      const m = PNG.sync.read(mock);
-      const width = Math.max(a.width, m.width);
-      const height = Math.max(a.height, m.height);
-      const diff = new PNG({ width, height });
-      const changed = pixelmatch(
-        pad(m, width, height).data,
-        pad(a, width, height).data,
-        diff.data,
-        width,
-        height,
-        { threshold: 0.1, alpha: 0.3 },
-      );
       writeFileSync(join(outDir, `${id}.app.png`), app);
-      writeFileSync(join(outDir, `${id}.mock.png`), mock);
-      writeFileSync(join(outDir, `${id}.diff.png`), PNG.sync.write(diff));
+      // With a mock: the mock and a diff against it. Without one, Matt reviews the app alone.
+      const mock = c.mock ? readFileSync(mockPng(c.id, theme)) : null;
+      let mismatch: number | null = null;
+      let mockSize: number[] | null = null;
+      if (mock) {
+        const m = PNG.sync.read(mock);
+        const width = Math.max(a.width, m.width);
+        const height = Math.max(a.height, m.height);
+        const diff = new PNG({ width, height });
+        const changed = pixelmatch(
+          pad(m, width, height).data,
+          pad(a, width, height).data,
+          diff.data,
+          width,
+          height,
+          { threshold: 0.1, alpha: 0.3 },
+        );
+        writeFileSync(join(outDir, `${id}.mock.png`), mock);
+        writeFileSync(join(outDir, `${id}.diff.png`), PNG.sync.write(diff));
+        mismatch = Number(((100 * changed) / (width * height)).toFixed(2));
+        mockSize = [m.width, m.height];
+      }
+      const mockSha = mock ? sha256(mock) : null;
 
       const approval = approvals[id];
       const approvedFile = join(dir, "approved", `${id}.png`);
@@ -73,14 +81,15 @@ for (const c of cases) {
         case: c.id,
         theme,
         title: c.title,
-        mockFile: c.mock,
-        size: { app: [a.width, a.height], mock: [m.width, m.height] },
-        mismatch: Number(((100 * changed) / (width * height)).toFixed(2)),
+        mockFile: c.mock ?? null,
+        size: { app: [a.width, a.height], mock: mockSize },
+        mismatch,
         app: sha256(app),
-        mock: sha256(mock),
+        mock: mockSha,
         // Unchanged: the app and the mock both look like what Matt last saw.
         unchanged:
-          approval?.mock === sha256(mock) &&
+          approval !== undefined &&
+          approval.mock === mockSha &&
           approved?.width === a.width &&
           approved.height === a.height &&
           pixelmatch(approved.data, a.data, null, a.width, a.height, sameImage) === 0,

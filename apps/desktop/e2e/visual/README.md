@@ -47,3 +47,8 @@ fails the gate until Matt reviews the screen again.
 
 Add a case to `cases.ts` with its artboard and route and render its mock. Push:
 the gate fails on the new screen, and its CI render goes to Matt for review.
+
+A screen built after the design canvas (Settings, for one) has no artboard:
+leave out `mock`. Matt then reviews the app render on its own, and the first
+render he approves becomes its design; from then on the gate holds it to that
+render like any other screen.

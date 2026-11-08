@@ -4,7 +4,7 @@
 import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { captureApp, cases, dir, mockPng, readApprovals, sha256, themes } from "./cases.ts";
+import { captureApp, cases, dir, mockHash, readApprovals, sha256, themes } from "./cases.ts";
 
 const approvals = readApprovals();
 
@@ -17,7 +17,7 @@ for (const c of cases) {
       expect(
         approval?.mock,
         `the ${c.title} mock changed since it was reviewed; run pnpm visual:review`,
-      ).toBe(sha256(readFileSync(mockPng(c.id, theme))));
+      ).toBe(mockHash(c, theme));
 
       expect(
         sha256(readFileSync(join(dir, "approved", `${id}.png`))),

@@ -9,8 +9,12 @@ import { join } from "node:path";
 export interface VisualCase {
   id: string;
   title: string;
-  /** The approved artboard in mocks/src. */
-  mock: string;
+  /**
+   * The approved artboard in mocks/src. A screen with no mock (built after the
+   * design canvas) has none: Matt reviews the app render itself, and the first
+   * render he approves becomes its design.
+   */
+  mock?: string;
   /** App page and hash route to open. */
   url: string;
   viewport: { width: number; height: number };
@@ -49,6 +53,7 @@ export const cases: VisualCase[] = [
   { id: "groups", title: "Groups", mock: "Groups4.dc.html", url: "/#/groups", viewport: main },
   { id: "apps", title: "Apps", mock: "Apps3.dc.html", url: "/#/apps", viewport: main },
   { id: "plan", title: "Update plan", mock: "Plan4.dc.html", url: "/#/plan", viewport: main },
+  { id: "settings", title: "Settings", url: "/#/settings", viewport: main },
 ];
 
 export const themes = ["light", "dark"] as const;
@@ -56,6 +61,10 @@ export type Theme = (typeof themes)[number];
 
 export const dir = import.meta.dirname;
 export const mockPng = (id: string, theme: Theme) => join(dir, "mocks", `${id}-${theme}.png`);
+
+/** sha256 of a case's mock render, or null when the screen has no mock. */
+export const mockHash = (c: VisualCase, theme: Theme) =>
+  c.mock ? sha256(readFileSync(mockPng(c.id, theme))) : null;
 export const outDir = join(dir, "out");
 export const approvalsFile = join(dir, "approvals.json");
 
@@ -71,8 +80,8 @@ export const sha256 = (data: Buffer) => createHash("sha256").update(data).digest
 export interface Approval {
   verdict: "ok" | "fix";
   note: string;
-  /** sha256 of the mock PNG and the app PNG Matt looked at. */
-  mock: string;
+  /** sha256 of the mock PNG (null for a screen with no mock) and the app PNG Matt looked at. */
+  mock: string | null;
   app: string;
   by: string;
   at: string;
