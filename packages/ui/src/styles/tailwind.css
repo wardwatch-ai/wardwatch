@@ -1,0 +1,35 @@
+/* Optional Tailwind 4 bridge. Import after "tailwindcss" and "@wardwatch/ui/styles.css":
+     @import "tailwindcss";
+     @import "@wardwatch/ui/styles.css";
+     @import "@wardwatch/ui/tailwind.css";
+   Utilities such as bg-surface or text-act-ink then follow the active theme. */
+@theme inline {
+  --color-bg: var(--ww-bg);
+  --color-surface: var(--ww-surface);
+  --color-line: var(--ww-line);
+  --color-edge: var(--ww-edge);
+  --color-tower: var(--ww-tower);
+  --color-band-1: var(--ww-band-1);
+  --color-band-2: var(--ww-band-2);
+  --color-band-3: var(--ww-band-3);
+  --color-band-4: var(--ww-band-4);
+  --color-text: var(--ww-text);
+  --color-text-muted: var(--ww-text-muted);
+  --color-brand: var(--ww-brand);
+  --color-on-brand: var(--ww-on-brand);
+  --color-ok: var(--ww-ok);
+  --color-ok-tint: var(--ww-ok-tint);
+  --color-act: var(--ww-act);
+  --color-act-tint: var(--ww-act-tint);
+  --color-act-ink: var(--ww-act-ink);
+  --color-on-act: var(--ww-on-act);
+  --color-link: var(--ww-link);
+  --color-sel: var(--ww-sel);
+  --color-code: var(--ww-code);
+  --font-display: var(--ww-font-display);
+  --font-sans: var(--ww-font-body);
+  --font-mono: var(--ww-font-mono);
+  --radius-sm: var(--ww-radius-sm);
+  --radius-md: var(--ww-radius-md);
+  --radius-lg: var(--ww-radius-lg);
+}
