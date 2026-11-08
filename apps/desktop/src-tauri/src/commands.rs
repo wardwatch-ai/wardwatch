@@ -13,6 +13,7 @@ use wardwatch_update::{Method, Progress};
 
 use crate::fix::{self, FixResult, FixView};
 use crate::plan::{self, UpdatePlan};
+use crate::settings::{self, Settings};
 use crate::windows;
 
 #[derive(Debug, Serialize, PartialEq, Eq)]
@@ -20,6 +21,12 @@ pub struct AppInfo {
     pub name: String,
     pub version: String,
     pub os: &'static str,
+    /// The channel this build was made for: "mainline", "nightly" or "dev".
+    pub channel: &'static str,
+    /// Short git commit id, or "" when unknown.
+    pub commit: &'static str,
+    /// Build date, YYYY-MM-DD, or "" for a local build.
+    pub built: &'static str,
 }
 
 #[tauri::command]
@@ -29,6 +36,9 @@ pub fn app_info<R: Runtime>(app: AppHandle<R>) -> AppInfo {
         name: package.name.clone(),
         version: package.version.to_string(),
         os: std::env::consts::OS,
+        channel: env!("WARDWATCH_BUILD_CHANNEL"),
+        commit: env!("WARDWATCH_BUILD_COMMIT"),
+        built: env!("WARDWATCH_BUILD_DATE"),
     }
 }
 
@@ -141,6 +151,36 @@ pub fn set_plan<R: Runtime>(
     plan::save(&plan_path(&app)?, &plan)
 }
 
+fn settings_path<R: Runtime>(app: &AppHandle<R>) -> Result<std::path::PathBuf, String> {
+    app.path()
+        .app_config_dir()
+        .map(|dir| settings::path_in(&dir))
+        .map_err(|e| format!("no config folder: {e}"))
+}
+
+/// Serializes settings writes.
+#[derive(Default)]
+pub struct SettingsLock(Mutex<()>);
+
+#[tauri::command]
+pub fn get_settings<R: Runtime>(
+    app: AppHandle<R>,
+    lock: State<'_, SettingsLock>,
+) -> Result<Settings, String> {
+    let _guard = lock.0.lock().map_err(|e| e.to_string())?;
+    Ok(settings::load(&settings_path(&app)?))
+}
+
+#[tauri::command]
+pub fn set_settings<R: Runtime>(
+    app: AppHandle<R>,
+    lock: State<'_, SettingsLock>,
+    settings: Settings,
+) -> Result<(), String> {
+    let _guard = lock.0.lock().map_err(|e| e.to_string())?;
+    settings::save(&settings_path(&app)?, &settings)
+}
+
 // Scans and updates block, so they run off the async runtime's threads.
 async fn blocking<T: Send + 'static>(
     f: impl FnOnce() -> Result<T, String> + Send + 'static,
@@ -195,6 +235,7 @@ mod tests {
         let info = app_info(app.handle().clone());
         assert_eq!(info.version, app.package_info().version.to_string());
         assert_eq!(info.os, std::env::consts::OS);
+        assert!(["mainline", "nightly", "dev"].contains(&info.channel));
     }
 
     #[test]

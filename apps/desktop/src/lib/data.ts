@@ -3,7 +3,15 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { createSampleAccounts, type AccountsClient } from "./accounts";
-import { getPlan, listFindings, scanInventory, setPlan } from "./ipc";
+import {
+  getPlan,
+  getSettings,
+  listFindings,
+  scanInventory,
+  setPlan,
+  setSettings,
+  type Settings,
+} from "./ipc";
 import type { Period, UpdatePlan } from "./model";
 import { buildPrograms, summarize } from "./programs";
 
@@ -38,6 +46,20 @@ export function useSavePlan() {
     },
     onError: (_e, _plan, ctx) => {
       if (ctx?.before) client.setQueryData(["plan"], ctx.before);
+    },
+  });
+}
+
+export function useSettings() {
+  return useQuery({ queryKey: ["settings"], queryFn: getSettings, staleTime: Infinity });
+}
+
+export function useSaveSettings() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: setSettings,
+    onSuccess: (_r, settings: Settings) => {
+      client.setQueryData(["settings"], settings);
     },
   });
 }

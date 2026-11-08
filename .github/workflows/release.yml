@@ -1,0 +1,138 @@
+name: Release builds
+
+# Builds the installers for a release channel and keeps them as workflow
+# artifacts for local testing:
+#   nightly:  every night that main changed (or Run workflow), versioned
+#             <next minor>-<days since 2026-01-01>, e.g. 0.2.0-312
+#             (.deb 0.2.0~312, .rpm 0.2.0-0.312)
+#   mainline: a pushed tag vX.Y.Z, which must match the app's version
+#
+# Nothing here signs, notarizes or uploads to downloads.wardwatch.ai. Those
+# steps get added once Matt has set up the signing keys, behind a GitHub
+# environment that needs his approval. GitHub-hosted runners only: these jobs
+# will hold signing keys. macos-latest is Apple silicon, so the .dmg is arm64.
+
+on:
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+  pull_request:
+    paths:
+      - .github/workflows/release.yml
+      - apps/desktop/scripts/release-version.ts
+      - apps/desktop/src-tauri/build.rs
+      - packaging/linux/build-in-container.sh
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  prepare:
+    name: Pick channel and version
+    runs-on: ubuntu-24.04
+    outputs:
+      build: ${{ steps.pick.outputs.build }}
+      channel: ${{ steps.pick.outputs.channel }}
+      date: ${{ steps.pick.outputs.date }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+      - id: pick
+        env:
+          EVENT: ${{ github.event_name }}
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          echo "date=$(date -u +%F)" >> "$GITHUB_OUTPUT"
+          if [[ "$REF_TYPE" == tag ]]; then
+            node apps/desktop/scripts/release-version.ts check "$REF_NAME"
+            echo "channel=mainline" >> "$GITHUB_OUTPUT"
+          else
+            echo "channel=nightly" >> "$GITHUB_OUTPUT"
+          fi
+          # The scheduled nightly skips days when main didn't change. The window
+          # is longer than a day so schedule delays can't drop a commit.
+          last=$(git log -1 --format=%ct)
+          if [[ "$EVENT" == schedule && $(( $(date +%s) - last )) -gt 129600 ]]; then
+            echo "No commits on main in the last 36 hours; no nightly."
+            echo "build=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  bundle:
+    name: Bundle (${{ matrix.os }}, ${{ needs.prepare.outputs.channel }})
+    needs: prepare
+    if: needs.prepare.outputs.build == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      WARDWATCH_BUILD_CHANNEL: ${{ needs.prepare.outputs.channel }}
+      WARDWATCH_BUILD_COMMIT: ${{ github.sha }}
+      WARDWATCH_BUILD_DATE: ${{ needs.prepare.outputs.date }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # The Linux container installs its own toolchain; the host only needs Node.
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: runner.os == 'Linux'
+        with:
+          node-version: 22
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+        if: runner.os != 'Linux'
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: runner.os != 'Linux'
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Set the nightly version
+        if: needs.prepare.outputs.channel == 'nightly'
+        shell: bash
+        run: node apps/desktop/scripts/release-version.ts nightly "$WARDWATCH_BUILD_DATE"
+      - id: version
+        shell: bash
+        run: echo "version=$(node -p 'require("./apps/desktop/package.json").version')" >> "$GITHUB_OUTPUT"
+
+      # Linux: built inside Ubuntu 22.04 so one package runs on every
+      # supported distribution (see packaging/linux/build-in-container.sh).
+      - name: Build Linux packages (Ubuntu 22.04 container)
+        if: runner.os == 'Linux'
+        run: packaging/linux/build-in-container.sh dist
+      - name: Install Rust
+        if: runner.os != 'Linux'
+        run: rustup toolchain install stable --profile minimal && rustup default stable
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        if: runner.os != 'Linux'
+      - name: Build installers (unsigned)
+        if: runner.os != 'Linux'
+        shell: bash
+        run: |
+          pnpm install --frozen-lockfile
+          # No signing identity or updater key is configured, so Tauri skips signing.
+          pnpm --filter @wardwatch/desktop tauri build --ci
+          mkdir dist
+          for d in dmg msi; do
+            if [[ -d target/release/bundle/$d ]]; then cp -R "target/release/bundle/$d" dist/; fi
+          done
+          ls -R dist
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: wardwatch-${{ steps.version.outputs.version }}-${{ runner.os }}
+          path: dist/
+          retention-days: ${{ needs.prepare.outputs.channel == 'mainline' && 90 || 14 }}
+          if-no-files-found: error
