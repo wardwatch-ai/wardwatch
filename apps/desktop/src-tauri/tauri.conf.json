@@ -45,6 +45,9 @@
     "targets": ["app", "dmg", "msi", "deb", "rpm"],
     "category": "Utility",
     "shortDescription": "Watches for critical vulnerabilities and helps you update",
+    "longDescription": "Wardwatch keeps a list of the software on this computer, checks it against known critical vulnerabilities, and nudges you to update what matters first.",
+    "publisher": "Wardwatch",
+    "homepage": "https://wardwatch.ai",
     "license": "GPL-3.0-or-later",
     "icon": [
       "icons/32x32.png",
@@ -55,6 +58,14 @@
     ],
     "macOS": {
       "minimumSystemVersion": "11.0"
+    },
+    "linux": {
+      "deb": {
+        "section": "utils"
+      },
+      "rpm": {
+        "release": "1"
+      }
     },
     "windows": {
       "wix": {
