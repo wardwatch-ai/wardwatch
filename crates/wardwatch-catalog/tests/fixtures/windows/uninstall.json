@@ -1,0 +1,90 @@
+[
+  [
+    "Google Chrome",
+    {
+      "DisplayName": "Google Chrome",
+      "DisplayVersion": "131.0.6778.86",
+      "Publisher": "Google LLC",
+      "InstallLocation": "C:\\Program Files\\Google\\Chrome\\Application"
+    }
+  ],
+  [
+    "Mozilla Firefox 132.0.2 (x64 en-US)",
+    {
+      "DisplayName": "Mozilla Firefox (x64 en-US)",
+      "DisplayVersion": "132.0.2",
+      "Publisher": "Mozilla",
+      "InstallLocation": "C:\\Program Files\\Mozilla Firefox"
+    }
+  ],
+  [
+    "Microsoft Edge",
+    {
+      "DisplayName": "Microsoft Edge",
+      "DisplayVersion": "131.0.2903.70",
+      "Publisher": "Microsoft Corporation",
+      "InstallLocation": "C:\\Program Files (x86)\\Microsoft\\Edge\\Application"
+    }
+  ],
+  [
+    "{AC76BA86-7AD7-1033-7B44-AC0F074E4100}",
+    {
+      "DisplayName": "Microsoft Visual C++ 2015-2022 Redistributable Additional Runtime",
+      "DisplayVersion": "14.40.33810",
+      "SystemComponent": "1"
+    }
+  ],
+  [
+    "KB5044284",
+    {
+      "DisplayName": "Security Update for Microsoft Office (KB5044284)",
+      "ParentKeyName": "Office16.PROPLUS",
+      "ReleaseType": "Security Update"
+    }
+  ],
+  [
+    "{23170F69-40C1-2702-2408-000001000000}",
+    {
+      "DisplayName": "7-Zip 24.08 (x64)",
+      "DisplayVersion": "24.08",
+      "Publisher": "Igor Pavlov",
+      "InstallLocation": "\"C:\\Program Files\\7-Zip\\\""
+    }
+  ],
+  [
+    "{23170F69-40C1-2702-2408-000001000000}",
+    {
+      "DisplayName": "7-Zip 24.08 (x64)",
+      "DisplayVersion": "24.08",
+      "Publisher": "Igor Pavlov"
+    }
+  ],
+  [
+    "Notepad++",
+    {
+      "DisplayName": "Notepad++ (64-bit x64)",
+      "DisplayVersion": "8.7.1",
+      "Publisher": "Notepad++ Team"
+    }
+  ],
+  [
+    "ZoomUMX",
+    {
+      "DisplayName": "Zoom Workplace",
+      "Publisher": "Zoom"
+    }
+  ],
+  [
+    "{00000000-0000-0000-0000-000000000000}",
+    {
+      "DisplayVersion": "1.0"
+    }
+  ],
+  [
+    "Hotfix",
+    {
+      "DisplayName": "Hotfix for Something",
+      "ReleaseType": "Hotfix"
+    }
+  ]
+]
