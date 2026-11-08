@@ -2,3 +2,8 @@ pnpm-lock.yaml
 target
 dist
 apps/desktop/src-tauri/gen
+# Verbatim copies of the design canvas artboards, and generated review output.
+apps/desktop/e2e/visual/mocks/src
+apps/desktop/e2e/visual/out
+apps/desktop/e2e/visual/approved
+apps/desktop/e2e/results

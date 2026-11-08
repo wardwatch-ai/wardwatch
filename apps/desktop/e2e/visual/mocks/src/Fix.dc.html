@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Wardwatch fix, Chrome update</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&amp;family=Manrope:wght@800&amp;display=swap">
+<style>
+body{margin:0}
+.ww{--bg:#F3EDE2;--surface:#FBF8F2;--line:#E3D9C6;--text:#23211F;--muted:#6B6358;--brand:#A23B2C;--link:#A23B2C;--ok:#2F6F62;--ok-tint:#E4EFEA;--act-tint:#FFF4E0;--act-ink:#8A5300;--tower:#23211F;--code:#EFE7D8;background:var(--bg);color:var(--text);font-family:Inter,system-ui,sans-serif;font-size:15px;line-height:1.55}
+.ww.dark{--bg:#23211F;--surface:#2E2B28;--line:#45403A;--text:#F3EDE2;--muted:#B8AE9F;--brand:#C4503C;--link:#F0A08C;--ok:#7FCFA8;--ok-tint:#24352F;--act-tint:#3A2F1C;--act-ink:#F7C76A;--tower:#F3EDE2;--code:#1B1A18}
+.ww h1,.ww h2,.ww h3{font-family:Manrope,system-ui,sans-serif;font-weight:800;margin:0;letter-spacing:-0.01em}
+.ww a{color:var(--link)}.ww a:hover{color:var(--text)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:0 22px;border-radius:10px;border:1px solid transparent;font:600 16px/1 Inter,system-ui,sans-serif;cursor:pointer;text-decoration:none;box-sizing:border-box}
+.btn-act{background:#F2B33D;color:#23211F;border:2px solid #23211F}.ww.dark .btn-act{border-color:transparent}
+.ww a.btn-act,.ww a.btn-act:hover,.ww button.btn-act{color:#23211F}.ww a.btn-brand,.ww a.btn-brand:hover{color:#fff}
+.btn-brand{background:var(--brand);color:#fff}
+.btn-quiet{background:transparent;color:var(--text);border-color:var(--line)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px}
+.lbl{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.kv{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-top:1px solid var(--line);font-size:13px}
+.kv span:first-child{color:var(--muted)}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px}
+.step{display:flex;align-items:flex-start;gap:12px;padding:10px 0}
+</style>
+</helmet>
+<div class="ww {{theme}}" style="min-height: 900px; box-sizing: border-box; display: flex; flex-direction: column">
+  <header style="display: flex; align-items: center; gap: 12px; padding: 16px 32px; border-bottom: 1px solid var(--line)">
+    <a href="Harbor.dc.html" class="btn btn-quiet" style="min-height: 40px; padding: 0 14px; font-size: 14px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg>Home</a>
+    <span style="color: var(--muted); font-size: 14px">Browsers · Google Chrome</span>
+  </header>
+
+  <main style="flex: 1; width: 100%; max-width: 1160px; margin: 0 auto; box-sizing: border-box; padding: 36px 32px; display: flex; flex-wrap: wrap; gap: 32px; align-items: flex-start">
+    <div style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 28px">
+      <div style="display: flex; flex-direction: column; gap: 14px">
+        <sc-if value="{{notDone}}" hint-placeholder-val="{{ true }}">
+          <span style="align-self: flex-start; display: inline-flex; align-items: center; gap: 8px; padding: 4px 12px; border-radius: 999px; background: var(--act-tint); color: var(--act-ink); font-weight: 600; font-size: 13px"><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 L22 20 L2 20 Z" fill="#F2B33D"></path></svg>Under attack now · found 1 day ago</span>
+        </sc-if>
+        <sc-if value="{{done}}" hint-placeholder-val="{{ false }}">
+          <span style="align-self: flex-start; display: inline-flex; align-items: center; gap: 8px; padding: 4px 12px; border-radius: 999px; background: var(--ok-tint); color: var(--ok); font-weight: 600; font-size: 13px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg>Fixed just now</span>
+        </sc-if>
+        <h1 style="font-size: 38px; line-height: 1.15">{{title}}</h1>
+        <p style="margin: 0; font-size: 18px; max-width: 620px">{{lede}}</p>
+      </div>
+
+      <sc-if value="{{ready}}" hint-placeholder-val="{{ true }}">
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px">
+          <section class="card" style="padding: 20px">
+            <h2 style="font-size: 16px; margin-bottom: 6px">What's happening</h2>
+            <p style="margin: 0; font-size: 14px">A booby-trapped web page can take over Chrome just by being opened. Google fixed it yesterday, and security agencies have seen it used against real people.</p>
+          </section>
+          <section class="card" style="padding: 20px">
+            <h2 style="font-size: 16px; margin-bottom: 6px">What could happen to you</h2>
+            <p style="margin: 0; font-size: 14px">Someone could read what you do in Chrome, including passwords you type, until you update. Nothing suggests it has happened on this MacBook.</p>
+          </section>
+        </div>
+      </sc-if>
+
+      <section class="card" style="padding: 24px">
+        <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap">
+          <h2 style="font-size: 18px">What Wardwatch will do</h2>
+          <span style="color: var(--muted); font-size: 14px">About 1 minute · nothing to type</span>
+        </div>
+        <ol style="list-style: none; margin: 12px 0 0; padding: 0">
+          <sc-for list="{{steps}}" as="s" hint-placeholder-count="4">
+            <li class="step">
+              <span style="width: 26px; height: 26px; flex: none; display: flex; align-items: center; justify-content: center; border-radius: 50%; border: 2px solid {{s.ring}}; background: {{s.fill}}; box-sizing: border-box; font-size: 12px; font-weight: 600; color: {{s.numColor}}">
+                <sc-if value="{{s.isDone}}" hint-placeholder-val="{{ false }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></sc-if>
+                <sc-if value="{{s.showNum}}" hint-placeholder-val="{{ true }}">{{s.n}}</sc-if>
+              </span>
+              <div style="flex: 1; min-width: 0">
+                <div style="font-weight: 600">{{s.label}}</div>
+                <div style="font-size: 13px; color: var(--muted)">{{s.detail}}</div>
+              </div>
+              <span style="font-size: 13px; color: var(--muted); white-space: nowrap">{{s.state}}</span>
+            </li>
+          </sc-for>
+        </ol>
+      </section>
+
+      <sc-if value="{{ready}}" hint-placeholder-val="{{ true }}">
+        <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center">
+          <button class="btn btn-act" type="button" onClick="{{start}}">Update Chrome now</button>
+          <button class="btn btn-quiet" type="button">Remind me in 1 hour</button>
+          <a href="#" style="font-size: 14px">I'd rather do it myself</a>
+        </div>
+      </sc-if>
+      <sc-if value="{{working}}" hint-placeholder-val="{{ false }}">
+        <p style="margin: 0; color: var(--muted)" role="status">Working. You can close this window; we'll finish in the background.</p>
+      </sc-if>
+      <sc-if value="{{done}}" hint-placeholder-val="{{ false }}">
+        <div class="card" style="padding: 20px; display: flex; flex-wrap: wrap; gap: 16px; align-items: center; justify-content: space-between; background: var(--ok-tint); border-color: transparent">
+          <div><div style="font-weight: 600; color: var(--ok)">Chrome is up to date. Your lighthouse is dark again.</div><div style="font-size: 14px">Fixed in 1 day. Your score stops dropping today and starts climbing back.</div></div>
+          <div style="display: flex; gap: 8px"><a class="btn btn-brand" href="Harbor.dc.html">Done</a><button class="btn btn-quiet" type="button" onClick="{{reset}}">Replay</button></div>
+        </div>
+      </sc-if>
+
+      <p style="margin: 0; font-size: 14px; color: var(--muted)">New to this? <a href="#">What does "under attack now" mean? (2-minute read)</a></p>
+    </div>
+
+    <aside style="flex: 1 1 320px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+      <section class="card" style="padding: 20px">
+        <div class="lbl" style="margin-bottom: 8px">For the curious</div>
+        <div class="kv"><span>Your version</span><span class="mono">142.0.7444.59</span></div>
+        <div class="kv"><span>Fixed in</span><span class="mono">142.0.7444.162</span></div>
+        <div class="kv"><span>Issue</span><span class="mono">CVE-2026-XXXXX</span></div>
+        <div class="kv"><span>Kind of bug</span><span>Memory bug in V8, Chrome's JavaScript engine</span></div>
+        <div class="kv"><span>Severity</span><span>High · 8.8 of 10</span></div>
+        <div class="kv"><span>Known used in attacks</span><span>Yes · CISA list, Nov 6</span></div>
+        <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 12px; font-size: 13px">
+          <a href="#">Google's release notes</a>
+          <a href="#">CISA Known Exploited Vulnerabilities entry</a>
+          <a href="#">NVD record</a>
+        </div>
+      </section>
+      <section class="card" style="padding: 20px">
+        <div class="lbl" style="margin-bottom: 8px">Why you can trust this fix</div>
+        <ul style="margin: 0; padding-left: 18px; font-size: 13px; display: flex; flex-direction: column; gap: 6px">
+          <li>The update comes only from Google's own update servers, never from Wardwatch.</li>
+          <li>We check Google's digital signature before anything installs.</li>
+          <li>We don't touch your bookmarks, passwords or history.</li>
+          <li>Everything we did is written to your activity log.</li>
+        </ul>
+        <div style="margin-top: 12px; padding: 10px 12px; border-radius: 8px; background: var(--code)" class="mono">signer: Google LLC ✓ verified<br>source: dl.google.com ✓<br>sha256: 3f9a…c21e ✓</div>
+      </section>
+    </aside>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"$preview":{"width":1280,"height":900}}'>
+class Component extends DCLogic {
+  constructor(p) { super(p); this.state = { phase: 'ready', at: 0 }; this.timers = []; }
+  componentWillUnmount() { this.timers.forEach(clearTimeout); }
+  renderVals() {
+    const { phase, at } = this.state;
+    const defs = [
+      ['Download Chrome 142.0.7444.162', 'Straight from Google'],
+      ['Make sure it really came from Google', 'Checks the digital signature'],
+      ['Install it and restart Chrome', 'Your open tabs come back'],
+      ['Check again that the hole is closed', 'Then the beam turns off']
+    ];
+    const steps = defs.map(([label, detail], i) => {
+      const isDone = phase === 'done' || (phase === 'working' && i < at);
+      const active = phase === 'working' && i === at;
+      return {
+        n: String(i + 1), label, detail, isDone, showNum: !isDone,
+        state: isDone ? 'Done' : active ? 'Working…' : '',
+        ring: isDone ? 'var(--ok)' : active ? 'var(--text)' : 'var(--line)',
+        fill: isDone ? 'var(--ok)' : 'transparent',
+        numColor: active ? 'var(--text)' : 'var(--muted)'
+      };
+    });
+    const start = () => {
+      this.timers.forEach(clearTimeout);
+      this.setState({ phase: 'working', at: 0 });
+      [1, 2, 3, 4].forEach((k) => {
+        this.timers.push(setTimeout(() => this.setState(k === 4 ? { phase: 'done', at: 4 } : { at: k }), k * 1100));
+      });
+    };
+    const reset = () => { this.timers.forEach(clearTimeout); this.setState({ phase: 'ready', at: 0 }); };
+    const done = phase === 'done';
+    return {
+      steps, start, reset,
+      ready: phase === 'ready', working: phase === 'working', done, notDone: !done,
+      title: done ? 'Chrome is safe again.' : 'Chrome has a hole attackers are using right now.',
+      lede: done ? 'The update installed, your tabs are back, and we checked that the hole is closed.' : 'Updating closes it. It takes about a minute, and Chrome reopens with your tabs.',
+      theme: (this.props.dark ?? false) ? 'dark' : ''
+    };
+  }
+}
+</script>
+</body>
+</html>

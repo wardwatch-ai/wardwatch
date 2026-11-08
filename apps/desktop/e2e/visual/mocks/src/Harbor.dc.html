@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Wardwatch home, Lantern plus score</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&amp;family=Manrope:wght@800&amp;display=swap">
+<style>
+body{margin:0}
+.ww{--bg:#F3EDE2;--surface:#FBF8F2;--line:#E3D9C6;--text:#23211F;--muted:#6B6358;--brand:#A23B2C;--link:#A23B2C;--ok:#2F6F62;--ok-tint:#E4EFEA;--act-tint:#FFF4E0;--act-ink:#8A5300;--tower:#23211F;--halo:#EADFCB;--sel:#EADFCB;--b1:#D9CDB8;--b2:#C9D9CF;--b3:#86B3A4;--b4:#2F6F62;background:var(--bg);color:var(--text);font-family:Inter,system-ui,sans-serif;font-size:15px;line-height:1.5}
+.ww.dark{--bg:#23211F;--surface:#2E2B28;--line:#45403A;--text:#F3EDE2;--muted:#B8AE9F;--brand:#C4503C;--link:#F0A08C;--ok:#7FCFA8;--ok-tint:#24352F;--act-tint:#3A2F1C;--act-ink:#F7C76A;--tower:#F3EDE2;--halo:#38342F;--sel:#3A3632;--b1:#4A443D;--b2:#3E544B;--b3:#5C9583;--b4:#7FCFA8}
+.ww h1,.ww h2,.ww h3{font-family:Manrope,system-ui,sans-serif;font-weight:800;margin:0;letter-spacing:-0.01em}
+.ww a{color:var(--link)}.ww a:hover{color:var(--text)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 18px;border-radius:10px;border:1px solid transparent;font:600 15px/1 Inter,system-ui,sans-serif;cursor:pointer;text-decoration:none;box-sizing:border-box}
+.btn-act{background:#F2B33D;color:#23211F;border:2px solid #23211F}.ww.dark .btn-act{border-color:transparent}
+.ww a.btn-act,.ww a.btn-act:hover,.ww button.btn-act{color:#23211F}.ww a.btn-brand,.ww a.btn-brand:hover{color:#fff}
+.btn-brand{background:var(--brand);color:#fff}
+.btn-quiet{background:transparent;color:var(--text);border-color:var(--line)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px}
+.lbl{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.tab{display:inline-flex;align-items:center;min-height:44px;padding:0 14px;border:0;border-bottom:3px solid transparent;background:transparent;color:var(--muted);font:600 15px Inter,system-ui,sans-serif;cursor:pointer;text-decoration:none}
+.tab:hover{color:var(--text)}
+.tab-on{color:var(--text);border-bottom-color:var(--brand)}
+.ww a.tab{color:var(--muted);text-decoration:none}.ww a.tab:hover,.ww a.tab-on{color:var(--text)}
+.mi{display:flex;align-items:center;gap:10px;min-height:40px;padding:0 12px;border-radius:8px;color:var(--text);text-decoration:none;font-size:14px}
+.mi:hover{background:var(--sel)}
+.row{display:flex;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--line)}
+.dev{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+</style>
+</helmet>
+<div class="ww {{theme}}" style="min-height: 900px; box-sizing: border-box; display: flex; flex-direction: column">
+  <header style="position: relative; display: flex; align-items: center; gap: 24px; flex-wrap: wrap; padding: 0 28px; border-bottom: 1px solid var(--line); background: var(--surface)">
+    <div style="display: flex; align-items: center; gap: 10px; min-height: 64px">
+      <svg width="30" height="30" viewBox="0 0 64 64" aria-hidden="true"><path d="M28 16.5 L3 9 L3 24 Z" fill="#F2B33D"></path><path d="M36 16.5 L61 9 L61 24 Z" fill="#F2B33D"></path><path d="M26 13 L32 7.5 L38 13 Z" fill="var(--tower)"></path><rect x="27.5" y="13" width="9" height="7" fill="#F2B33D"></rect><rect x="24" y="20" width="16" height="3" rx="1" fill="var(--tower)"></rect><path d="M26.5 23 L37.5 23 L39.2 40 L24.8 40 Z" fill="var(--brand)"></path><path d="M24.8 40 L39.2 40 L41 57 L23 57 Z" fill="#FFFFFF" stroke="#23211F" stroke-width="1.5"></path><rect x="21" y="57" width="22" height="3" rx="1" fill="var(--tower)"></rect></svg>
+      <span style="font-family: Manrope, system-ui, sans-serif; font-weight: 800; font-size: 19px">Wardwatch</span>
+    </div>
+    <nav aria-label="Main" style="flex: 1; display: flex; flex-wrap: wrap; gap: 4px; align-self: stretch; align-items: flex-end">
+      <a class="tab tab-on" href="#" aria-current="page" style="min-height: 64px">Home</a>
+      <a class="tab" href="Score6.dc.html" style="min-height: 64px">Score</a>
+      <a class="tab" href="Groups4.dc.html" style="min-height: 64px">Groups</a>
+      <a class="tab" href="Apps3.dc.html" style="min-height: 64px">Apps</a>
+      <a class="tab" href="Plan4.dc.html" style="min-height: 64px">Update plan</a>
+    </nav>
+    <button type="button" onClick="{{toggleMenu}}" aria-expanded="{{menuExpanded}}" aria-haspopup="menu" style="display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 10px 0 6px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); color: var(--text); font: 600 14px Inter, system-ui, sans-serif; cursor: pointer">
+      <span aria-hidden="true" style="width: 32px; height: 32px; border-radius: 50%; background: #2F6F62; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-weight: 600">M</span>
+      <span>Matt</span>
+      <span style="font-family: Manrope, system-ui, sans-serif; font-weight: 800; color: var(--ok)">84</span>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg>
+    </button>
+    <sc-if value="{{menuOpen}}" hint-placeholder-val="{{ false }}">
+      <div role="menu" aria-label="Account" class="card" style="position: absolute; right: 28px; top: 60px; width: 300px; padding: 8px; box-shadow: 0 12px 32px rgba(35,33,31,.18); z-index: 5">
+        <div style="padding: 10px 12px 12px; border-bottom: 1px solid var(--line); margin-bottom: 6px">
+          <div style="font-weight: 600">Matt</div>
+          <div style="font-size: 13px; color: var(--muted)">Signed in · 3 devices on this account</div>
+        </div>
+        <div class="lbl" style="padding: 6px 12px">Your devices</div>
+        <a class="mi" role="menuitem" href="#"><svg width="10" height="10" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 L22 20 L2 20 Z" fill="#F2B33D"></path></svg><span style="flex: 1">MacBook Air (this one)</span><span style="font-size: 12px; color: var(--act-ink); font-weight: 600">Needs you</span></a>
+        <a class="mi" role="menuitem" href="#"><svg width="10" height="10" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="var(--ok)"></circle></svg><span style="flex: 1">Family iMac</span><span style="font-size: 12px; color: var(--ok); font-weight: 600">All clear</span></a>
+        <a class="mi" role="menuitem" href="#"><svg width="10" height="10" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="var(--ok)"></circle></svg><span style="flex: 1">iPhone</span><span style="font-size: 12px; color: var(--ok); font-weight: 600">All clear</span></a>
+        <div style="height: 1px; background: var(--line); margin: 6px 0"></div>
+        <a class="mi" role="menuitem" href="#">Profile and sharing</a>
+        <a class="mi" role="menuitem" href="#">Settings</a>
+        <a class="mi" role="menuitem" href="#">Support Wardwatch</a>
+        <a class="mi" role="menuitem" href="#">Sign out</a>
+      </div>
+    </sc-if>
+  </header>
+
+  <main style="flex: 1; width: 100%; max-width: 1160px; margin: 0 auto; box-sizing: border-box; padding: 32px 28px; display: flex; flex-direction: column; gap: 24px">
+
+    <sc-if value="{{onHome}}" hint-placeholder-val="{{ true }}">
+      <div style="display: flex; flex-direction: column; gap: 24px">
+        <div style="display: flex; flex-wrap: wrap; gap: 24px; align-items: stretch">
+          <section class="card" style="flex: 999 1 560px; min-width: 0; padding: 28px; display: flex; flex-wrap: wrap; gap: 28px; align-items: center">
+            <div style="flex: none; width: 168px; height: 168px; border-radius: 50%; background: var(--halo); display: flex; align-items: center; justify-content: center">
+              <sc-if value="{{needsYou}}" hint-placeholder-val="{{ true }}">
+                <svg width="148" height="148" viewBox="0 0 64 64" role="img" aria-label="Lighthouse with its beams on: something needs you"><path d="M28 16.5 L3 9 L3 24 Z" fill="#F2B33D"></path><path d="M36 16.5 L61 9 L61 24 Z" fill="#F2B33D"></path><path d="M26 13 L32 7.5 L38 13 Z" fill="var(--tower)"></path><rect x="27.5" y="13" width="9" height="7" fill="#F2B33D"></rect><rect x="31.4" y="13" width="1.2" height="7" fill="var(--tower)"></rect><rect x="24" y="20" width="16" height="3" rx="1" fill="var(--tower)"></rect><path d="M26.5 23 L37.5 23 L39.2 40 L24.8 40 Z" fill="var(--brand)"></path><path d="M24.8 40 L39.2 40 L41 57 L23 57 Z" fill="#FFFFFF" stroke="#23211F" stroke-width="1.5" stroke-linejoin="round"></path><rect x="21" y="57" width="22" height="3" rx="1" fill="var(--tower)"></rect></svg>
+              </sc-if>
+              <sc-if value="{{allClear}}" hint-placeholder-val="{{ false }}">
+                <svg width="148" height="148" viewBox="0 0 64 64" role="img" aria-label="Lighthouse resting, beams off: all clear"><path d="M26 13 L32 7.5 L38 13 Z" fill="var(--tower)"></path><rect x="27.5" y="13" width="9" height="7" fill="var(--line)"></rect><rect x="31.4" y="13" width="1.2" height="7" fill="var(--tower)"></rect><rect x="24" y="20" width="16" height="3" rx="1" fill="var(--tower)"></rect><path d="M26.5 23 L37.5 23 L39.2 40 L24.8 40 Z" fill="var(--brand)"></path><path d="M24.8 40 L39.2 40 L41 57 L23 57 Z" fill="#FFFFFF" stroke="#23211F" stroke-width="1.5" stroke-linejoin="round"></path><rect x="21" y="57" width="22" height="3" rx="1" fill="var(--tower)"></rect></svg>
+              </sc-if>
+            </div>
+            <div style="flex: 1 1 280px; min-width: 0; display: flex; flex-direction: column; gap: 12px">
+              <sc-if value="{{needsYou}}" hint-placeholder-val="{{ true }}">
+                <div style="display: flex; flex-direction: column; gap: 12px">
+                  <span style="align-self: flex-start; display: inline-flex; align-items: center; gap: 8px; padding: 4px 12px; border-radius: 999px; background: var(--act-tint); color: var(--act-ink); font-weight: 600; font-size: 13px"><svg width="13" height="13" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 L22 20 L2 20 Z" fill="#F2B33D"></path></svg>Needs you today</span>
+                  <h1 style="font-size: 34px; line-height: 1.12">Update Chrome.</h1>
+                  <div style="font-size: 16px"><div>This is being exploited right now.</div><div style="color: var(--muted)">1 minute to update. Tabs will come back.</div></div>
+                  <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 4px">
+                    <button class="btn btn-act" type="button">Update Chrome now</button>
+                    <a class="btn btn-quiet" href="Fix.dc.html">What's going on?</a>
+                  </div>
+                </div>
+              </sc-if>
+              <sc-if value="{{allClear}}" hint-placeholder-val="{{ false }}">
+                <div style="display: flex; flex-direction: column; gap: 12px">
+                  <span style="align-self: flex-start; display: inline-flex; align-items: center; gap: 8px; padding: 4px 12px; border-radius: 999px; background: var(--ok-tint); color: var(--ok); font-weight: 600; font-size: 13px">All clear</span>
+                  <h1 style="font-size: 34px; line-height: 1.12">Nothing needs you.</h1>
+                  <p style="margin: 0; font-size: 16px">This device's system, browsers and apps are up to date. We'll keep watch.</p>
+                </div>
+              </sc-if>
+            </div>
+          </section>
+
+          <section class="card" style="flex: 1 1 320px; min-width: 0; padding: 24px; display: flex; flex-direction: column; gap: 14px">
+            <div class="lbl">Your score</div>
+            <div style="display: flex; align-items: baseline; gap: 12px">
+              <span style="font-family: Manrope, system-ui, sans-serif; font-weight: 800; font-size: 64px; line-height: 1">{{score}}</span>
+              <span style="font-family: Manrope, system-ui, sans-serif; font-weight: 800; font-size: 22px; color: var(--ok)">{{band}}</span>
+            </div>
+            <div style="position: relative; display: grid; grid-template-columns: 60fr 15fr 15fr 10fr; gap: 3px; height: 10px">
+              <div style="background: var(--b1); border-radius: 5px 0 0 5px"></div><div style="background: var(--b2)"></div><div style="background: var(--b3)"></div><div style="background: var(--b4); border-radius: 0 5px 5px 0"></div>
+              <div aria-hidden="true" style="position: absolute; left: {{markerLeft}}; top: -4px; width: 18px; height: 18px; border-radius: 50%; background: var(--surface); border: 4px solid var(--text); box-sizing: border-box"></div>
+            </div>
+            <p style="margin: 0; font-size: 14px; color: var(--muted)">{{scoreNote}}</p>
+            <div style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; background: var(--ok-tint); font-size: 14px">
+              <span style="font-weight: 600">2nd</span><span style="flex: 1">in Ward family</span><span style="color: var(--muted); font-size: 13px">Sam leads at 93</span>
+            </div>
+            <a class="btn btn-quiet" href="Score6.dc.html" style="align-self: flex-start; color: var(--text)">See your score</a>
+          </section>
+        </div>
+
+        <section class="card" style="padding: 22px 24px; display: flex; flex-direction: column; gap: 14px">
+          <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px">
+            <div>
+              <h2 style="font-size: 19px">Sunday tune-up</h2>
+              <p style="margin: 0; color: var(--muted); font-size: 14px">Routine updates, no rush. Finishing them before Sunday earns back about 2 points.</p>
+            </div>
+            <button class="btn btn-quiet" type="button"><span aria-hidden="true" style="display: inline-flex; gap: 2px"><i style="display: block; width: 4px; height: 14px; border-radius: 2px; background: currentColor"></i><i style="display: block; width: 4px; height: 14px; border-radius: 2px; background: currentColor"></i><i style="display: block; width: 4px; height: 14px; border-radius: 2px; background: var(--line)"></i></span>Update all 3</button>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px">
+            <div class="dev"><span style="width: 32px; height: 32px; border-radius: 8px; background: #2D8CFF; flex: none" aria-hidden="true"></span><div><div style="font-weight: 600">Zoom</div><div style="color: var(--muted); font-size: 13px">6.4.2 → 6.5.0</div></div></div>
+            <div class="dev"><span style="width: 32px; height: 32px; border-radius: 8px; background: #E8761B; flex: none" aria-hidden="true"></span><div><div style="font-weight: 600">VLC</div><div style="color: var(--muted); font-size: 13px">3.0.20 → 3.0.21</div></div></div>
+            <div class="dev"><span style="width: 32px; height: 32px; border-radius: 8px; background: #6B6358; flex: none" aria-hidden="true"></span><div><div style="font-weight: 600">macOS</div><div style="color: var(--muted); font-size: 13px">16.1 → 16.1.1</div></div></div>
+          </div>
+        </section>
+
+        <div style="display: flex; flex-wrap: wrap; gap: 24px">
+          <section style="flex: 1 1 420px; min-width: 0; display: flex; flex-direction: column; gap: 10px">
+            <div class="lbl">On this device</div>
+            <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px">
+              <div class="dev" style="flex-direction: column; align-items: flex-start; gap: 2px"><span style="font-weight: 600">System</span><span style="color: var(--ok); font-size: 13px; font-weight: 600">Current</span></div>
+              <div class="dev" style="flex-direction: column; align-items: flex-start; gap: 2px"><span style="font-weight: 600">Browsers</span><span style="color: {{browsersColor}}; font-size: 13px; font-weight: 600">{{browsers}}</span></div>
+              <a class="dev" href="Apps3.dc.html" style="flex-direction: column; align-items: flex-start; gap: 2px; text-decoration: none; color: var(--text)"><span style="font-weight: 600">Apps</span><span style="color: var(--ok); font-size: 13px; font-weight: 600">137 of 139 current</span></a>
+            </div>
+          </section>
+          <section style="flex: 1 1 420px; min-width: 0; display: flex; flex-direction: column; gap: 10px">
+            <div class="lbl">Your other devices</div>
+            <div class="dev"><svg width="12" height="12" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="var(--ok)"></circle></svg><span style="flex: 1; font-weight: 600">Family iMac</span><span style="font-size: 13px; color: var(--muted)">All clear · checked 1 hour ago</span></div>
+            <div class="dev"><svg width="12" height="12" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="var(--ok)"></circle></svg><span style="flex: 1; font-weight: 600">iPhone</span><span style="font-size: 13px; color: var(--muted)">iOS up to date · checked 3 hours ago</span></div>
+            <a href="#" style="font-size: 14px">Add a device</a>
+          </section>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{onScore}}" hint-placeholder-val="{{ false }}">
+      <div style="display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start">
+        <div style="flex: 999 1 600px; min-width: 0; display: flex; flex-direction: column; gap: 20px">
+          <section class="card" style="padding: 28px; display: flex; flex-direction: column; gap: 18px">
+            <div style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 20px">
+              <div>
+                <div class="lbl">Your security score · last 30 days</div>
+                <div style="display: flex; align-items: baseline; gap: 14px; margin-top: 4px"><span style="font-family: Manrope, system-ui, sans-serif; font-weight: 800; font-size: 80px; line-height: 1">84</span><span style="font-family: Manrope, system-ui, sans-serif; font-weight: 800; font-size: 26px; color: var(--ok)">Good</span></div>
+              </div>
+              <p style="margin: 0; max-width: 300px; color: var(--muted); font-size: 14px">6 points to <strong style="color: var(--text)">Excellent</strong>. Your score counts how up to date you are and how fast you fix things.</p>
+            </div>
+            <div>
+              <div style="position: relative; display: grid; grid-template-columns: 60fr 15fr 15fr 10fr; gap: 3px; height: 14px">
+                <div style="background: var(--b1); border-radius: 7px 0 0 7px"></div><div style="background: var(--b2)"></div><div style="background: var(--b3)"></div><div style="background: var(--b4); border-radius: 0 7px 7px 0"></div>
+                <div aria-hidden="true" style="position: absolute; left: calc(84% - 9px); top: -5px; width: 18px; height: 18px; border-radius: 50%; background: var(--surface); border: 4px solid var(--text); box-sizing: border-box"></div>
+              </div>
+              <div style="display: grid; grid-template-columns: 60fr 15fr 15fr 10fr; gap: 3px; margin-top: 8px; font-size: 12px; color: var(--muted)"><span>At risk · below 60</span><span>Fair · 60</span><span style="color: var(--text); font-weight: 600">Good · 75</span><span>Excellent · 90</span></div>
+            </div>
+            <figure style="margin: 0">
+              <svg viewBox="0 0 600 120" preserveAspectRatio="none" style="width: 100%; height: 110px; display: block" role="img" aria-label="Score over 30 days: rose from about 70 to 89, dipped to 84 yesterday">
+                <line x1="0" y1="36" x2="600" y2="36" stroke="var(--line)" stroke-dasharray="4 4"></line>
+                <line x1="0" y1="72" x2="600" y2="72" stroke="var(--line)" stroke-dasharray="4 4"></line>
+                <path d="M0 89 L40 86 L80 82 L120 84 L160 74 L200 70 L240 66 L280 63 L320 58 L360 52 L400 47 L440 44 L480 40 L520 38 L560 36 L580 40 L600 48 L600 120 L0 120 Z" fill="var(--ok-tint)"></path>
+                <path d="M0 89 L40 86 L80 82 L120 84 L160 74 L200 70 L240 66 L280 63 L320 58 L360 52 L400 47 L440 44 L480 40 L520 38 L560 36 L580 40 L600 48" fill="none" stroke="var(--ok)" stroke-width="2.5" vector-effect="non-scaling-stroke"></path>
+              </svg>
+              <figcaption style="display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-top: 6px"><span>Oct 8</span><span>Dashed lines: Excellent (90) and Good (75)</span><span>Today</span></figcaption>
+            </figure>
+          </section>
+          <section class="card" style="padding: 8px 24px 12px">
+            <h2 style="font-size: 18px; padding: 14px 0 10px">What's costing you points</h2>
+            <div class="row"><span style="width: 30px; height: 30px; border-radius: 8px; background: #4285F4; flex: none" aria-hidden="true"></span><div style="flex: 1; min-width: 0"><div style="font-weight: 600">Chrome · being exploited right now</div><div style="font-size: 13px; color: var(--muted)">Open 1 day · costs 3 points a day</div></div><a class="btn btn-act" href="Fix.dc.html" style="min-height: 36px; font-size: 14px; padding: 0 14px">Fix now</a></div>
+            <div class="row"><span style="width: 30px; height: 30px; border-radius: 8px; background: #2D8CFF; flex: none" aria-hidden="true"></span><div style="flex: 1; min-width: 0"><div style="font-weight: 600">Zoom update</div><div style="font-size: 13px; color: var(--muted)">Open 4 days · costs 1 point a day</div></div><span style="font-size: 13px; color: var(--muted)">Sunday tune-up</span></div>
+            <div class="row"><span style="width: 30px; height: 30px; border-radius: 8px; background: #E8761B; flex: none" aria-hidden="true"></span><div style="flex: 1; min-width: 0"><div style="font-weight: 600">VLC and macOS updates</div><div style="font-size: 13px; color: var(--muted)">Open 2 days · cost half a point a day each</div></div><span style="font-size: 13px; color: var(--muted)">Sunday tune-up</span></div>
+          </section>
+        </div>
+        <aside style="flex: 1 1 300px; min-width: 0; display: flex; flex-direction: column; gap: 20px">
+          <section class="card" style="padding: 20px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px">
+            <div><div style="font-family: Manrope, system-ui, sans-serif; font-weight: 800; font-size: 24px">1.4 d</div><div style="font-size: 12px; color: var(--muted)">average time to fix</div></div>
+            <div><div style="font-family: Manrope, system-ui, sans-serif; font-weight: 800; font-size: 24px">11</div><div style="font-size: 12px; color: var(--muted)">fixed this month</div></div>
+            <div><div style="font-family: Manrope, system-ui, sans-serif; font-weight: 800; font-size: 24px">26/30</div><div style="font-size: 12px; color: var(--muted)">days Good or better</div></div>
+          </section>
+          <section class="card" style="padding: 20px; display: flex; flex-direction: column; gap: 14px">
+            <h2 style="font-size: 18px">Share your score</h2>
+            <div style="border-radius: 12px; background: #23211F; color: #F3EDE2; padding: 18px">
+              <div style="font-family: Manrope, system-ui, sans-serif; font-weight: 800; font-size: 20px">Good · 84</div>
+              <div style="font-size: 13px; color: #B8AE9F">Fixes problems in 1.4 days on average</div>
+            </div>
+            <p style="margin: 0; font-size: 12px; color: var(--muted)">Shows your band and speed only. Never your apps or device names.</p>
+            <button class="btn btn-brand" type="button">Share score</button>
+          </section>
+        </aside>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{onGroups}}" hint-placeholder-val="{{ false }}">
+      <div style="display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start">
+        <section class="card" style="flex: 999 1 560px; min-width: 0; padding: 24px; display: flex; flex-direction: column; gap: 6px">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px"><h1 style="font-size: 26px">Ward family</h1><button class="btn btn-quiet" type="button">Invite someone</button></div>
+          <div class="row"><span style="width: 24px; font-weight: 600; color: var(--muted)">1</span><span style="flex: 1">Sam</span><span style="font-weight: 600">93</span><span style="width: 84px; font-size: 13px; color: var(--ok); font-weight: 600">Excellent</span></div>
+          <div class="row" style="background: var(--ok-tint); margin: 0 -12px; padding: 12px; border-radius: 8px; border-top-color: transparent"><span style="width: 24px; font-weight: 600; color: var(--muted)">2</span><span style="flex: 1; font-weight: 600">You</span><span style="font-weight: 600">84</span><span style="width: 84px; font-size: 13px; color: var(--ok); font-weight: 600">Good</span></div>
+          <div class="row"><span style="width: 24px; font-weight: 600; color: var(--muted)">3</span><span style="flex: 1">Jo</span><span style="font-weight: 600">79</span><span style="width: 84px; font-size: 13px; color: var(--ok); font-weight: 600">Good</span></div>
+          <div class="row"><span style="width: 24px; font-weight: 600; color: var(--muted)">4</span><span style="flex: 1">Alex</span><span style="font-weight: 600">71</span><span style="width: 84px; font-size: 13px; color: var(--muted); font-weight: 600">Fair</span></div>
+        </section>
+        <aside style="flex: 1 1 300px; min-width: 0; display: flex; flex-direction: column; gap: 20px">
+          <section class="card" style="padding: 20px; display: flex; flex-direction: column; gap: 8px">
+            <div class="lbl">New Year's pot</div>
+            <p style="margin: 0; font-size: 14px">Whoever leads on Dec 31 picks the charity the pot goes to.</p>
+            <p style="margin: 0; font-size: 13px; color: var(--muted)">Most improved is crowned monthly.</p>
+          </section>
+          <section class="card" style="padding: 20px; display: flex; flex-direction: column; gap: 8px">
+            <div class="lbl">Other groups</div>
+            <a href="#" style="font-size: 14px">Pine Street Library · 12 devices</a>
+            <a href="#" style="font-size: 14px">Start or join a group</a>
+          </section>
+        </aside>
+      </div>
+    </sc-if>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"status":{"editor":"enum","options":["needs-you","all-clear"],"default":"needs-you"},"dark":{"editor":"boolean","default":false},"$preview":{"width":1280,"height":900}}'>
+class Component extends DCLogic {
+  constructor(p) { super(p); this.state = { tab: 'home', menu: false }; }
+  renderVals() {
+    const { tab, menu } = this.state;
+    const needsYou = (this.props.status ?? 'needs-you') === 'needs-you';
+    const tabs = [['home', 'Home'], ['score', 'Score'], ['groups', 'Groups']].map(([id, label]) => ({
+      label,
+      cls: 'tab' + (tab === id ? ' tab-on' : ''),
+      current: tab === id ? 'page' : 'false',
+      pick: () => this.setState({ tab: id, menu: false })
+    }));
+    return {
+      tabs,
+      onHome: tab === 'home', onScore: tab === 'score', onGroups: tab === 'groups',
+      menuOpen: menu, menuExpanded: menu ? 'true' : 'false',
+      toggleMenu: () => this.setState({ menu: !menu }),
+      goScore: () => this.setState({ tab: 'score', menu: false }),
+      needsYou, allClear: !needsYou,
+      score: needsYou ? '84' : '91',
+      band: needsYou ? 'Good' : 'Excellent',
+      markerLeft: needsYou ? 'calc(84% - 9px)' : 'calc(91% - 9px)',
+      scoreNote: needsYou ? 'Fixing Chrome today stops a 3-point-a-day slide. 6 points to Excellent.' : 'Excellent. Keep fixing things fast to stay here.',
+      browsers: needsYou ? 'Chrome needs you' : 'Current',
+      browsersColor: needsYou ? 'var(--act-ink)' : 'var(--ok)',
+      theme: (this.props.dark ?? false) ? 'dark' : ''
+    };
+  }
+}
+</script>
+</body>
+</html>

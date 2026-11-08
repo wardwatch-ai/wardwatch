@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Update plan, rules by severity, compact</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&amp;family=Manrope:wght@800&amp;display=swap">
+<style>
+body{margin:0}
+.ww{--bg:#F3EDE2;--surface:#FBF8F2;--line:#E3D9C6;--text:#23211F;--muted:#6B6358;--brand:#A23B2C;--link:#A23B2C;--ok:#2F6F62;--ok-tint:#E4EFEA;--act-tint:#FFF4E0;--act-ink:#8A5300;--tower:#23211F;--sel:#EADFCB;background:var(--bg);color:var(--text);font-family:Inter,system-ui,sans-serif;font-size:15px;line-height:1.5}
+.ww.dark{--bg:#23211F;--surface:#2E2B28;--line:#45403A;--text:#F3EDE2;--muted:#B8AE9F;--brand:#C4503C;--link:#F0A08C;--ok:#7FCFA8;--ok-tint:#24352F;--act-tint:#3A2F1C;--act-ink:#F7C76A;--tower:#F3EDE2;--sel:#3A3632}
+.ww h1,.ww h2,.ww h3{font-family:Manrope,system-ui,sans-serif;font-weight:800;margin:0;letter-spacing:-0.01em}
+.ww a{color:var(--link)}.ww a:hover{color:var(--text)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 18px;border-radius:10px;border:1px solid transparent;font:600 15px/1 Inter,system-ui,sans-serif;cursor:pointer;text-decoration:none;box-sizing:border-box}
+.btn-brand{background:var(--brand);color:#fff}
+.btn-quiet{background:transparent;color:var(--text);border-color:var(--line)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px}
+.lbl{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.tab{display:inline-flex;align-items:center;min-height:64px;padding:0 14px;border-bottom:3px solid transparent;color:var(--muted);font-weight:600;text-decoration:none;box-sizing:border-box}
+.ww a.tab{color:var(--muted)}.ww a.tab:hover{color:var(--text)}
+.ww a.tab-on{color:var(--text);border-bottom-color:var(--brand)}
+.big{font-family:Manrope,system-ui,sans-serif;font-weight:800}
+.chip{min-height:40px;padding:0 16px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--text);font:600 14px Inter,system-ui,sans-serif;cursor:pointer}
+.chip-on{background:var(--text);color:var(--bg);border-color:var(--text)}
+.mx{width:100%;border-collapse:collapse;font-size:14px}
+.mx th{text-align:left;font-weight:600;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.04em;padding:12px;border-bottom:1px solid var(--line)}
+.mx td{padding:12px;border-bottom:1px solid var(--line);vertical-align:middle}
+.cell{width:100%;min-height:40px;padding:0 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--text);font:14px Inter,system-ui,sans-serif}
+.cellwrap{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:10px}
+.v-day{background:var(--act-tint)}.v-sun{background:var(--sel)}.v-mon{background:var(--bg)}.v-auto{background:var(--ok-tint)}
+.vi{width:22px;height:22px;flex:none;display:flex;align-items:center;justify-content:center}
+.colh{display:flex;align-items:center;gap:8px}
+.sev{display:flex;align-items:center;gap:10px}
+.meter{display:flex;gap:2px;flex:none}.meter i{display:block;width:5px;height:16px;border-radius:2px;background:var(--line)}.meter i.f{background:var(--text)}
+.lane{flex:1 1 0;min-width:0;display:flex;flex-direction:column;gap:8px;padding:14px;border-radius:12px}
+.pchip{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:8px;background:var(--surface);font-size:13px;font-weight:600}
+.pchip span{width:14px;height:14px;border-radius:4px;flex:none}
+.opt{display:flex;align-items:center;gap:10px;font-size:14px;min-height:44px}
+.sel{min-height:36px;padding:0 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--text);font:14px Inter,system-ui,sans-serif}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.lock{display:flex;align-items:center;gap:8px;min-height:40px;padding:0 10px;border-radius:8px;background:var(--act-tint);color:var(--act-ink);font-weight:600;font-size:13px}
+</style>
+</helmet>
+<div class="ww {{theme}}" style="min-height: 900px; box-sizing: border-box; display: flex; flex-direction: column">
+  <header style="display: flex; align-items: center; gap: 24px; flex-wrap: wrap; padding: 0 28px; border-bottom: 1px solid var(--line); background: var(--surface)">
+    <div style="display: flex; align-items: center; gap: 10px; min-height: 64px">
+      <svg width="30" height="30" viewBox="0 0 64 64" aria-hidden="true"><path d="M28 16.5 L3 9 L3 24 Z" fill="#F2B33D"></path><path d="M36 16.5 L61 9 L61 24 Z" fill="#F2B33D"></path><path d="M26 13 L32 7.5 L38 13 Z" fill="var(--tower)"></path><rect x="27.5" y="13" width="9" height="7" fill="#F2B33D"></rect><rect x="24" y="20" width="16" height="3" rx="1" fill="var(--tower)"></rect><path d="M26.5 23 L37.5 23 L39.2 40 L24.8 40 Z" fill="var(--brand)"></path><path d="M24.8 40 L39.2 40 L41 57 L23 57 Z" fill="#FFFFFF" stroke="#23211F" stroke-width="1.5"></path><rect x="21" y="57" width="22" height="3" rx="1" fill="var(--tower)"></rect></svg>
+      <span class="big" style="font-size: 19px">Wardwatch</span>
+    </div>
+    <nav aria-label="Main" style="flex: 1; display: flex; flex-wrap: wrap; gap: 4px">
+      <a class="tab" href="Harbor.dc.html">Home</a><a class="tab" href="Score6.dc.html">Score</a><a class="tab" href="Groups4.dc.html">Groups</a><a class="tab" href="Apps3.dc.html">Apps</a><a class="tab tab-on" href="#" aria-current="page">Update plan</a>
+    </nav>
+    <button type="button" style="display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 12px 0 6px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); color: var(--text); font: 600 14px Inter, system-ui, sans-serif; cursor: pointer"><span aria-hidden="true" style="width: 32px; height: 32px; border-radius: 50%; background: #2F6F62; color: #FFFFFF; display: flex; align-items: center; justify-content: center">M</span>Matt<span class="big" style="color: var(--ok)">84</span></button>
+  </header>
+
+  <main style="flex: 1; width: 100%; max-width: 1240px; margin: 0 auto; box-sizing: border-box; padding: 32px 28px; display: flex; flex-direction: column; gap: 22px">
+    <div>
+      <h1 style="font-size: 30px">Your update rules</h1>
+      <p style="margin: 4px 0 0; color: var(--muted); max-width: 680px">Decide when we nudge you, by how serious the hole is and what kind of program it's in. Start from a preset and change any box.</p>
+    </div>
+
+    <div role="group" aria-label="Presets" style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center">
+      <span class="lbl" style="margin-right: 4px">Start from</span>
+      <sc-for list="{{presets}}" as="p" hint-placeholder-count="3">
+        <button type="button" class="{{p.cls}}" aria-pressed="{{p.pressed}}" onClick="{{p.pick}}">{{p.label}}</button>
+      </sc-for>
+    </div>
+
+    <div class="card" style="overflow-x: auto">
+      <table class="mx">
+        <thead><tr><th scope="col" style="width: 24%">How serious</th><th scope="col"><span class="colh"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="2"></rect><path d="M8 20h8M12 16v4" stroke="currentColor" stroke-width="2"></path></svg>System<span style="text-transform:none;letter-spacing:0;font-weight:400">macOS, Windows, Linux</span></span></th><th scope="col"><span class="colh"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"></circle><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18" fill="none" stroke="currentColor" stroke-width="2"></path></svg>Browsers<span style="text-transform:none;letter-spacing:0;font-weight:400">Chrome, Safari, Firefox</span></span></th><th scope="col"><span class="colh"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="2" fill="currentColor"></rect><rect x="13" y="4" width="7" height="7" rx="2" fill="currentColor"></rect><rect x="4" y="13" width="7" height="7" rx="2" fill="currentColor"></rect><rect x="13" y="13" width="7" height="7" rx="2" fill="currentColor"></rect></svg>Other apps<span style="text-transform:none;letter-spacing:0;font-weight:400">Zoom, VLC and the rest</span></span></th></tr></thead>
+        <tbody>
+          <tr>
+            <th scope="row" style="text-transform: none; letter-spacing: 0; font-size: 14px; color: var(--text)"><div class="sev"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" style="flex:none"><path d="M12 3 L22 20 L2 20 Z" fill="#F2B33D"></path></svg><div>Being exploited right now<span style="display: block; font-weight: 400; font-size: 12px; color: var(--muted)">Always same day. Can't be changed.</span></div></div></th>
+            <td><div class="lock"><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2" fill="currentColor"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="2"></path></svg>Same day</div></td><td><div class="lock"><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2" fill="currentColor"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="2"></path></svg>Same day</div></td><td><div class="lock"><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2" fill="currentColor"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="2"></path></svg>Same day</div></td>
+          </tr>
+          <sc-for list="{{rows}}" as="r" hint-placeholder-count="3">
+            <tr>
+              <th scope="row" style="text-transform: none; letter-spacing: 0; font-size: 14px; color: var(--text)"><div class="sev"><span class="meter" aria-hidden="true"><i class="{{r.m1}}"></i><i class="{{r.m2}}"></i><i class="{{r.m3}}"></i></span><div>{{r.label}}<span style="display: block; font-weight: 400; font-size: 12px; color: var(--muted)">{{r.hint}}</span></div></div></th>
+              <sc-for list="{{r.cells}}" as="c" hint-placeholder-count="3">
+                <td>
+                  <label for="{{c.id}}" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">{{c.aria}}</label>
+                  <div class="{{c.wrap}}"><span class="vi" aria-hidden="true"><sc-if value="{{c.is_day}}" hint-placeholder-val="{{ false }}"><svg width="18" height="18" viewBox="0 0 24 24"><path d="M13 2 L4 14 H11 L10 22 L20 9 H13 Z" fill="var(--act-ink)"></path></svg></sc-if><sc-if value="{{c.is_auto}}" hint-placeholder-val="{{ false }}"><svg width="18" height="18" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5" fill="none" stroke="var(--ok)" stroke-width="2.4" stroke-linecap="round"></path></svg></sc-if><sc-if value="{{c.is_sun}}" hint-placeholder-val="{{ false }}"><svg width="18" height="18" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.5" fill="currentColor"></circle><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg></sc-if><sc-if value="{{c.is_mon}}" hint-placeholder-val="{{ false }}"><svg width="18" height="18" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2" fill="none" stroke="var(--muted)" stroke-width="2"></rect><path d="M3 10h18M8 3v4M16 3v4" stroke="var(--muted)" stroke-width="2"></path></svg></sc-if></span>
+                  <select id="{{c.id}}" class="cell" value="{{c.val}}" onChange="{{c.set}}">
+                    <option value="day">Same day</option>
+                    <option value="sun">Sunday tune-up</option>
+                    <option value="mon">Monthly</option>
+                    <option value="auto">Install by itself</option>
+                  </select></div>
+                </td>
+              </sc-for>
+            </tr>
+          </sc-for>
+        </tbody>
+      </table>
+    </div>
+
+    <section class="card" style="padding: 20px 24px; display: flex; flex-direction: column; gap: 8px">
+      <div class="lbl">Quiet hours</div>
+      <div style="display: flex; flex-wrap: wrap; gap: 0 32px">
+        <div class="opt"><span>Quiet hours from</span><label for="f" class="sr">Quiet hours start</label><select id="f" class="sel"><option>10 pm</option></select><span>to</span><label for="t" class="sr">Quiet hours end</label><select id="t" class="sel"><option>8 am</option></select></div>
+      </div>
+      <p style="margin: 4px 0 0; font-size: 14px">We always ask before closing an app that's open, ask before big upgrades like macOS 16 to 17, and wait for Wi-Fi and power before large downloads.</p>
+      <p style="margin: 4px 0 0; font-size: 13px; color: var(--muted)">On iPhone we can only remind you. Apple installs the update. Held apps: 1, <a href="Apps3.dc.html">manage in Apps</a>.</p>
+    </section>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"$preview":{"width":1280,"height":900}}'>
+class Component extends DCLogic {
+  constructor(p) { super(p); this.state = { preset: 'balanced', m: this.preset('balanced') }; }
+  preset(id) {
+    const P = {
+      relaxed: { serious: ['sun', 'day', 'sun'], moderate: ['mon', 'mon', 'mon'], minor: ['mon', 'mon', 'mon'] },
+      balanced: { serious: ['day', 'day', 'day'], moderate: ['sun', 'sun', 'sun'], minor: ['sun', 'sun', 'mon'] },
+      eager: { serious: ['day', 'auto', 'auto'], moderate: ['auto', 'auto', 'auto'], minor: ['auto', 'auto', 'auto'] }
+    };
+    return JSON.parse(JSON.stringify(P[id]));
+  }
+  renderVals() {
+    const m = this.state.m;
+    const cols = ['System', 'Browsers', 'Other apps'];
+    const rowDefs = [['serious', 'Serious', 'Could let someone take over'], ['moderate', 'Moderate', 'Harder to use, or limited harm'], ['minor', 'Minor, or no security fix', 'Bug fixes and features']];
+    const flags = (v) => ({ is_day: v === 'day', is_sun: v === 'sun', is_mon: v === 'mon', is_auto: v === 'auto' });
+    const lvl = { serious: 3, moderate: 2, minor: 1 };
+    const rows = rowDefs.map(([k, label, hint]) => ({
+      label, hint, m1: lvl[k] >= 1 ? 'f' : '', m2: lvl[k] >= 2 ? 'f' : '', m3: lvl[k] >= 3 ? 'f' : '',
+      cells: m[k].map((val, i) => ({
+        id: 'c-' + k + '-' + i, val, aria: label + ', ' + cols[i], wrap: 'cellwrap v-' + val, ...flags(val),
+        set: (e) => { const n = JSON.parse(JSON.stringify(m)); n[k][i] = e.target.value; this.setState({ m: n, preset: 'custom' }); }
+      }))
+    }));
+    const same = (id) => JSON.stringify(this.preset(id)) === JSON.stringify(m);
+    const presets = [['relaxed', 'Relaxed'], ['balanced', 'Balanced'], ['eager', 'Eager']].map(([id, label]) => ({
+      label, cls: 'chip' + (same(id) ? ' chip-on' : ''), pressed: same(id) ? 'true' : 'false',
+      pick: () => this.setState({ preset: id, m: this.preset(id) })
+    }));
+    return { rows, presets, theme: (this.props.dark ?? false) ? 'dark' : '' };
+  }
+}
+</script>
+</body>
+</html>
