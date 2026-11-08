@@ -321,22 +321,102 @@ fn monthly_updates_join_only_the_first_tune_up_of_the_month() {
     )];
     let none = ApprovedAlerts::none();
     let plan_ = UpdatePlan::default(); // Balanced: minor apps are monthly.
-    let second = plan(
-        &f,
-        &plan_,
-        &none,
-        &History::default(),
-        &ny("2026-11-08T10:00"),
-    );
+    let handled_nov_1 = History {
+        tune_up: Some(ts("2026-11-01T10:00")),
+        ..Default::default()
+    };
+    let second = plan(&f, &plan_, &none, &handled_nov_1, &ny("2026-11-08T10:00"));
     assert!(second.tune_up_due && second.notify.is_empty());
-    let first = plan(
-        &f,
-        &plan_,
-        &none,
-        &History::default(),
-        &ny("2026-12-06T10:00"),
-    );
+    let first = plan(&f, &plan_, &none, &handled_nov_1, &ny("2026-12-06T10:00"));
     assert_eq!(first.notify.len(), 1);
+
+    // The first Sunday of December was missed: the next one carries them.
+    let handled_nov_29 = History {
+        tune_up: Some(ts("2026-11-29T10:00")),
+        ..Default::default()
+    };
+    let late = plan(&f, &plan_, &none, &handled_nov_29, &ny("2026-12-13T10:00"));
+    assert_eq!(late.notify.len(), 1);
+}
+
+#[test]
+fn tune_up_never_fires_in_quiet_hours() {
+    // Default quiet hours 22:00-08:00; laptop opened Sunday 23:00.
+    let p = plan(
+        &sample(),
+        &held_plan(),
+        &ApprovedAlerts::none(),
+        &History::default(),
+        &ny("2026-11-15T23:00"),
+    );
+    assert!(!p.tune_up_due && p.notify.is_empty());
+    assert_eq!(p.next_check, ts("2026-11-16T08:00"));
+    let morning = plan(
+        &sample(),
+        &held_plan(),
+        &ApprovedAlerts::none(),
+        &History::default(),
+        &ny("2026-11-16T08:00"),
+    );
+    assert!(morning.tune_up_due);
+    // Once handled, the card points at next Sunday.
+    match morning.top_card {
+        TopCard::TuneUp { at, .. } => assert_eq!(at, ts("2026-11-22T10:00")),
+        other => panic!("{other:?}"),
+    }
+}
+
+#[test]
+fn future_history_does_not_silence_nudges() {
+    let f = vec![
+        finding("mac_app:us.zoom.xos", "zoom", "app", Some("low"), true),
+        finding(
+            "mac_app:com.videolan.vlc",
+            "vlc",
+            "app",
+            Some("medium"),
+            false,
+        ),
+    ];
+    let mut history = History {
+        tune_up: Some(Timestamp::MAX),
+        ..Default::default()
+    };
+    history.notified.insert("zoom".into(), Timestamp::MAX);
+    let p = plan(
+        &f,
+        &UpdatePlan::default(),
+        &ApprovedAlerts::none(),
+        &history,
+        &ny("2026-11-15T10:00"),
+    );
+    assert_eq!(p.notify.len(), 2, "urgent and tune-up both go out");
+}
+
+#[test]
+fn approvals_only_count_once_approved_and_while_the_file_is_live() {
+    let f = sample();
+    let mut early = chrome_approved();
+    early.alerts[0].approved_at = ts("2026-11-20T00:00");
+    let p = plan(
+        &f,
+        &held_plan(),
+        &early,
+        &History::default(),
+        &ny(WEDNESDAY),
+    );
+    assert!(p.nudges.iter().any(|n| n.awaiting_approval));
+
+    let mut stale = chrome_approved();
+    stale.expires_at = ts("2026-11-11T13:00");
+    let p = plan(
+        &f,
+        &held_plan(),
+        &stale,
+        &History::default(),
+        &ny(WEDNESDAY),
+    );
+    assert!(p.nudges.iter().any(|n| n.awaiting_approval));
 }
 
 #[test]

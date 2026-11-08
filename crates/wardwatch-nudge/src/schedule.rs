@@ -2,7 +2,7 @@
 //! goes through `jiff::Zoned`, so DST changes are handled by the time zone
 //! database rather than by us.
 
-use jiff::civil::{Date, Time, Weekday};
+use jiff::civil::{Date, Time};
 use jiff::{ToSpan, Zoned};
 
 use crate::plan::QuietHours;
@@ -38,7 +38,8 @@ impl QuietHours {
         if t.time() >= self.end.0 {
             day = day.tomorrow().expect("date in range");
         }
-        at_local(day, self.end.0, t)
+        // `.max`: on a fall-back night the repeated hour could put `end` before `t`.
+        at_local(day, self.end.0, t).max(t.clone())
     }
 }
 
@@ -77,11 +78,6 @@ pub fn next_tune_up(now: &Zoned) -> Zoned {
         TUNE_UP_TIME,
         now,
     )
-}
-
-/// The monthly tune-up is the first Sunday Tune-Up of each month.
-pub fn is_monthly(tune_up: &Zoned) -> bool {
-    tune_up.date().weekday() == Weekday::Sunday && tune_up.day() <= 7
 }
 
 #[cfg(test)]
@@ -169,7 +165,5 @@ mod tests {
             next_tune_up(&ny("2026-11-07T23:00")),
             ny("2026-11-08T10:00")
         );
-        assert!(is_monthly(&ny("2026-11-01T10:00")));
-        assert!(!is_monthly(&ny("2026-11-08T10:00")));
     }
 }

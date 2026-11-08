@@ -32,15 +32,18 @@ Other apps):
 - **Same day**: one notification now, then once a day while it's open.
 - **Sunday tune-up**: bundled into one "Sunday Tune-Up" notification at
   10:00 on Sunday. If the device is off then, it can still go out for the
-  next 24 hours; after that the next Sunday covers it.
-- **Monthly**: only in the first tune-up of the month.
+  next 24 hours (outside quiet hours); after that the next Sunday covers it.
+- **Monthly**: only in the first tune-up actually handled each month, so a
+  missed first Sunday moves them to the next one.
 - **Auto** (Install by itself): listed in `install` without a notification.
   The updater still asks before closing an open app, asks before big OS
   upgrades and waits for Wi-Fi and power; those can't be turned off.
 
 **Quiet hours** (default 22:00 to 08:00, may wrap midnight) move every
 notification and install to the end of quiet hours. Times are local and go
-through jiff's time zone database, so DST changes are handled. **Holds**
+through jiff's time zone database, so DST changes are handled. History
+times in the future (a clock that was ahead) count as never, so they can't
+silence a nudge. **Holds**
 (by `source` and `id` of any of the finding's installs) remove a program entirely.
 
 Presets `Relaxed`, `Balanced` (default) and `Eager` are in `Preset::rules`;
@@ -48,8 +51,9 @@ Presets `Relaxed`, `Balanced` (default) and `Eager` are in `Preset::rules`;
 
 ## Top card
 
-`TopCard::UnderAttack` when anything is exploited and nudging today (the
-lighthouse beams on). Otherwise `TopCard::TuneUp` with every update the user
+`TopCard::UnderAttack` when anything is exploited and not waiting for an
+approval (the lighthouse beams on). That includes an exploited update the
+grid installs by itself: the beams stay on until it is installed. Otherwise `TopCard::TuneUp` with every update the user
 could do now (the "Update all 3" button), its highest meter, and the next
 tune-up time; with no keys it is the all-clear card.
 

@@ -213,7 +213,8 @@ pub fn plan(
         let rule = update_plan.rules.get(level, category);
 
         // The approval queue only gates exploited holes in the OS or a browser.
-        let approval = (f.exploited && category != Category::Apps).then(|| {
+        let broad = f.exploited && category != Category::Apps;
+        let alert = if broad {
             approvals.find(
                 &f.app_id,
                 |id| {
@@ -223,9 +224,10 @@ pub fn plan(
                 },
                 at,
             )
-        });
-        let awaiting_approval = matches!(approval, Some(None)) && rule != Timing::Auto;
-        let alert = approval.flatten();
+        } else {
+            None
+        };
+        let awaiting_approval = broad && alert.is_none() && rule != Timing::Auto;
 
         let timing = match (f.exploited, rule) {
             (_, Timing::Auto) => Timing::Auto,
@@ -250,6 +252,9 @@ pub fn plan(
                 let next = history
                     .notified
                     .get(&f.key)
+                    // A time in the future (a clock that was ahead, a bad
+                    // file) counts as never, so it can't silence reminders.
+                    .filter(|last| **last <= at)
                     .map_or(at, |last| (*last + every).max(at));
                 Some(allowed(next).timestamp())
             }
@@ -292,22 +297,34 @@ pub fn plan(
     // This week's tune-up: Sunday morning, after quiet hours, for a day.
     let last_sunday = last_tune_up(now);
     let sunday_at = allowed(last_sunday.timestamp()).timestamp();
-    let handled = history
-        .tune_up
-        .is_some_and(|t| t >= last_sunday.timestamp());
-    let this_week_open = !handled && at < sunday_at + TUNE_UP_WINDOW;
-    let tune_up_due = this_week_open && sunday_at <= at;
+    let last_handled = history.tune_up.filter(|t| *t <= at);
+    let handled = last_handled.is_some_and(|t| t >= last_sunday.timestamp());
+    let window_end = sunday_at + TUNE_UP_WINDOW;
+    let this_week_open = !handled && at < window_end;
+    let tune_up_due = this_week_open && sunday_at <= at && !quiet.contains(now);
     let next_sunday = allowed(next_tune_up(now).timestamp()).timestamp();
     // The tune-up the user sees coming: this week's until it's handled or missed.
-    let upcoming = if this_week_open {
+    let upcoming = if this_week_open && !tune_up_due {
         sunday_at
     } else {
         next_sunday
     };
-    wake.push(if upcoming > at { upcoming } else { next_sunday });
+    let resume = allowed(at).timestamp();
+    wake.push(if upcoming > at {
+        upcoming
+    } else if this_week_open && !tune_up_due && resume < window_end {
+        // In the window but in quiet hours: try again when they end.
+        resume
+    } else {
+        next_sunday
+    });
 
     if tune_up_due {
-        let monthly = schedule::is_monthly(&last_sunday);
+        // Monthly updates join the first tune-up actually handled this month.
+        let monthly = last_handled.is_none_or(|t| {
+            let t = t.to_zoned(now.time_zone().clone());
+            (t.year(), t.month()) != (now.year(), now.month())
+        });
         let keys: Vec<String> = nudges
             .iter()
             .filter(|n| {
@@ -342,10 +359,7 @@ pub fn plan(
         notify,
         install,
         tune_up_due,
-        next_check: wake
-            .into_iter()
-            .min()
-            .expect("the next tune-up is always pushed"),
+        next_check: wake.into_iter().min().unwrap_or(next_sunday),
     }
 }
 

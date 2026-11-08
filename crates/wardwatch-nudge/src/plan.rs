@@ -155,7 +155,8 @@ impl FromStr for ClockTime {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let bad = || format!("expected a time like \"22:00\", got {s:?}");
         let (h, m) = s.split_once(':').ok_or_else(bad)?;
-        if h.len() != 2 || m.len() != 2 {
+        let digits = |x: &str| x.len() == 2 && x.bytes().all(|b| b.is_ascii_digit());
+        if !digits(h) || !digits(m) {
             return Err(bad());
         }
         let h: i8 = h.parse().map_err(|_| bad())?;
@@ -271,7 +272,7 @@ mod tests {
     fn refuses_unknown_versions_and_bad_times() {
         let plan = serde_json::to_string(&UpdatePlan::default()).unwrap();
         assert!(UpdatePlan::from_json(plan.replace("\"v\":1", "\"v\":2").as_bytes()).is_err());
-        for bad in ["24:00", "7:30", "07:3", "07-30", "ab:cd", "07:60"] {
+        for bad in ["24:00", "7:30", "+7:30", "07:3", "07-30", "ab:cd", "07:60"] {
             assert!(bad.parse::<ClockTime>().is_err(), "{bad}");
         }
         assert_eq!("07:30".parse::<ClockTime>().unwrap().to_string(), "07:30");

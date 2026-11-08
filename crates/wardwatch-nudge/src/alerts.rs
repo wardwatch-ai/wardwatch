@@ -74,7 +74,11 @@ impl ApprovedAlerts {
         now: Timestamp,
     ) -> Option<&ApprovedAlert> {
         self.alerts.iter().find(|a| {
-            a.app_id == app_id && a.expires_at > now && a.vulns.iter().any(|v| vuln_ids(v))
+            self.expires_at > now
+                && a.approved_at <= now
+                && a.expires_at > now
+                && a.app_id == app_id
+                && a.vulns.iter().any(|v| vuln_ids(v))
         })
     }
 }
