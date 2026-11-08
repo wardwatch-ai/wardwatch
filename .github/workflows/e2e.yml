@@ -12,7 +12,19 @@ name: End-to-end
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - "**/*.md"
+      - "packaging/**"
+      - ".github/workflows/catalog.yml"
+      - ".github/workflows/desktop.yml"
+      - ".github/workflows/ui.yml"
   pull_request:
+    paths-ignore:
+      - "**/*.md"
+      - "packaging/**"
+      - ".github/workflows/catalog.yml"
+      - ".github/workflows/desktop.yml"
+      - ".github/workflows/ui.yml"
 
 permissions:
   contents: read

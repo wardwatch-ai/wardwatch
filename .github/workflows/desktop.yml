@@ -1,13 +1,38 @@
 name: Desktop
 
-# Builds and tests the desktop app on every push and PR.
+# Builds and tests the desktop app.
 # Bundles are built UNSIGNED to prove packaging works and are thrown away:
 # this workflow never signs, uploads or publishes anything.
+#
+# macOS and Windows runners bill at 10x and 2x on a private repo, so:
+# - pull requests and pushes to main build on Linux only;
+# - macOS and Windows run nightly, only if main changed in the last day;
+# - the full matrix also runs from "Run workflow" (any branch) and on pull
+#   requests labelled `full-ci` (applies from the next push).
 
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - "**/*.md"
+      - "packaging/**"
+      - "tests/devices/**"
+      - "e2e/**"
+      - ".github/workflows/catalog.yml"
+      - ".github/workflows/e2e.yml"
+      - ".github/workflows/ui.yml"
   pull_request:
+    paths-ignore:
+      - "**/*.md"
+      - "packaging/**"
+      - "tests/devices/**"
+      - "e2e/**"
+      - ".github/workflows/catalog.yml"
+      - ".github/workflows/e2e.yml"
+      - ".github/workflows/ui.yml"
+  schedule:
+    - cron: "23 7 * * *"
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -20,8 +45,25 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  changed:
+    name: Main changed in the last day
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      changed: ${{ steps.check.outputs.changed }}
+    steps:
+      - id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          since=$(date -u -d '25 hours ago' +%Y-%m-%dT%H:%M:%SZ)
+          n=$(gh api "repos/$GITHUB_REPOSITORY/commits?sha=main&since=$since&per_page=1" --jq length)
+          if [ "$n" -gt 0 ]; then echo changed=true; else echo changed=false; fi >> "$GITHUB_OUTPUT"
+
   ui:
     name: Desktop UI lint, typecheck, test
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -41,10 +83,14 @@ jobs:
 
   app:
     name: App (${{ matrix.os }})
+    needs: changed
+    if: ${{ !cancelled() && needs.changed.result != 'failure' && (github.event_name != 'schedule' || needs.changed.outputs.changed == 'true') }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, macos-latest, windows-latest]
+        # Nightly: macOS + Windows (Linux already ran on the push to main).
+        # Manual run or `full-ci` label: all three. Otherwise: Linux only.
+        os: ${{ fromJSON(github.event_name == 'schedule' && '["macos-latest","windows-latest"]' || (github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'full-ci')) && '["ubuntu-24.04","macos-latest","windows-latest"]' || '["ubuntu-24.04"]') }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
