@@ -1,0 +1,56 @@
+{
+  "color": {
+    "light": {
+      "bg": "#F3EDE2",
+      "surface": "#FBF8F2",
+      "line": "#E3D9C6",
+      "text": "#23211F",
+      "text-muted": "#6B6358",
+      "brand": "#A23B2C",
+      "on-brand": "#FFFFFF",
+      "ok": "#2F6F62",
+      "act": "#F2B33D",
+      "act-tint": "#FFF4E0",
+      "act-ink": "#8A5300",
+      "on-act": "#23211F",
+      "act-edge": "#23211F"
+    },
+    "dark": {
+      "bg": "#23211F",
+      "surface": "#2E2B28",
+      "line": "#45403A",
+      "text": "#F3EDE2",
+      "text-muted": "#B8AE9F",
+      "brand": "#C4503C",
+      "on-brand": "#FFFFFF",
+      "ok": "#7FCFA8",
+      "act": "#F2B33D",
+      "act-tint": "#3A2F1C",
+      "act-ink": "#F7C76A",
+      "on-act": "#23211F",
+      "act-edge": "transparent"
+    }
+  },
+  "font": {
+    "display": "Manrope, system-ui, sans-serif",
+    "body": "Inter, system-ui, sans-serif",
+    "display-weight": 800,
+    "body-weights": [
+      400,
+      600
+    ]
+  },
+  "radius": {
+    "sm": "8px",
+    "md": "12px",
+    "lg": "20px",
+    "icon": "22.3%"
+  },
+  "rules": [
+    "Beam amber (act) appears only when the user must act now. Never decorative.",
+    "Brick red is identity, never an error or alarm color.",
+    "Status changes the glyph (beams on/off), not just the color.",
+    "Body text pairs must meet 4.5:1; graphics 3:1.",
+    "Act-now button (locked 2026-11-08): amber act fill, on-act driftwood label (8.6:1), 2px act-edge border (driftwood in light, none in dark). The label color must win over any link color."
+  ]
+}

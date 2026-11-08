@@ -1,0 +1,110 @@
+/* Shared component styles. Every color comes from tokens.css. */
+
+.ww-sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+/* Buttons: 44px touch target everywhere. */
+.ww-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 44px; padding: 0 18px; box-sizing: border-box;
+  border: 1px solid transparent; border-radius: 10px;
+  font: 600 15px/1 var(--ww-font-body);
+  text-decoration: none; cursor: pointer;
+}
+.ww-btn:disabled, .ww-btn[aria-disabled="true"] { cursor: not-allowed; opacity: 0.6; }
+.ww-btn-brand, a.ww-btn-brand, a.ww-btn-brand:hover, a.ww-btn-brand:visited {
+  background: var(--ww-brand); color: var(--ww-on-brand);
+}
+.ww-btn-quiet, a.ww-btn-quiet, a.ww-btn-quiet:visited {
+  background: transparent; color: var(--ww-text); border-color: var(--ww-edge);
+}
+.ww-btn-quiet:hover { background: var(--ww-sel); color: var(--ww-text); }
+/* Act-now button (brand README rule 6, locked 2026-11-08). The selectors beat any link color rule. */
+.ww-btn-act, a.ww-btn-act, a.ww-btn-act:hover, a.ww-btn-act:visited {
+  background: var(--ww-act); color: var(--ww-on-act); border: 2px solid var(--ww-act-edge);
+}
+
+/* 3-bar severity meter for quiet update buttons. */
+.ww-meter { display: inline-flex; gap: 2px; flex: none; }
+.ww-meter i { display: block; width: 4px; height: 14px; border-radius: 2px; background: var(--ww-line); }
+.ww-meter i.ww-meter-on { background: currentColor; }
+
+/* Cards */
+.ww-card { border-radius: 14px; box-sizing: border-box; padding: 18px 20px; }
+.ww-card-default { background: var(--ww-surface); border: 1px solid var(--ww-line); }
+.ww-card-urgent { background: var(--ww-act-tint); }
+.ww-card-ok { background: var(--ww-ok-tint); }
+.ww-card-inset { background: var(--ww-bg); }
+.ww-card-remote { border: 1px dashed var(--ww-edge); }
+
+.ww-eyebrow {
+  font-size: 12px; font-weight: 600; color: var(--ww-text-muted);
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+.ww-card-urgent .ww-eyebrow { color: var(--ww-act-ink); }
+
+/* Status pills: "Up to date", "Update on the iPhone" */
+.ww-pill {
+  display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px;
+  box-sizing: border-box; border-radius: 999px; font-weight: 600; font-size: 14px; white-space: nowrap;
+}
+.ww-pill-ok { background: var(--ww-ok-tint); color: var(--ww-ok); }
+.ww-pill-remote { border: 1px dashed var(--ww-edge); color: var(--ww-text-muted); }
+
+/* Top bar and tabs */
+.ww-topbar {
+  display: flex; align-items: center; gap: 24px; flex-wrap: wrap; padding: 0 28px;
+  border-bottom: 1px solid var(--ww-line); background: var(--ww-surface);
+}
+.ww-topbar-brand { display: flex; align-items: center; gap: 10px; min-height: 64px; font-size: 19px; }
+.ww-topbar-nav { flex: 1; display: flex; flex-wrap: wrap; gap: 4px; }
+.ww-tab, a.ww-tab, a.ww-tab:visited {
+  display: inline-flex; align-items: center; min-height: 64px; padding: 0 14px; box-sizing: border-box;
+  border-bottom: 3px solid transparent; color: var(--ww-text-muted); font-weight: 600; text-decoration: none;
+}
+a.ww-tab:hover { color: var(--ww-text); }
+.ww-tab[aria-current="page"] { color: var(--ww-text); border-bottom-color: var(--ww-brand); }
+
+.ww-account {
+  display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 12px 0 6px;
+  border: 1px solid var(--ww-edge); border-radius: 999px; background: var(--ww-bg);
+  color: var(--ww-text); font: 600 14px var(--ww-font-body); cursor: pointer;
+}
+.ww-avatar {
+  width: 32px; height: 32px; border-radius: 50%; flex: none;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--ww-ok); color: var(--ww-bg); font-weight: 600;
+}
+
+/* Score band bar and subscore bars */
+.ww-band { display: flex; flex-direction: column; gap: 8px; }
+.ww-band-track, .ww-band-labels { display: grid; grid-template-columns: 60fr 15fr 15fr 10fr; gap: 3px; }
+.ww-band-track { position: relative; height: 14px; }
+.ww-band-track > span:nth-child(1) { background: var(--ww-band-1); border-radius: 7px 0 0 7px; }
+.ww-band-track > span:nth-child(2) { background: var(--ww-band-2); }
+.ww-band-track > span:nth-child(3) { background: var(--ww-band-3); }
+.ww-band-track > span:nth-child(4) { background: var(--ww-band-4); border-radius: 0 7px 7px 0; }
+.ww-band-marker {
+  position: absolute; top: -5px; width: 18px; height: 18px; margin-left: -9px; box-sizing: border-box;
+  border-radius: 50%; background: var(--ww-surface); border: 4px solid var(--ww-text);
+}
+.ww-band-labels { font-size: 12px; color: var(--ww-text-muted); }
+.ww-band-labels .ww-band-current { color: var(--ww-text); font-weight: 600; }
+
+.ww-bar { height: 8px; border-radius: 4px; background: var(--ww-line); overflow: hidden; }
+.ww-bar > span { display: block; height: 100%; border-radius: 4px; background: var(--ww-ok); }
+
+/* Segmented control (period switch) and chips (plan presets) */
+.ww-seg { display: inline-flex; flex-wrap: wrap; gap: 4px; padding: 4px; border-radius: 12px; background: var(--ww-sel); }
+.ww-seg button {
+  min-height: 44px; padding: 0 16px; border: 0; border-radius: 9px; background: transparent;
+  color: var(--ww-text); font: 600 14px var(--ww-font-body); cursor: pointer;
+}
+.ww-seg button[aria-pressed="true"] { background: var(--ww-surface); box-shadow: 0 1px 3px rgb(35 33 31 / 0.15); }
+.ww-chip {
+  min-height: 44px; padding: 0 16px; border-radius: 999px; border: 1px solid var(--ww-edge);
+  background: var(--ww-surface); color: var(--ww-text); font: 600 14px var(--ww-font-body); cursor: pointer;
+}
+.ww-chip[aria-pressed="true"] { background: var(--ww-text); color: var(--ww-bg); border-color: var(--ww-text); }

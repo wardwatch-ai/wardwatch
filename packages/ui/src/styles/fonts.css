@@ -1,0 +1,23 @@
+/* Bundled brand fonts (SIL Open Font License, see src/fonts/OFL-*.txt).
+   Nothing is fetched from the network. */
+@font-face {
+  font-family: Inter;
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../fonts/inter-400.woff2") format("woff2");
+}
+@font-face {
+  font-family: Inter;
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("../fonts/inter-600.woff2") format("woff2");
+}
+@font-face {
+  font-family: Manrope;
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url("../fonts/manrope-800.woff2") format("woff2");
+}
