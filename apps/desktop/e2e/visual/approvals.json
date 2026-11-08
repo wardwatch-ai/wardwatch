@@ -54,75 +54,75 @@
     "review": "https://claude.ai/artifact/FN7ZHAuDbyvsSZiGmVwMr7 (run r2-pr16)"
   },
   "home-dark": {
-    "verdict": "fix",
-    "note": "same as above: the dot on the score card slider is not centered vertically on the bar.",
+    "verdict": "ok",
+    "note": "",
     "mock": "6069aeb11a201cce32d6f69fbf95c172f63f368c64b792a0b8eef5e6a907b9c6",
-    "app": "515cdd04aa4467ed38ff6f9ece5651293f237f8fc57ebc0dd21cd4b09d085275",
+    "app": "457c17d8edaf84643e201443a95de620cbcbe0c6f6c3638f59e0e37ee1d930fb",
     "by": "Matt",
-    "at": "2026-11-08T19:32:24.300Z",
-    "review": "https://claude.ai/artifact/FN7ZHAuDbyvsSZiGmVwMr7 (run r2-pr16)"
+    "at": "2026-11-08T20:02:58.332Z",
+    "review": "https://claude.ai/artifact/FN7ZHAuDbyvsSZiGmVwMr7 (round 3 for home, tray, plan; round 4 for score)"
   },
   "home-light": {
-    "verdict": "fix",
-    "note": "the dot on the score card slider is not centered vertically on the bar.",
+    "verdict": "ok",
+    "note": "",
     "mock": "fea2ca319bfe9be97926f6679200ae8b1677854f646f6bcd01fa90863a666bc5",
-    "app": "3fd1a1f9aeee2bc52280806b827d18e1768971c18ea5da44d31d8eafbb519aea",
+    "app": "9aad120dba11291c53f25e770c5fe52ddccdf5156670542a7347e4f24e03bcfc",
     "by": "Matt",
-    "at": "2026-11-08T19:32:24.300Z",
-    "review": "https://claude.ai/artifact/FN7ZHAuDbyvsSZiGmVwMr7 (run r2-pr16)"
+    "at": "2026-11-08T20:02:58.332Z",
+    "review": "https://claude.ai/artifact/FN7ZHAuDbyvsSZiGmVwMr7 (round 3 for home, tray, plan; round 4 for score)"
   },
   "plan-dark": {
     "verdict": "ok",
     "note": "",
     "mock": "6613412752b9d464e0684d9e87d652b86c275851b5a0e868c87d9a9801b25c80",
-    "app": "96870dc5f54961d95d21938ac7ca1f657c8bc18a32e8589d9f0d0d29883f29ce",
+    "app": "848280b80f9a3559e92f2a7217fdfd06ac442bf0e194f52adf2914544e2d1082",
     "by": "Matt",
-    "at": "2026-11-08T19:32:24.300Z",
-    "review": "https://claude.ai/artifact/FN7ZHAuDbyvsSZiGmVwMr7 (run r2-pr16)"
+    "at": "2026-11-08T20:02:58.332Z",
+    "review": "https://claude.ai/artifact/FN7ZHAuDbyvsSZiGmVwMr7 (round 3 for home, tray, plan; round 4 for score)"
   },
   "plan-light": {
     "verdict": "ok",
     "note": "",
     "mock": "2c80066388f6f6e2da9ab9be1d518c6d3d19a91acc90b92cec4d7e7c10af1897",
-    "app": "67ed54d198e00f472d32875995ca5568eae7b7191aea6ec40c7eabdab1707287",
+    "app": "684422baafb161b6db1b8cae733fe3afde79dd52e65237790121f4b025a03213",
     "by": "Matt",
-    "at": "2026-11-08T19:32:24.300Z",
-    "review": "https://claude.ai/artifact/FN7ZHAuDbyvsSZiGmVwMr7 (run r2-pr16)"
+    "at": "2026-11-08T20:02:58.332Z",
+    "review": "https://claude.ai/artifact/FN7ZHAuDbyvsSZiGmVwMr7 (round 3 for home, tray, plan; round 4 for score)"
   },
   "score-dark": {
-    "verdict": "fix",
-    "note": "same as above: the dot on the score card slider is not centered vertically on the bar.",
+    "verdict": "ok",
+    "note": "",
     "mock": "2d9e7ac1f0f5936caaa65d2c1cea42fb0366e973e716cfa752335f1fed5c0cb8",
-    "app": "bb750aea76b5462a349534fa5098e8242a56e3253b909be058427f537f86b732",
+    "app": "366d9ae153bab1fe8d1f5770a7b9cfb7ed78c4d1110ba750339b088337c124e5",
     "by": "Matt",
-    "at": "2026-11-08T19:32:24.300Z",
-    "review": "https://claude.ai/artifact/FN7ZHAuDbyvsSZiGmVwMr7 (run r2-pr16)"
+    "at": "2026-11-08T20:02:58.332Z",
+    "review": "https://claude.ai/artifact/FN7ZHAuDbyvsSZiGmVwMr7 (round 3 for home, tray, plan; round 4 for score)"
   },
   "score-light": {
-    "verdict": "fix",
-    "note": "No verdict given. Recorded with the Score dark and Home note: the score slider dot isn't centered vertically on the bar.",
+    "verdict": "ok",
+    "note": "",
     "mock": "a5761f1f34320290d5a26136cd30690561075e010b6985d03dc255daa04cf1c4",
-    "app": "d769ce5d972a8e137bfd42b3bc56c604118a791e22f806519c249b791c3dbe17",
-    "by": "Claude (Matt left this one unmarked)",
-    "at": "2026-11-08T19:32:24.654Z",
-    "review": "https://claude.ai/artifact/FN7ZHAuDbyvsSZiGmVwMr7 (run r2-pr16)"
+    "app": "6c3eedc6bc842bcf1d6d2b5676246b67e720abada10d39436e841cad59ed4900",
+    "by": "Matt",
+    "at": "2026-11-08T20:02:58.332Z",
+    "review": "https://claude.ai/artifact/FN7ZHAuDbyvsSZiGmVwMr7 (round 3 for home, tray, plan; round 4 for score)"
   },
   "tray-dark": {
-    "verdict": "fix",
-    "note": "same as above: the System Browsers Apps things should each have an icon.",
+    "verdict": "ok",
+    "note": "",
     "mock": "399c44049de4f7f9b0c0a5c59198b6ea693f24c337dbde3e7cae6c5ee86c2869",
-    "app": "33a44a1e39995d0dac37ba3fbc38d8dc51898f26283f90257620174ef58923d8",
+    "app": "6509e0be347827d56c43f4f35b77a1efed2dfdaaf82944b906b60963205c3ec6",
     "by": "Matt",
-    "at": "2026-11-08T19:32:24.300Z",
-    "review": "https://claude.ai/artifact/FN7ZHAuDbyvsSZiGmVwMr7 (run r2-pr16)"
+    "at": "2026-11-08T20:02:58.332Z",
+    "review": "https://claude.ai/artifact/FN7ZHAuDbyvsSZiGmVwMr7 (round 3 for home, tray, plan; round 4 for score)"
   },
   "tray-light": {
-    "verdict": "fix",
-    "note": "the System Browsers Apps things should each have an icon.",
+    "verdict": "ok",
+    "note": "",
     "mock": "1623fd19ff80947296fab8035df45035d853d7a1ebd45f30874c85267d8f6bda",
-    "app": "77a047c114785638ad44b87b742e4a73fb6409fe8cca4ef42d55b89affdb80c3",
+    "app": "c25ae7794054823fd7edc0a6dea9fe747924c52314adfe42f34e1cdaa626fa58",
     "by": "Matt",
-    "at": "2026-11-08T19:32:24.300Z",
-    "review": "https://claude.ai/artifact/FN7ZHAuDbyvsSZiGmVwMr7 (run r2-pr16)"
+    "at": "2026-11-08T20:02:58.332Z",
+    "review": "https://claude.ai/artifact/FN7ZHAuDbyvsSZiGmVwMr7 (round 3 for home, tray, plan; round 4 for score)"
   }
 }
