@@ -28,6 +28,10 @@ image=${WARDWATCH_BUILD_IMAGE:-mirror.gcr.io/library/ubuntu:22.04}
 node_version=22
 
 args=(--rm -v "$root:/src:ro" -v "$out:/out" -e "NODE_MAJOR=$node_version")
+# The release channel, commit and date stamped into the app (see src-tauri/build.rs).
+for var in WARDWATCH_BUILD_CHANNEL WARDWATCH_BUILD_COMMIT WARDWATCH_BUILD_DATE; do
+  if [[ -n "${!var:-}" ]]; then args+=(-e "$var"); fi
+done
 if [[ -n "${WARDWATCH_BUILD_CA_BUNDLE:-}" ]]; then
   args+=(-v "$WARDWATCH_BUILD_CA_BUNDLE:/usr/local/share/ca-certificates/extra.crt:ro")
 fi

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ordinal } from "./format";
+import { buildDate, ordinal, releaseLabel } from "./format";
 
 describe("ordinal", () => {
   it("handles teens", () => {
@@ -16,5 +16,20 @@ describe("ordinal", () => {
       "101st",
       "111th",
     ]);
+  });
+});
+
+describe("releaseLabel", () => {
+  it("spells out nightlies and leaves other versions alone", () => {
+    expect(releaseLabel({ version: "0.2.0-312", channel: "nightly" })).toBe("0.2.0 nightly 312");
+    expect(releaseLabel({ version: "0.2.0", channel: "mainline" })).toBe("0.2.0");
+    expect(releaseLabel({ version: "0.1.0", channel: "dev" })).toBe("0.1.0");
+  });
+});
+
+describe("buildDate", () => {
+  it("formats a UTC day and passes through anything else", () => {
+    expect(buildDate("2026-11-09")).toBe("Nov 9, 2026");
+    expect(buildDate("soon")).toBe("soon");
   });
 });
