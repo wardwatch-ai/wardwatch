@@ -46,6 +46,15 @@ describe("App", () => {
     expect(screen.queryByRole("dialog", { name: "Account" })).not.toBeInTheDocument();
   });
 
+  it("opens Settings from the account menu", async () => {
+    renderAt(<App />);
+    await userEvent.click(await screen.findByRole("button", { name: /Matt/ }));
+    await userEvent.click(screen.getByRole("link", { name: "Settings" }));
+    expect(screen.getByTestId("path")).toHaveTextContent("/settings");
+    expect(await screen.findByRole("heading", { name: "Settings" })).toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "Account" })).not.toBeInTheDocument();
+  });
+
   it("shows app info and says when data is a sample", async () => {
     renderAt(<App />);
     expect(await screen.findByText(/Wardwatch dev on browser/)).toHaveTextContent("sample data");

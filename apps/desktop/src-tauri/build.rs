@@ -11,7 +11,11 @@ fn main() {
         "get_fix",
         "run_fix",
         "get_nudges",
+        "get_settings",
+        "set_settings",
     ]);
+    stamp_build();
+
     let mut attributes = tauri_build::Attributes::new().app_manifest(manifest);
 
     // Tauri normally embeds the Windows app manifest only into the app binary,
@@ -29,4 +33,44 @@ fn main() {
     }
 
     tauri_build::try_build(attributes).expect("failed to run tauri-build");
+}
+
+/// Stamps the release channel, commit and build date into the binary, for the
+/// Settings page. The release workflow sets all three; a local build is "dev".
+fn stamp_build() {
+    for var in [
+        "WARDWATCH_BUILD_CHANNEL",
+        "WARDWATCH_BUILD_COMMIT",
+        "WARDWATCH_BUILD_DATE",
+    ] {
+        println!("cargo:rerun-if-env-changed={var}");
+    }
+    let channel = std::env::var("WARDWATCH_BUILD_CHANNEL").unwrap_or_else(|_| "dev".into());
+    assert!(
+        matches!(channel.as_str(), "mainline" | "nightly" | "dev"),
+        "WARDWATCH_BUILD_CHANNEL must be mainline, nightly or dev, not {channel:?}"
+    );
+    let commit = std::env::var("WARDWATCH_BUILD_COMMIT").unwrap_or_default();
+    assert!(
+        commit.len() <= 40 && commit.bytes().all(|b| b.is_ascii_hexdigit()),
+        "WARDWATCH_BUILD_COMMIT must be a git commit id"
+    );
+    let date = std::env::var("WARDWATCH_BUILD_DATE").unwrap_or_default();
+    let b = date.as_bytes();
+    assert!(
+        date.is_empty()
+            || (b.len() == 10
+                && b[4] == b'-'
+                && b[7] == b'-'
+                && b.iter()
+                    .enumerate()
+                    .all(|(i, c)| i == 4 || i == 7 || c.is_ascii_digit())),
+        "WARDWATCH_BUILD_DATE must be YYYY-MM-DD"
+    );
+    println!("cargo:rustc-env=WARDWATCH_BUILD_CHANNEL={channel}");
+    println!(
+        "cargo:rustc-env=WARDWATCH_BUILD_COMMIT={}",
+        &commit[..commit.len().min(12)]
+    );
+    println!("cargo:rustc-env=WARDWATCH_BUILD_DATE={date}");
 }

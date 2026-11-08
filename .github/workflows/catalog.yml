@@ -10,6 +10,7 @@ on:
     paths:
       - "crates/wardwatch-catalog/**"
       - ".github/workflows/catalog.yml"
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -41,6 +42,14 @@ jobs:
       - run: cargo fmt --check
       - run: cargo clippy --all-targets -- -D warnings
       - run: cargo test
+      # Type-check the macOS and Windows scanners (cfg-gated code) on Linux
+      # too, so a break shows up in the fastest job.
+      - name: Check macOS and Windows code
+        if: runner.os == 'Linux'
+        run: |
+          rustup target add x86_64-pc-windows-msvc aarch64-apple-darwin
+          cargo check --all-targets --locked --target x86_64-pc-windows-msvc
+          cargo check --all-targets --locked --target aarch64-apple-darwin
       # Real scan of the runner, to catch what sample data can't. Prints counts only.
       - run: cargo run --release --example scan -- --summary
 

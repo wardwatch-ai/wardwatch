@@ -10,9 +10,25 @@ export interface AppInfo {
   name: string;
   version: string;
   os: string;
+  /** The channel this build was made for. Local builds are "dev". */
+  channel: BuildChannel;
+  /** Short git commit id, or "" when unknown. */
+  commit: string;
+  /** Build date, YYYY-MM-DD, or "" for a local build. */
+  built: string;
 }
 
-const browserFallback: AppInfo = { name: "Wardwatch", version: "dev", os: "browser" };
+export type ReleaseChannel = "mainline" | "nightly";
+export type BuildChannel = ReleaseChannel | "dev";
+
+const browserFallback: AppInfo = {
+  name: "Wardwatch",
+  version: "dev",
+  os: "browser",
+  channel: "dev",
+  commit: "",
+  built: "",
+};
 
 // Outside Tauri (`pnpm dev` in a browser, and tests) the UI runs on the design
 // spec's sample scenario, so screens can be designed and checked without the core.
@@ -291,4 +307,26 @@ async function simulateFix(onProgress: (p: FixProgress) => void): Promise<FixRes
   await wait();
   onProgress({ event: "step", step: 3, state: "done" });
   return { outcome: { status: "installed" }, check: "closed", finding: null };
+}
+
+// ---- Settings (src-tauri/src/settings.rs) -----------------------------------
+
+export interface Settings {
+  v: 1;
+  channel: ReleaseChannel;
+}
+
+let browserSettings: Settings = { v: 1, channel: "mainline" };
+
+export async function getSettings(): Promise<Settings> {
+  if (!isTauri()) return { ...browserSettings };
+  return invoke<Settings>("get_settings");
+}
+
+export async function setSettings(settings: Settings): Promise<void> {
+  if (!isTauri()) {
+    browserSettings = { ...settings };
+    return;
+  }
+  await invoke("set_settings", { settings });
 }

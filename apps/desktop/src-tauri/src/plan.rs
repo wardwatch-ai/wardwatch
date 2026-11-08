@@ -165,23 +165,7 @@ pub fn load(path: &Path) -> UpdatePlan {
 /// build never silently throws away settings it can't read.
 pub fn save(path: &Path, plan: &UpdatePlan) -> Result<(), String> {
     plan.validate()?;
-    if let Ok(bytes) = std::fs::read(path)
-        && let Ok(existing) = serde_json::from_slice::<serde_json::Value>(&bytes)
-        && existing
-            .get("v")
-            .and_then(serde_json::Value::as_u64)
-            .is_some_and(|v| v > 1)
-    {
-        return Err("this plan was saved by a newer version of Wardwatch".into());
-    }
-    if let Some(dir) = path.parent() {
-        std::fs::create_dir_all(dir)
-            .map_err(|e| format!("could not create the config folder: {e}"))?;
-    }
-    let json = serde_json::to_vec_pretty(plan).map_err(|e| e.to_string())?;
-    let tmp = path.with_extension("json.tmp");
-    std::fs::write(&tmp, json).map_err(|e| format!("could not save the plan: {e}"))?;
-    std::fs::rename(&tmp, path).map_err(|e| format!("could not save the plan: {e}"))
+    crate::store::save(path, plan, 1, "plan")
 }
 
 #[cfg(test)]

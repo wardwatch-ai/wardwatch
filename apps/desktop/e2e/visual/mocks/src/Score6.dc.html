@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Score tab, actions under the score</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&amp;family=Manrope:wght@800&amp;display=swap">
+<style>
+body{margin:0}
+.ww{--bg:#F3EDE2;--surface:#FBF8F2;--line:#E3D9C6;--text:#23211F;--muted:#6B6358;--brand:#A23B2C;--link:#A23B2C;--ok:#2F6F62;--ok-tint:#E4EFEA;--act-tint:#FFF4E0;--act-ink:#8A5300;--tower:#23211F;--sel:#EADFCB;--b1:#D9CDB8;--b2:#C9D9CF;--b3:#86B3A4;--b4:#2F6F62;background:var(--bg);color:var(--text);font-family:Inter,system-ui,sans-serif;font-size:15px;line-height:1.5}
+.ww.dark{--bg:#23211F;--surface:#2E2B28;--line:#45403A;--text:#F3EDE2;--muted:#B8AE9F;--brand:#C4503C;--link:#F0A08C;--ok:#7FCFA8;--ok-tint:#24352F;--act-tint:#3A2F1C;--act-ink:#F7C76A;--tower:#F3EDE2;--sel:#3A3632;--b1:#4A443D;--b2:#3E544B;--b3:#5C9583;--b4:#7FCFA8}
+.ww h1,.ww h2,.ww h3{font-family:Manrope,system-ui,sans-serif;font-weight:800;margin:0;letter-spacing:-0.01em}
+.ww a{color:var(--link)}.ww a:hover{color:var(--text)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 18px;border-radius:10px;border:1px solid transparent;font:600 15px/1 Inter,system-ui,sans-serif;cursor:pointer;text-decoration:none;box-sizing:border-box}
+.btn-act{background:#F2B33D;color:#23211F;border:2px solid #23211F}.ww.dark .btn-act{border-color:transparent}
+.ww a.btn-act,.ww a.btn-act:hover,.ww button.btn-act{color:#23211F}.ww a.btn-brand,.ww a.btn-brand:hover{color:#fff}
+.btn-brand{background:var(--brand);color:#fff}
+.btn-quiet{background:transparent;color:var(--text);border-color:var(--line)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px}
+.lbl{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.tab{display:inline-flex;align-items:center;min-height:64px;padding:0 14px;border-bottom:3px solid transparent;color:var(--muted);font-weight:600;text-decoration:none;box-sizing:border-box}
+.ww a.tab{color:var(--muted)}.ww a.tab:hover{color:var(--text)}
+.ww a.tab-on{color:var(--text);border-bottom-color:var(--brand)}
+.big{font-family:Manrope,system-ui,sans-serif;font-weight:800}
+.dev{display:flex;flex-direction:column;gap:6px;padding:16px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.move{display:flex;flex-direction:column;gap:10px;padding:18px;border-radius:14px}
+</style>
+</helmet>
+<div class="ww {{theme}}" style="min-height: 900px; box-sizing: border-box; display: flex; flex-direction: column">
+  <header style="display: flex; align-items: center; gap: 24px; flex-wrap: wrap; padding: 0 28px; border-bottom: 1px solid var(--line); background: var(--surface)">
+    <div style="display: flex; align-items: center; gap: 10px; min-height: 64px">
+      <svg width="30" height="30" viewBox="0 0 64 64" aria-hidden="true"><path d="M28 16.5 L3 9 L3 24 Z" fill="#F2B33D"></path><path d="M36 16.5 L61 9 L61 24 Z" fill="#F2B33D"></path><path d="M26 13 L32 7.5 L38 13 Z" fill="var(--tower)"></path><rect x="27.5" y="13" width="9" height="7" fill="#F2B33D"></rect><rect x="24" y="20" width="16" height="3" rx="1" fill="var(--tower)"></rect><path d="M26.5 23 L37.5 23 L39.2 40 L24.8 40 Z" fill="var(--brand)"></path><path d="M24.8 40 L39.2 40 L41 57 L23 57 Z" fill="#FFFFFF" stroke="#23211F" stroke-width="1.5"></path><rect x="21" y="57" width="22" height="3" rx="1" fill="var(--tower)"></rect></svg>
+      <span class="big" style="font-size: 19px">Wardwatch</span>
+    </div>
+    <nav aria-label="Main" style="flex: 1; display: flex; flex-wrap: wrap; gap: 4px">
+      <a class="tab" href="Harbor.dc.html">Home</a><a class="tab tab-on" href="#" aria-current="page">Score</a><a class="tab" href="Groups4.dc.html">Groups</a><a class="tab" href="Apps3.dc.html">Apps</a><a class="tab" href="Plan4.dc.html">Update plan</a>
+    </nav>
+    <button type="button" style="display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 12px 0 6px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); color: var(--text); font: 600 14px Inter, system-ui, sans-serif; cursor: pointer"><span aria-hidden="true" style="width: 32px; height: 32px; border-radius: 50%; background: #2F6F62; color: #FFFFFF; display: flex; align-items: center; justify-content: center">M</span>Matt<span class="big" style="color: var(--ok)">84</span></button>
+  </header>
+
+  <main style="flex: 1; width: 100%; max-width: 1160px; margin: 0 auto; box-sizing: border-box; padding: 32px 28px; display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start">
+    <div style="flex: 999 1 600px; min-width: 0; display: flex; flex-direction: column; gap: 20px">
+      <section class="card" style="padding: 28px; display: flex; flex-direction: column; gap: 22px">
+        <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 20px">
+          <div>
+            <div class="lbl">Your score · 3 devices</div>
+            <div style="display: flex; align-items: baseline; gap: 14px; margin-top: 4px"><span class="big" style="font-size: 88px; line-height: 1">84</span><span class="big" style="font-size: 28px; color: var(--ok)">Good</span></div>
+          </div>
+          <p style="margin: 0; max-width: 280px; font-size: 14px; color: var(--muted)">6 points to <strong style="color: var(--text)">Excellent</strong>.</p>
+        </div>
+        <div>
+          <div style="position: relative; display: grid; grid-template-columns: 60fr 15fr 15fr 10fr; gap: 3px; height: 14px">
+            <div style="background: var(--b1); border-radius: 7px 0 0 7px"></div><div style="background: var(--b2)"></div><div style="background: var(--b3)"></div><div style="background: var(--b4); border-radius: 0 7px 7px 0"></div>
+            <div aria-hidden="true" style="position: absolute; left: calc(84% - 9px); top: -5px; width: 18px; height: 18px; border-radius: 50%; background: var(--surface); border: 4px solid var(--text); box-sizing: border-box"></div>
+          </div>
+          <div style="display: grid; grid-template-columns: 60fr 15fr 15fr 10fr; gap: 3px; margin-top: 8px; font-size: 12px; color: var(--muted)"><span>At risk · below 60</span><span>Fair · 60</span><span style="color: var(--text); font-weight: 600">Good · 75</span><span>Excellent · 90</span></div>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px">
+          <div style="padding: 16px; border-radius: 12px; background: var(--bg)">
+            <div style="display: flex; justify-content: space-between; align-items: baseline"><span style="font-weight: 600">How up to date you are</span><span class="big" style="font-size: 22px">90</span></div>
+            <div style="height: 8px; border-radius: 4px; background: var(--line); margin: 10px 0 8px"><div style="width: 90%; height: 8px; border-radius: 4px; background: var(--ok)"></div></div>
+            <div style="font-size: 13px; color: var(--muted)">143 of 148 programs current. Serious holes weigh more.</div>
+          </div>
+          <div style="padding: 16px; border-radius: 12px; background: var(--bg)">
+            <div style="display: flex; justify-content: space-between; align-items: baseline"><span style="font-weight: 600">How fast you fix</span><span class="big" style="font-size: 22px">78</span></div>
+            <div style="height: 8px; border-radius: 4px; background: var(--line); margin: 10px 0 8px"><div style="width: 78%; height: 8px; border-radius: 4px; background: var(--ok)"></div></div>
+            <div style="font-size: 13px; color: var(--muted)">1.4 days on average. Under a day gets you to 90 here.</div>
+          </div>
+        </div>
+      </section>
+
+      <section style="display: flex; flex-direction: column; gap: 10px">
+        <div class="lbl">Raise your score</div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; align-items: stretch">
+      <section class="move" style="background: var(--act-tint); height: 100%; box-sizing: border-box">
+        <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 8px"><span style="font-weight: 600; font-size: 16px">Fix Chrome</span><span class="big" style="font-size: 20px; color: var(--ok)">+3</span></div>
+        <div style="font-size: 14px">This is being exploited right now. Fixing it today stops a 3-point-a-day slide.</div>
+        <div style="font-size: 13px; color: var(--muted)">MacBook Air · 1 minute</div>
+        <a class="btn btn-act" href="#" style="margin-top: auto">Fix now</a>
+      </section>
+      <section class="move card" style="height: 100%; box-sizing: border-box">
+        <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 8px"><span style="font-weight: 600; font-size: 16px">Do the tune-up early</span><span class="big" style="font-size: 20px; color: var(--ok)">+2</span></div>
+        <div style="font-size: 14px">Zoom, VLC and macOS 16.1.1 are waiting for Sunday. Doing them now counts as a faster fix.</div>
+        <div style="font-size: 13px; color: var(--muted)">MacBook Air · about 10 minutes, one restart</div>
+        <button class="btn btn-quiet" type="button" style="margin-top: auto"><span aria-hidden="true" style="display: inline-flex; gap: 2px"><i style="display: block; width: 4px; height: 14px; border-radius: 2px; background: currentColor"></i><i style="display: block; width: 4px; height: 14px; border-radius: 2px; background: currentColor"></i><i style="display: block; width: 4px; height: 14px; border-radius: 2px; background: var(--line)"></i></span>Do it now</button>
+      </section>
+      <section class="move" style="border: 1px dashed var(--line); height: 100%; box-sizing: border-box">
+        <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 8px"><span style="font-weight: 600; font-size: 16px">Update the iPhone</span><span class="big" style="font-size: 20px; color: var(--muted)">+1</span></div>
+        <div style="font-size: 14px">iOS 26.1.1 is ready. Open Settings on the iPhone, then General, then Software Update.</div>
+        <div style="font-size: 13px; color: var(--muted)">iPhone · do this on the phone</div>
+      </section>
+        </div>
+      </section>
+    </div>
+
+    <aside style="flex: 1 1 280px; min-width: 0; display: flex; flex-direction: column; gap: 14px">
+        <section style="display: flex; flex-direction: column; gap: 10px">
+        <div class="lbl">By device</div>
+        <div style="display: flex; flex-direction: column; gap: 12px">
+          <div class="dev">
+            <div style="display: flex; align-items: center; gap: 8px"><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 L22 20 L2 20 Z" fill="#F2B33D"></path></svg><span style="font-weight: 600; flex: 1">MacBook Air</span><span class="big" style="font-size: 20px">78</span></div>
+            <div style="font-size: 13px; color: var(--act-ink); font-weight: 600">1 needs you now · 3 for Sunday</div>
+            <div style="font-size: 13px; color: var(--muted)">139 programs</div>
+          </div>
+          <div class="dev">
+            <div style="display: flex; align-items: center; gap: 8px"><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="var(--ok)"></circle></svg><span style="font-weight: 600; flex: 1">Family iMac</span><span class="big" style="font-size: 20px">90</span></div>
+            <div style="font-size: 13px; color: var(--ok); font-weight: 600">All clear</div>
+            <div style="font-size: 13px; color: var(--muted)">8 programs</div>
+          </div>
+          <div class="dev">
+            <div style="display: flex; align-items: center; gap: 8px"><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="var(--ok)"></circle></svg><span style="font-weight: 600; flex: 1">iPhone</span><span class="big" style="font-size: 20px">93</span></div>
+            <div style="font-size: 13px; color: var(--muted); font-weight: 600">1 for Sunday</div>
+            <div style="font-size: 13px; color: var(--muted)">iOS 26.1</div>
+          </div>
+        </div>
+      </section>
+    </aside>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"$preview":{"width":1280,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return { theme: (this.props.dark ?? false) ? 'dark' : '' }; }
+}
+</script>
+</body>
+</html>

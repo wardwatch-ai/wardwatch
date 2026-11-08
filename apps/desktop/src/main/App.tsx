@@ -1,6 +1,6 @@
 import { AccountPill, OkGlyph, ActGlyph, TopBar } from "@wardwatch/ui";
 import { useEffect, useId, useRef, useState } from "react";
-import { Navigate, NavLink, Route, Routes, useNavigate } from "react-router";
+import { Link, Navigate, NavLink, Route, Routes, useNavigate } from "react-router";
 import { accounts, useDevice, useDevices, useMe, useScore } from "../lib/data";
 import { onNavigate } from "../lib/ipc";
 import { useAppInfo } from "../lib/useAppInfo";
@@ -11,6 +11,7 @@ import { Groups } from "./screens/Groups";
 import { Home } from "./screens/Home";
 import { Plan } from "./screens/Plan";
 import { Score } from "./screens/Score";
+import { Settings } from "./screens/Settings";
 import { TuneUp } from "./screens/TuneUp";
 
 const screens: Record<(typeof tabs)[number]["path"], React.ReactNode> = {
@@ -21,7 +22,7 @@ const screens: Record<(typeof tabs)[number]["path"], React.ReactNode> = {
   "/plan": <Plan />,
 };
 
-/** Account pill and its menu, which lists the account's devices. */
+/** Account pill and its menu, which lists the account's devices and opens Settings. */
 function Account() {
   const me = useMe().data;
   const score = useScore().data;
@@ -91,6 +92,15 @@ function Account() {
               </li>
             ))}
           </ul>
+          <Link
+            to="/settings"
+            onClick={() => {
+              setOpen(false);
+            }}
+            className="mt-1 flex min-h-11 items-center border-t border-line pt-2 font-semibold text-text no-underline"
+          >
+            Settings
+          </Link>
         </div>
       )}
     </div>
@@ -127,6 +137,7 @@ export function App() {
           {tabs.map((tab) => (
             <Route key={tab.path} path={tab.path} element={screens[tab.path]} />
           ))}
+          <Route path="/settings" element={<Settings />} />
           <Route path="/fix/tune-up" element={<TuneUp />} />
           <Route path="/fix/:source/:id" element={<Fix />} />
           <Route path="*" element={<Navigate to="/" replace />} />

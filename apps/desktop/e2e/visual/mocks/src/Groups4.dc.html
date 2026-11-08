@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Groups tab, leaderboard with mini podium</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&amp;family=Manrope:wght@800&amp;display=swap">
+<style>
+body{margin:0}
+.ww{--bg:#F3EDE2;--surface:#FBF8F2;--line:#E3D9C6;--text:#23211F;--muted:#6B6358;--brand:#A23B2C;--link:#A23B2C;--ok:#2F6F62;--ok-tint:#E4EFEA;--act-tint:#FFF4E0;--act-ink:#8A5300;--tower:#23211F;--sel:#EADFCB;--b2:#C9D9CF;--b3:#86B3A4;background:var(--bg);color:var(--text);font-family:Inter,system-ui,sans-serif;font-size:15px;line-height:1.5}
+.ww.dark{--bg:#23211F;--surface:#2E2B28;--line:#45403A;--text:#F3EDE2;--muted:#B8AE9F;--brand:#C4503C;--link:#F0A08C;--ok:#7FCFA8;--ok-tint:#24352F;--act-tint:#3A2F1C;--act-ink:#F7C76A;--tower:#F3EDE2;--sel:#3A3632;--b2:#3E544B;--b3:#5C9583}
+.ww h1,.ww h2,.ww h3{font-family:Manrope,system-ui,sans-serif;font-weight:800;margin:0;letter-spacing:-0.01em}
+.ww a{color:var(--link)}.ww a:hover{color:var(--text)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 18px;border-radius:10px;border:1px solid transparent;font:600 15px/1 Inter,system-ui,sans-serif;cursor:pointer;text-decoration:none;box-sizing:border-box}
+.btn-brand{background:var(--brand);color:#fff}
+.btn-quiet{background:transparent;color:var(--text);border-color:var(--line)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px}
+.lbl{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.tab{display:inline-flex;align-items:center;min-height:64px;padding:0 14px;border-bottom:3px solid transparent;color:var(--muted);font-weight:600;text-decoration:none;box-sizing:border-box}
+.ww a.tab{color:var(--muted)}.ww a.tab:hover{color:var(--text)}
+.ww a.tab-on{color:var(--text);border-bottom-color:var(--brand)}
+.big{font-family:Manrope,system-ui,sans-serif;font-weight:800}
+.grp{display:flex;align-items:center;gap:10px;width:100%;min-height:52px;padding:8px 12px;border:0;border-radius:10px;background:transparent;color:var(--text);font:600 14px Inter,system-ui,sans-serif;text-align:left;cursor:pointer}
+.grp-on{background:var(--sel)}
+.seg{display:inline-flex;padding:4px;border-radius:12px;background:var(--sel);gap:4px;flex-wrap:wrap}
+.seg button{min-height:40px;padding:0 16px;border:0;border-radius:9px;background:transparent;color:var(--text);font:600 14px Inter,system-ui,sans-serif;cursor:pointer}
+.seg button.on{background:var(--surface);box-shadow:0 1px 3px rgba(35,33,31,.15)}
+.tbl{width:100%;border-collapse:collapse;font-size:14px}
+.tbl th{text-align:left;font-weight:600;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.04em;padding:10px 12px;border-bottom:1px solid var(--line)}
+.tbl td{padding:12px;border-bottom:1px solid var(--line)}
+.pod{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:2px;border-radius:10px 10px 0 0;padding:8px 4px}
+.av{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#FFFFFF;font-weight:600;font-size:13px}
+</style>
+</helmet>
+<div class="ww {{theme}}" style="min-height: 900px; box-sizing: border-box; display: flex; flex-direction: column">
+  <header style="display: flex; align-items: center; gap: 24px; flex-wrap: wrap; padding: 0 28px; border-bottom: 1px solid var(--line); background: var(--surface)">
+    <div style="display: flex; align-items: center; gap: 10px; min-height: 64px">
+      <svg width="30" height="30" viewBox="0 0 64 64" aria-hidden="true"><path d="M28 16.5 L3 9 L3 24 Z" fill="#F2B33D"></path><path d="M36 16.5 L61 9 L61 24 Z" fill="#F2B33D"></path><path d="M26 13 L32 7.5 L38 13 Z" fill="var(--tower)"></path><rect x="27.5" y="13" width="9" height="7" fill="#F2B33D"></rect><rect x="24" y="20" width="16" height="3" rx="1" fill="var(--tower)"></rect><path d="M26.5 23 L37.5 23 L39.2 40 L24.8 40 Z" fill="var(--brand)"></path><path d="M24.8 40 L39.2 40 L41 57 L23 57 Z" fill="#FFFFFF" stroke="#23211F" stroke-width="1.5"></path><rect x="21" y="57" width="22" height="3" rx="1" fill="var(--tower)"></rect></svg>
+      <span class="big" style="font-size: 19px">Wardwatch</span>
+    </div>
+    <nav aria-label="Main" style="flex: 1; display: flex; flex-wrap: wrap; gap: 4px">
+      <a class="tab" href="Harbor.dc.html">Home</a><a class="tab" href="Score6.dc.html">Score</a><a class="tab tab-on" href="#" aria-current="page">Groups</a><a class="tab" href="Apps3.dc.html">Apps</a><a class="tab" href="Plan4.dc.html">Update plan</a>
+    </nav>
+    <button type="button" style="display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 12px 0 6px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); color: var(--text); font: 600 14px Inter, system-ui, sans-serif; cursor: pointer"><span aria-hidden="true" style="width: 32px; height: 32px; border-radius: 50%; background: #2F6F62; color: #FFFFFF; display: flex; align-items: center; justify-content: center">M</span>Matt<span class="big" style="color: var(--ok)">84</span></button>
+  </header>
+
+  <div style="flex: 1; width: 100%; max-width: 1200px; margin: 0 auto; box-sizing: border-box; padding: 28px; display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start">
+    <nav aria-label="Your groups" style="flex: 1 1 220px; max-width: 250px; display: flex; flex-direction: column; gap: 4px">
+      <div class="lbl" style="padding: 0 12px 8px">Your groups</div>
+      <button type="button" class="grp grp-on" aria-current="true"><span style="flex: 1">Ward family<span style="display: block; font-weight: 400; font-size: 12px; color: var(--muted)">4 people</span></span></button>
+      <button type="button" class="grp"><span style="flex: 1">Pine Street Library<span style="display: block; font-weight: 400; font-size: 12px; color: var(--muted)">12 devices</span></span></button>
+      <div style="height: 1px; background: var(--line); margin: 10px 0"></div>
+      <button class="btn btn-quiet" type="button">Start a group</button>
+      <button class="btn btn-quiet" type="button" style="border-color: transparent">Join with a code</button>
+    </nav>
+
+    <main style="flex: 999 1 600px; min-width: 0; display: flex; flex-direction: column; gap: 18px">
+      <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 16px">
+        <h1 style="font-size: 30px">Ward family</h1>
+        <button class="btn btn-brand" type="button">Invite</button>
+      </div>
+
+      <div class="seg" role="group" aria-label="Period">
+        <sc-for list="{{periods}}" as="p" hint-placeholder-count="3">
+          <button type="button" class="{{p.cls}}" aria-pressed="{{p.pressed}}" onClick="{{p.pick}}">{{p.label}}</button>
+        </sc-for>
+      </div>
+
+      <section class="card" style="padding: 18px 22px; display: flex; flex-wrap: wrap; align-items: flex-end; gap: 24px">
+        <div style="display: grid; grid-template-columns: repeat(3, 84px); gap: 6px; align-items: end" aria-label="Top three">
+          <div class="pod" style="height: 76px; background: var(--b2)"><span class="av" style="background: {{p2.color}}">{{p2.i}}</span><span style="font-size: 12px; font-weight: 600">2 · {{p2.name}}</span></div>
+          <div class="pod" style="height: 96px; background: var(--b3)"><span class="av" style="background: {{p1.color}}">{{p1.i}}</span><span style="font-size: 12px; font-weight: 600">1 · {{p1.name}}</span></div>
+          <div class="pod" style="height: 62px; background: var(--sel)"><span class="av" style="background: {{p3.color}}">{{p3.i}}</span><span style="font-size: 12px; font-weight: 600">3 · {{p3.name}}</span></div>
+        </div>
+        <div style="flex: 1 1 260px; min-width: 0">
+          <div class="lbl">{{periodLabel}}</div>
+          <div style="font-size: 16px; font-weight: 600; margin-top: 2px">{{headline}}</div>
+          <div style="font-size: 13px; color: var(--muted)">{{subline}}</div>
+        </div>
+      </section>
+
+      <div class="card" style="overflow-x: auto">
+        <table class="tbl">
+          <thead><tr><th scope="col">#</th><th scope="col">Member</th><th scope="col">{{scoreHead}}</th><th scope="col">Band</th><th scope="col">Average fix</th><th scope="col">Change</th></tr></thead>
+          <tbody>
+            <sc-for list="{{members}}" as="m" hint-placeholder-count="4">
+              <tr style="background: {{m.bg}}">
+                <td class="big">{{m.rank}}</td>
+                <td style="font-weight: 600">{{m.name}}</td>
+                <td class="big" style="font-size: 18px">{{m.score}}</td>
+                <td style="color: {{m.bandColor}}; font-weight: 600">{{m.band}}</td>
+                <td>{{m.fix}}</td>
+                <td style="font-weight: 600; color: {{m.trendColor}}">{{m.trend}}</td>
+              </tr>
+            </sc-for>
+          </tbody>
+        </table>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px">
+        <section class="card" style="padding: 18px 20px; display: flex; flex-direction: column; gap: 4px">
+          <div class="lbl">Most improved · November</div>
+          <div class="big" style="font-size: 20px">Alex, up 9</div>
+          <div style="font-size: 13px; color: var(--muted)">Crowned Dec 1. You're up 4.</div>
+        </section>
+        <section class="card" style="padding: 18px 20px; display: flex; flex-direction: column; gap: 4px">
+          <div class="lbl">November stakes · set by your group</div>
+          <div class="big" style="font-size: 20px">Last place on Nov 30 cooks Sunday dinner</div>
+          <div style="font-size: 13px; color: var(--muted)">Jo is last this month, 5 behind Alex. December's stakes: the leader picks a charity.</div>
+          <div style="display: flex; flex-wrap: wrap; gap: 16px; margin-top: 6px; font-size: 14px"><a href="#">Change stakes</a><a href="#">Get ideas</a><a href="#">Turn off for this group</a></div>
+        </section>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"$preview":{"width":1280,"height":900}}'>
+class Component extends DCLogic {
+  constructor(p) { super(p); this.state = { period: 'd30' }; }
+  renderVals() {
+    const C = { Sam: ['S', '#6B6358'], You: ['M', '#2F6F62'], Jo: ['J', '#A23B2C'], Alex: ['A', '#8A5300'] };
+    const P = {
+      d30: { label: 'Last 30 days', head: 'Score', headline: 'Sam leads with 93', subline: 'Rolling 30 days. This is the score on everyone’s home screen.',
+        rows: [['Sam', 93, '0.6 d', '+2'], ['You', 84, '1.4 d', '+4'], ['Jo', 79, '2.1 d', '−1'], ['Alex', 71, '3.0 d', '+9']] },
+      month: { label: 'November so far', head: 'November', headline: 'You lead November with 91', subline: 'Only counts fixes since Nov 1, so a fresh start every month.',
+        rows: [['You', 91, '0.9 d', '+7'], ['Sam', 90, '0.7 d', '−3'], ['Alex', 82, '1.6 d', '+11'], ['Jo', 77, '2.2 d', '−2']] },
+      all: { label: 'Since joining', head: 'All time', headline: 'Sam leads since joining with 92', subline: 'Everything since each person joined the group.',
+        rows: [['Sam', 92, '0.8 d', ''], ['Jo', 81, '1.9 d', ''], ['You', 80, '1.8 d', ''], ['Alex', 64, '3.4 d', '']] }
+    };
+    const cur = P[this.state.period];
+    const band = (s) => s >= 90 ? 'Excellent' : s >= 75 ? 'Good' : s >= 60 ? 'Fair' : 'At risk';
+    const members = cur.rows.map(([name, score, fix, trend], i) => ({
+      rank: String(i + 1), name, score, fix, trend: trend || '—', band: band(score),
+      bandColor: score >= 75 ? 'var(--ok)' : 'var(--muted)',
+      trendColor: trend.startsWith('+') ? 'var(--ok)' : 'var(--muted)',
+      bg: name === 'You' ? 'var(--ok-tint)' : 'transparent'
+    }));
+    const pod = (i) => { const n = cur.rows[i][0]; return { name: n, i: C[n][0], color: C[n][1] }; };
+    const periods = [['d30', 'Last 30 days'], ['month', 'This month'], ['all', 'Since joining']].map(([id, label]) => ({
+      label, cls: this.state.period === id ? 'on' : '', pressed: this.state.period === id ? 'true' : 'false', pick: () => this.setState({ period: id })
+    }));
+    return { periods, members, p1: pod(0), p2: pod(1), p3: pod(2), periodLabel: cur.label, headline: cur.headline, subline: cur.subline, scoreHead: cur.head, theme: (this.props.dark ?? false) ? 'dark' : '' };
+  }
+}
+</script>
+</body>
+</html>

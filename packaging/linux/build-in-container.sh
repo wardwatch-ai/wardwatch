@@ -28,6 +28,10 @@ image=${WARDWATCH_BUILD_IMAGE:-mirror.gcr.io/library/ubuntu:22.04}
 node_version=22
 
 args=(--rm -v "$root:/src:ro" -v "$out:/out" -e "NODE_MAJOR=$node_version")
+# The release channel, commit and date stamped into the app (see src-tauri/build.rs).
+for var in WARDWATCH_BUILD_CHANNEL WARDWATCH_BUILD_COMMIT WARDWATCH_BUILD_DATE; do
+  if [[ -n "${!var:-}" ]]; then args+=(-e "$var"); fi
+done
 if [[ -n "${WARDWATCH_BUILD_CA_BUNDLE:-}" ]]; then
   args+=(-v "$WARDWATCH_BUILD_CA_BUNDLE:/usr/local/share/ca-certificates/extra.crt:ro")
 fi
@@ -66,7 +70,26 @@ mkdir /build
 tar -C /src --exclude=node_modules --exclude=./target --exclude=./.git -cf - . | tar -C /build -xf -
 cd /build
 COREPACK_ENABLE_DOWNLOAD_PROMPT=0 pnpm install --frozen-lockfile >/dev/null
-pnpm --filter @wardwatch/desktop tauri build --bundles deb,rpm
+version=$(node -p "require(\"./apps/desktop/package.json\").version")
+case "$version" in
+  *-*)
+    # A nightly (0.2.0-311). The app keeps that semver version, but packages
+    # need their own pre-release forms to sort below the 0.2.0 release:
+    # .deb Version 0.2.0~311, and .rpm Version 0.2.0 with Release 0.311
+    # (RPM versions cannot contain "-"). `tauri bundle` reuses the binary built
+    # for the .deb, so the app inside both still reports 0.2.0-311.
+    base=${version%%-*} n=${version#*-}
+    pnpm --filter @wardwatch/desktop tauri build --bundles deb
+    pnpm --filter @wardwatch/desktop tauri bundle --bundles rpm --config \
+      "{\"version\":\"$base\",\"bundle\":{\"linux\":{\"rpm\":{\"release\":\"0.$n\"}}}}"
+    deb=$(ls target/release/bundle/deb/*.deb)
+    rm -rf /tmp/deb && dpkg-deb -R "$deb" /tmp/deb
+    sed -i "s/^Version: .*/Version: $base~$n/" /tmp/deb/DEBIAN/control
+    rm "$deb"
+    dpkg-deb --root-owner-group -b /tmp/deb "target/release/bundle/deb/Wardwatch_${base}~${n}_amd64.deb" >/dev/null
+    ;;
+  *) pnpm --filter @wardwatch/desktop tauri build --bundles deb,rpm ;;
+esac
 rm -rf /out/deb /out/rpm
 cp -r target/release/bundle/deb target/release/bundle/rpm /out/
 chown -R '"$(id -u):$(id -g)"' /out

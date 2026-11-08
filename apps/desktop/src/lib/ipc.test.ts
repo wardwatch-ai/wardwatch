@@ -8,6 +8,8 @@ import {
   runFix,
   scanInventory,
   setPlan,
+  setSettings,
+  getSettings,
   showMainWindow,
 } from "./ipc";
 import { samplePlan } from "./sample";
@@ -48,6 +50,17 @@ describe("ipc", () => {
     await setPlan({ ...samplePlan, holds: [] });
     await expect(getPlan()).resolves.toMatchObject({ holds: [] });
     expect(core.invoke).not.toHaveBeenCalled();
+  });
+
+  it("reads and saves settings through the core", async () => {
+    core.isTauri.mockReturnValue(true);
+    core.invoke.mockResolvedValue({ v: 1, channel: "mainline" });
+    await expect(getSettings()).resolves.toEqual({ v: 1, channel: "mainline" });
+    expect(core.invoke).toHaveBeenLastCalledWith("get_settings");
+    await setSettings({ v: 1, channel: "nightly" });
+    expect(core.invoke).toHaveBeenLastCalledWith("set_settings", {
+      settings: { v: 1, channel: "nightly" },
+    });
   });
 
   it("asks the core to show the main window, optionally on a screen", async () => {

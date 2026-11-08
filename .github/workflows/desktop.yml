@@ -1,13 +1,26 @@
 name: Desktop
 
-# Builds and tests the desktop app on every push and PR.
+# Builds and tests the desktop app on Linux, macOS and Windows.
 # Bundles are built UNSIGNED to prove packaging works and are thrown away:
 # this workflow never signs, uploads or publishes anything.
 
 on:
   push:
     branches: [main]
+    # Not README.md, e2e/ or e2e.yml: the ui job's `pnpm format:check` covers them.
+    paths-ignore:
+      - "packaging/**"
+      - "tests/devices/**"
+      - ".github/workflows/catalog.yml"
+      - ".github/workflows/ui.yml"
   pull_request:
+    # Not README.md, e2e/ or e2e.yml: the ui job's `pnpm format:check` covers them.
+    paths-ignore:
+      - "packaging/**"
+      - "tests/devices/**"
+      - ".github/workflows/catalog.yml"
+      - ".github/workflows/ui.yml"
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -38,6 +51,45 @@ jobs:
       - run: pnpm --filter @wardwatch/desktop lint
       - run: pnpm --filter @wardwatch/desktop typecheck
       - run: pnpm --filter @wardwatch/desktop test
+
+  visual:
+    name: Screens match Matt's reviewed designs
+    if: github.event_name != 'schedule'
+    # Screenshots are compared on one pinned OS and browser so rendering is stable.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Install Chromium for Playwright
+        working-directory: apps/desktop
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Compare screens with their approved versions
+        id: gate
+        working-directory: apps/desktop
+        run: pnpm visual
+      - name: Build the review set (mock, app and diff per screen)
+        if: failure() && steps.gate.outcome == 'failure'
+        working-directory: apps/desktop
+        env:
+          # Screens are approved from these CI renders, tagged with the PR head.
+          VISUAL_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: pnpm visual:review
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: failure() && steps.gate.outcome == 'failure'
+        with:
+          name: visual-review
+          # out/: the review set. results/: the gate's actual/expected/diff images.
+          path: |
+            apps/desktop/e2e/visual/out/
+            apps/desktop/e2e/results/
+          retention-days: 14
 
   app:
     name: App (${{ matrix.os }})

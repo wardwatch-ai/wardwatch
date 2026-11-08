@@ -8,6 +8,8 @@ mod commands;
 mod fix;
 mod nudge;
 mod plan;
+mod settings;
+mod store;
 mod tray;
 mod windows;
 
@@ -23,6 +25,7 @@ pub fn run() {
         .manage(windows::PopoverState::default())
         .manage(commands::InventoryCache::default())
         .manage(commands::PlanLock::default())
+        .manage(commands::SettingsLock::default())
         .manage(fix::FixState::default())
         .invoke_handler(tauri::generate_handler![
             commands::app_info,
@@ -33,7 +36,9 @@ pub fn run() {
             commands::list_findings,
             commands::get_fix,
             commands::run_fix,
-            commands::get_nudges
+            commands::get_nudges,
+            commands::get_settings,
+            commands::set_settings
         ])
         .setup(|app| {
             tray::create(app.handle())?;
