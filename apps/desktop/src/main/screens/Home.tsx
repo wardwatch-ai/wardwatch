@@ -6,9 +6,10 @@ import type { Kind } from "../../lib/model";
 import { type DeviceStatus, type Program, fixPath, kindLine, listNames } from "../../lib/programs";
 import { ordinal, versionStep, worstSeverity } from "../../lib/format";
 import { Failed, KindMark, Loading, UpdateButton } from "../parts";
+import { useOpen } from "../useOpen";
 
 function StatusCard({ status }: { status: DeviceStatus }) {
-  const navigate = useNavigate();
+  const open = useOpen();
   const top = status.attack[0];
   const quiet = status.quietAttack;
   return (
@@ -31,7 +32,12 @@ function StatusCard({ status }: { status: DeviceStatus }) {
             </div>
             <div className="flex flex-wrap gap-2.5">
               <UpdateButton program={top}>Update {top.name} now</UpdateButton>
-              <Button variant="quiet" onClick={() => void navigate(fixPath(top))}>
+              <Button
+                variant="quiet"
+                onClick={() => {
+                  open(fixPath(top));
+                }}
+              >
                 What's going on?
               </Button>
             </div>
@@ -121,7 +127,7 @@ function ScoreCard() {
 }
 
 function TuneUp({ waiting, exploited }: { waiting: Program[]; exploited: boolean }) {
-  const navigate = useNavigate();
+  const open = useOpen();
   return (
     <Card className="flex flex-col gap-4 p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -137,7 +143,9 @@ function TuneUp({ waiting, exploited }: { waiting: Program[]; exploited: boolean
         <Button
           variant="quiet"
           severity={worstSeverity(waiting)}
-          onClick={() => void navigate("/fix/tune-up")}
+          onClick={() => {
+            open("/fix/tune-up");
+          }}
         >
           Update all {waiting.length}
         </Button>

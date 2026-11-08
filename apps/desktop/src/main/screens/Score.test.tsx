@@ -1,5 +1,5 @@
 import { screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { renderAt } from "../../test/render";
 import { Score } from "./Score";
 
@@ -30,6 +30,24 @@ describe("Score", () => {
     if (!phone) throw new Error("no iPhone card");
     expect(phone).toHaveClass("ww-card-remote");
     expect(within(phone).queryByRole("button")).toBeNull();
+  });
+
+  it("estimates the points each move adds, the other device's too", async () => {
+    // A Wednesday: on a Sunday the tune-up is today, so doing it early adds nothing.
+    vi.useFakeTimers({ now: new Date("2026-11-11T12:00:00Z"), toFake: ["Date"] });
+    try {
+      renderAt(<Score />);
+      const moves = (await screen.findByRole("heading", { name: "Raise your score" })).closest(
+        "section",
+      );
+      if (!moves) throw new Error("no moves section");
+      const points = within(moves)
+        .getAllByTitle("Estimated points")
+        .map((e) => e.textContent);
+      expect(points).toEqual(["About +2 points", "About +1 point", "About +1 point"]);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("stacks the account's devices", async () => {

@@ -108,6 +108,7 @@ function Checklist({ status }: { status: DeviceStatus }) {
         const line = kindLine(status, kind);
         return (
           <li key={label} className="flex items-center gap-2.5 py-1.5 text-[13px]">
+            {/* A check only when the whole row is current, as on Home. */}
             <KindMark mark={line.mark} />
             <span className="flex-1">{label}</span>
             <span className="text-text-muted">{line.text}</span>
@@ -159,7 +160,7 @@ export function TrayApp() {
           ? "All clear"
           : "Not checked yet";
   const item =
-    "flex min-h-11 w-full cursor-pointer items-center rounded-lg border-0 bg-transparent px-3 text-left text-sm text-text hover:bg-sel";
+    "flex min-h-11 w-full cursor-pointer items-center rounded-lg border-0 bg-transparent px-2 text-left text-sm text-text hover:bg-sel";
 
   return (
     <div className="flex min-h-screen flex-col bg-surface">

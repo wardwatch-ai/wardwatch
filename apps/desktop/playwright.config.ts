@@ -4,10 +4,19 @@ import { defineConfig } from "@playwright/test";
 // the sample scenario (no Tauri core). See e2e/visual/README.md.
 const port = 4173;
 
-// Greyscale text only. Chromium otherwise picks LCD (colour-fringed) or greyscale
-// antialiasing per layer depending on compositing, which varied run to run on the
-// plan screen's dropdowns and failed the gate with nothing changed.
-const app = { launchOptions: { args: ["--disable-lcd-text"] } };
+// Text rendered the same way on every run and runner. Chromium otherwise picks LCD or
+// greyscale antialiasing per layer, and hinting and subpixel glyph positions varied
+// between CI runners on the plan screen's dropdowns, failing the gate with nothing
+// changed: so greyscale only, no hinting, glyphs on whole pixels.
+const app = {
+  launchOptions: {
+    args: [
+      "--disable-lcd-text",
+      "--font-render-hinting=none",
+      "--disable-font-subpixel-positioning",
+    ],
+  },
+};
 
 export default defineConfig({
   testDir: "e2e",

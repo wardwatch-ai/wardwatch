@@ -106,7 +106,7 @@ export type BandName = "At risk" | "Fair" | "Good" | "Excellent";
 
 /** GET /v1/score */
 export type ScoreResponse =
-  | { score: null; patches_scored: 0; algorithm: number }
+  | { score: null; patches_scored: 0; sums?: ScoreSums; algorithm: number }
   | {
       score: number;
       band: BandName;
@@ -116,8 +116,16 @@ export type ScoreResponse =
       fix_speed: number;
       percentile: number | null;
       patches_scored: number;
+      /** Sums behind the subscores, for on-device estimates (backend#3). */
+      sums?: ScoreSums;
       algorithm: number;
     };
+
+export interface ScoreSums {
+  total: number;
+  in_time: number;
+  speed: number;
+}
 
 /** GET /v1/groups */
 export interface GroupSummary {
@@ -192,7 +200,12 @@ export interface AccountDevice {
   detail: string;
   checked: string;
   /** A fix that has to happen on that device: no button, just where and how. */
-  remote_fix?: { title: string; steps: string };
+  remote_fix?: {
+    title: string;
+    steps: string;
+    /** The known hole the update closes, as the server matched it; absent when it closes none. */
+    fix?: { exploited: boolean; severity: FeedSeverity | null };
+  };
 }
 
 // ---- Nudge plan (crates/wardwatch-nudge NudgePlan, from the core's get_nudges) ----
