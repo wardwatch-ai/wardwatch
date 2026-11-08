@@ -1,6 +1,7 @@
 import { Navigate, NavLink, Route, Routes } from "react-router";
 import { useAppInfo } from "../lib/useAppInfo";
 import { tabs } from "./routes";
+import { Fix } from "./screens/Fix";
 
 function Placeholder({ title }: { title: string }) {
   return (
@@ -38,6 +39,7 @@ export function App() {
           {tabs.map((tab) => (
             <Route key={tab.path} path={tab.path} element={<Placeholder title={tab.label} />} />
           ))}
+          <Route path="/fix/:source/:id" element={<Fix />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>

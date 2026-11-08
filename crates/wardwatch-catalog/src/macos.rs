@@ -51,8 +51,8 @@ pub fn os_info() -> Result<OsInfo, String> {
 /// Folders apps are installed into: `/Applications` and `~/Applications`.
 pub fn app_dirs() -> Vec<PathBuf> {
     let mut dirs = vec![PathBuf::from("/Applications")];
-    if let Some(home) = std::env::var_os("HOME") {
-        dirs.push(Path::new(&home).join("Applications"));
+    if let Some(home) = crate::home_dir() {
+        dirs.push(home.join("Applications"));
     }
     dirs.retain(|d| d.is_dir());
     dirs

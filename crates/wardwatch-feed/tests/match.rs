@@ -47,9 +47,11 @@ fn sw(source: Source, id: &str, name: &str, version: &str) -> Software {
 
 fn inventory(os: OsInfo, software: Vec<Software>) -> Inventory {
     Inventory {
-        schema: 1,
+        schema: wardwatch_catalog::SCHEMA_VERSION,
         os,
         software,
+        services: vec![],
+        extensions: vec![],
         warnings: vec![],
     }
 }

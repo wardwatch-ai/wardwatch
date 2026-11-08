@@ -2649,6 +2649,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "41b1177fdf999d2321d3fb46ff47159d9c1fb9ad66a4879f8c50a0b504615e9b"
 dependencies = [
  "memchr",
+ "serde",
 ]
 
 [[package]]
@@ -4105,6 +4106,7 @@ name = "wardwatch-catalog"
 version = "0.1.0"
 dependencies = [
  "plist",
+ "quick-xml",
  "serde",
  "serde_json",
  "sysinfo",
@@ -4121,6 +4123,9 @@ dependencies = [
  "tauri-build",
  "tauri-plugin-positioner",
  "tauri-plugin-single-instance",
+ "wardwatch-catalog",
+ "wardwatch-feed",
+ "wardwatch-update",
 ]
 
 [[package]]
@@ -4141,6 +4146,16 @@ dependencies = [
  "jiff",
  "serde",
  "serde_json",
+ "wardwatch-feed",
+]
+
+[[package]]
+name = "wardwatch-update"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "wardwatch-catalog",
  "wardwatch-feed",
 ]
 
