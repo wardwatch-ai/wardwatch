@@ -53,7 +53,7 @@ function Account() {
       <AccountPill
         name={name}
         score={score?.score ?? 0}
-        aria-haspopup="true"
+        aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={menuId}
         onClick={() => {
@@ -63,7 +63,7 @@ function Account() {
       {open && (
         <div
           id={menuId}
-          role="group"
+          role="dialog"
           aria-label="Account"
           className="ww-card ww-card-default absolute right-0 top-[52px] z-10 flex w-72 flex-col gap-2 shadow-lg"
         >
@@ -102,7 +102,13 @@ export function App() {
   const urgent = (useDevice().status?.urgent.length ?? 0) > 0;
 
   // The tray opens screens here (Update now, Score, Update plan).
-  useEffect(() => onNavigate((route) => void navigate(route)), [navigate]);
+  // Subscribe once: navigate's identity changes with the location, and re-subscribing
+  // over async IPC on every tab change could drop an event in the gap.
+  const navigateRef = useRef(navigate);
+  useEffect(() => {
+    navigateRef.current = navigate;
+  });
+  useEffect(() => onNavigate((route) => void navigateRef.current(route)), []);
 
   return (
     <div className="flex min-h-screen flex-col">

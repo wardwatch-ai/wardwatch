@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildPrograms, fixPath, listNames, meterLevel, summarize } from "./programs";
+import { buildPrograms, fixPath, kindLine, listNames, meterLevel, summarize } from "./programs";
 import { sampleFindings, sampleInventory, samplePlan } from "./sample";
 
 const programs = () => buildPrograms(sampleInventory, sampleFindings, samplePlan.holds);
@@ -41,7 +41,7 @@ describe("buildPrograms", () => {
     const holds = [{ source: "mac_app" as const, id: "com.google.Chrome", since: "2026-11-01" }];
     expect(buildPrograms(sampleInventory, sampleFindings, holds)[0]).toMatchObject({
       state: "urgent",
-      heldSince: null,
+      heldSince: "2026-11-01",
     });
   });
 
@@ -111,7 +111,45 @@ describe("helpers", () => {
 
   it("encodes fix routes and lists names", () => {
     expect(fixPath({ source: "dpkg", id: "libssl3:amd64" })).toBe("/fix/dpkg/libssl3%3Aamd64");
+    // Windows ids are raw registry key names; the core only accepts [A-Za-z0-9-._~%].
+    expect(fixPath({ source: "windows_registry", id: "Firefox 145.0.1 (x64 en-US)!*'" })).toBe(
+      "/fix/windows_registry/Firefox%20145.0.1%20%28x64%20en-US%29%21%2A%27",
+    );
     const waiting = summarize(programs(), true).waiting.filter((p) => p.name !== "Slack");
     expect(listNames(waiting)).toBe("macOS 16.1.1, VLC and Zoom");
+  });
+});
+
+describe("kindLine", () => {
+  const finding = (update: boolean) => ({
+    key: "macos",
+    source: "os",
+    software_id: "macos",
+    installed: "16.1",
+    fixed_version: null,
+    latest: "16.1.1",
+    update_available: update,
+    exploited: false,
+    severity: null,
+    vulns: [],
+  });
+  const line = (findings: ReturnType<typeof finding>[], held = false) =>
+    kindLine(
+      summarize(
+        buildPrograms(
+          sampleInventory,
+          findings,
+          held ? [{ source: "os", id: "macos", since: "2026-11-01" }] : [],
+        ),
+        true,
+      ),
+      "system",
+    ).text;
+
+  it("never calls an unchecked or held program up to date", () => {
+    expect(line([])).toBe("Not checked");
+    expect(line([finding(true)])).toBe("Update waiting");
+    expect(line([finding(true)], true)).toBe("Held");
+    expect(line([finding(false)])).toBe("Current");
   });
 });

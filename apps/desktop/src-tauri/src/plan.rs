@@ -160,9 +160,20 @@ pub fn load(path: &Path) -> UpdatePlan {
     }
 }
 
-/// Validates and writes the plan atomically (temp file, then rename).
+/// Validates and writes the plan atomically (temp file, then rename). Refuses to
+/// overwrite a plan saved by a newer Wardwatch (`v` above ours), so an older
+/// build never silently throws away settings it can't read.
 pub fn save(path: &Path, plan: &UpdatePlan) -> Result<(), String> {
     plan.validate()?;
+    if let Ok(bytes) = std::fs::read(path)
+        && let Ok(existing) = serde_json::from_slice::<serde_json::Value>(&bytes)
+        && existing
+            .get("v")
+            .and_then(serde_json::Value::as_u64)
+            .is_some_and(|v| v > 1)
+    {
+        return Err("this plan was saved by a newer version of Wardwatch".into());
+    }
     if let Some(dir) = path.parent() {
         std::fs::create_dir_all(dir)
             .map_err(|e| format!("could not create the config folder: {e}"))?;
@@ -223,5 +234,9 @@ mod tests {
 
         std::fs::write(&path, b"{not json").unwrap();
         assert_eq!(load(&path), UpdatePlan::default());
+        // A corrupt file can be replaced; a newer version's file can't.
+        save(&path, &plan).unwrap();
+        std::fs::write(&path, br#"{"v":2}"#).unwrap();
+        assert!(save(&path, &plan).is_err());
     }
 }

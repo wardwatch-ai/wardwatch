@@ -75,9 +75,11 @@ pub fn show_main_window<R: Runtime>(
     Ok(())
 }
 
-/// The last scan, shared by the main window and the tray so opening both scans once.
+/// The last scan, shared by the main window and the tray. An async lock held for
+/// the whole scan means a second window opening mid-scan waits for that scan
+/// instead of starting its own.
 #[derive(Default)]
-pub struct InventoryCache(Mutex<Option<(Instant, Arc<Inventory>)>>);
+pub struct InventoryCache(tauri::async_runtime::Mutex<Option<(Instant, Arc<Inventory>)>>);
 
 /// A scan reads package databases and app bundles; this keeps windows from
 /// repeating it every time they open. `refresh` forces a new one.
@@ -88,8 +90,9 @@ pub async fn scan_inventory(
     cache: State<'_, InventoryCache>,
     refresh: Option<bool>,
 ) -> Result<Arc<Inventory>, String> {
+    let mut last = cache.0.lock().await;
     if !refresh.unwrap_or(false)
-        && let Some((at, inv)) = cache.0.lock().map_err(|e| e.to_string())?.as_ref()
+        && let Some((at, inv)) = last.as_ref()
         && at.elapsed() < INVENTORY_MAX_AGE
     {
         return Ok(Arc::clone(inv));
@@ -100,7 +103,7 @@ pub async fn scan_inventory(
             .await
             .map_err(|e| format!("scan failed: {e}"))?,
     );
-    *cache.0.lock().map_err(|e| e.to_string())? = Some((Instant::now(), Arc::clone(&inventory)));
+    *last = Some((Instant::now(), Arc::clone(&inventory)));
     Ok(inventory)
 }
 
@@ -173,6 +176,7 @@ mod tests {
             "/fix/mac_app/com.google.Chrome",
             "/fix/os/macos",
             "/fix/dpkg/libssl3%3Aamd64",
+            "/fix/windows_registry/Firefox%20145.0.1%20%28x64%20en-US%29",
         ] {
             assert!(is_allowed_route(ok), "{ok}");
         }

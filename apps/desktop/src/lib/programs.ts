@@ -1,6 +1,6 @@
 // Turns the inventory, findings and holds into what the screens show for each program.
 import type { Severity } from "@wardwatch/ui";
-import type { FeedSeverity, Finding, Hold, Inventory, Kind, Vuln } from "./model";
+import type { FeedSeverity, Finding, Hold, Inventory, Kind, Source, Vuln } from "./model";
 
 /**
  * What a program's detail corner shows (design spec, Apps):
@@ -15,7 +15,7 @@ export type ProgramState = "urgent" | "update" | "held" | "current" | "unknown";
 export interface Program {
   key: string;
   /** For /fix/:source/:id and holds. The OS uses source "os". */
-  source: string;
+  source: Source | "os";
   id: string;
   name: string;
   vendor: string | null;
@@ -26,6 +26,7 @@ export interface Program {
   /** Meter level for quiet update buttons: 3 serious, 2 moderate, 1 minor or no security fix. */
   severity: Severity;
   vulns: Vuln[];
+  /** Set while the user holds it, including when it is urgent anyway (exploited). */
   heldSince: string | null;
 }
 
@@ -74,7 +75,7 @@ export function buildPrograms(
   const entries = [
     {
       key: osKey(inventory),
-      source: "os",
+      source: "os" as const,
       id: inventory.os.id,
       name: inventory.os.name,
       vendor: null,
@@ -103,7 +104,7 @@ export function buildPrograms(
         latest: f?.latest ?? null,
         severity: f && f.vulns.length > 0 ? meterLevel(f.severity) : 1,
         vulns: f?.vulns ?? [],
-        heldSince: state === "held" ? since : null,
+        heldSince: since,
       };
     })
     .sort((a, b) => rank[a.state] - rank[b.state] || a.name.localeCompare(b.name));
@@ -117,18 +118,19 @@ export interface DeviceStatus {
   held: Program[];
   total: number;
   current: number;
-  byKind: Record<Kind, { total: number; current: number; urgent: Program[] }>;
+  byKind: Record<Kind, { total: number; current: number; urgent: Program[]; programs: Program[] }>;
 }
 
 export function summarize(programs: Program[], checked: boolean): DeviceStatus {
   const byKind: DeviceStatus["byKind"] = {
-    system: { total: 0, current: 0, urgent: [] },
-    browsers: { total: 0, current: 0, urgent: [] },
-    apps: { total: 0, current: 0, urgent: [] },
+    system: { total: 0, current: 0, urgent: [], programs: [] },
+    browsers: { total: 0, current: 0, urgent: [], programs: [] },
+    apps: { total: 0, current: 0, urgent: [], programs: [] },
   };
   for (const p of programs) {
     const k = byKind[p.kind];
     k.total += 1;
+    k.programs.push(p);
     if (p.state === "current") k.current += 1;
     if (p.state === "urgent") k.urgent.push(p);
   }
@@ -145,7 +147,19 @@ export function summarize(programs: Program[], checked: boolean): DeviceStatus {
 
 /** The fix screen route for a program. */
 export function fixPath(p: Pick<Program, "source" | "id">): string {
-  return `/fix/${encodeURIComponent(p.source)}/${encodeURIComponent(p.id)}`;
+  return `/fix/${pathPart(p.source)}/${pathPart(p.id)}`;
+}
+
+/**
+ * encodeURIComponent, plus the five characters it leaves alone (!'()*), so a route
+ * holds only letters, digits, "-._~" and %XX: the set the core's allow-list accepts.
+ * Windows ids are raw registry key names like "Firefox 145.0.1 (x64 en-US)".
+ */
+function pathPart(s: string): string {
+  return encodeURIComponent(s).replace(
+    /[!'()*]/g,
+    (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`,
+  );
 }
 
 /** "Zoom, VLC and macOS 16.1.1" */
@@ -166,6 +180,11 @@ export function kindLine(
   if (!status.checked) return { mark: "none", text: `${String(k.total)} found` };
   if (k.urgent[0]) return { mark: "urgent", text: `${k.urgent[0].name} needs you` };
   if (k.current === k.total) return { mark: "current", text: "Current" };
-  if (k.total === 1) return { mark: "none", text: "Update waiting" };
+  if (k.total === 1) {
+    const only = k.programs[0];
+    const text =
+      only?.state === "held" ? "Held" : only?.state === "update" ? "Update waiting" : "Not checked";
+    return { mark: "none", text };
+  }
   return { mark: "none", text: `${String(k.current)} of ${String(k.total)} current` };
 }

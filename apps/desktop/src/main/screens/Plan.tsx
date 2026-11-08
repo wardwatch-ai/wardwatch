@@ -5,7 +5,7 @@ import { usePlan, useSavePlan } from "../../lib/data";
 import type { Timing, UpdatePlan } from "../../lib/model";
 import {
   hourLabel,
-  hours,
+  hourOptions,
   kinds,
   matchingPreset,
   presetIds,
@@ -164,7 +164,7 @@ export function Plan() {
             }}
             className={`${select} bg-surface`}
           >
-            {hours.map((h) => (
+            {hourOptions(plan.quiet_hours.start).map((h) => (
               <option key={h} value={h}>
                 {hourLabel(h)}
               </option>
@@ -179,7 +179,7 @@ export function Plan() {
             }}
             className={`${select} bg-surface`}
           >
-            {hours.map((h) => (
+            {hourOptions(plan.quiet_hours.end).map((h) => (
               <option key={h} value={h}>
                 {hourLabel(h)}
               </option>

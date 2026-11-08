@@ -3,8 +3,8 @@
 import { Button, Card, Eyebrow, StatusPill } from "@wardwatch/ui";
 import { useDeferredValue, useId, useState } from "react";
 import { useDevice, usePlan, useSavePlan } from "../../lib/data";
-import type { Hold } from "../../lib/model";
-import type { Program } from "../../lib/programs";
+import type { FeedSeverity, Hold } from "../../lib/model";
+import { type Program, meterLevel } from "../../lib/programs";
 import { Failed, Loading, UpdateButton } from "../parts";
 
 /** Rows rendered at once; Linux lists thousands of packages, so search narrows the rest. */
@@ -18,7 +18,11 @@ const short: Record<Program["state"], string> = {
   unknown: "",
 };
 
-const today = () => new Date().toISOString().slice(0, 10);
+/** Today's local date as YYYY-MM-DD (toISOString would give the UTC date). */
+const today = () => {
+  const d = new Date();
+  return `${String(d.getFullYear())}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
 
 function useHolds() {
   const plan = usePlan().data;
@@ -28,10 +32,9 @@ function useHolds() {
   };
   return {
     hold: (p: Program) => {
-      set([
-        ...(plan?.holds ?? []),
-        { source: p.source as Hold["source"], id: p.id, since: today() },
-      ]);
+      const holds = plan?.holds ?? [];
+      if (holds.some((h) => h.source === p.source && h.id === p.id)) return;
+      set([...holds, { source: p.source, id: p.id, since: today() }]);
     },
     release: (p: Program) => {
       set((plan?.holds ?? []).filter((h) => !(h.source === p.source && h.id === p.id)));
@@ -58,15 +61,9 @@ function Corner({ p, onRelease }: { p: Program; onRelease: () => void }) {
   }
 }
 
-const sevText = (s: string | null, exploited: boolean) => {
-  const word =
-    s === "critical" || s === "high"
-      ? "Serious"
-      : s === "medium"
-        ? "Moderate"
-        : s === "low"
-          ? "Minor"
-          : "Unrated";
+const sevWords = { 3: "Serious", 2: "Moderate", 1: "Minor" } as const;
+const sevText = (s: FeedSeverity | null, exploited: boolean) => {
+  const word = s === null || s === "unknown" ? "Unrated" : sevWords[meterLevel(s)];
   return exploited ? `${word}, exploited` : word;
 };
 
@@ -178,7 +175,25 @@ function Detail({ p }: { p: Program }) {
             )}
           </Card>
 
-          {(p.state === "update" || p.state === "urgent") && (
+          {p.state === "urgent" && p.heldSince && (
+            <Card className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div className="font-semibold">Held by you since {p.heldSince}</div>
+                <div className="text-sm text-text-muted">
+                  We still alert you while it's being exploited.
+                </div>
+              </div>
+              <Button
+                variant="quiet"
+                onClick={() => {
+                  holds.release(p);
+                }}
+              >
+                Release hold
+              </Button>
+            </Card>
+          )}
+          {(p.state === "update" || p.state === "urgent") && !p.heldSince && (
             <Card className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <div className="font-semibold">Need this version for a while?</div>
@@ -217,8 +232,8 @@ export function Apps() {
   const matches = q ? programs.filter((p) => p.name.toLowerCase().includes(q)) : programs;
   const shown = matches.slice(0, LIST_LIMIT);
   const selected = programs.find((p) => p.key === picked) ?? shown[0];
-  const allClear =
-    status.checked && status.urgent.length + status.waiting.length + status.held.length === 0;
+  // Only when every program was checked: an unknown one is not up to date, just unchecked.
+  const allClear = status.checked && status.current === status.total;
 
   return (
     <div className="flex flex-col gap-5">

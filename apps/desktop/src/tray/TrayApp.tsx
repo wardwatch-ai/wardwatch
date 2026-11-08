@@ -1,5 +1,7 @@
 // The menu bar / tray popover (board D), the main day-to-day surface.
+import { useQueryClient } from "@tanstack/react-query";
 import { ActGlyph, Button, Card, Eyebrow, Lighthouse } from "@wardwatch/ui";
+import { useEffect, useState } from "react";
 import { useDevice, useGroupGlance, useScore } from "../lib/data";
 import { showMainWindow } from "../lib/ipc";
 import type { DeviceStatus } from "../lib/programs";
@@ -7,7 +9,32 @@ import { fixPath, kindLine, listNames } from "../lib/programs";
 import { KindMark } from "../main/parts";
 import { ordinal, worstSeverity } from "../lib/format";
 
-const open = (route?: string) => () => void showMainWindow(route);
+const open = (route?: string) => () => {
+  showMainWindow(route).catch((e: unknown) => {
+    console.error("wardwatch: could not open the main window", e);
+  });
+};
+
+/**
+ * The popover is created once and only hidden and shown, so nothing remounts.
+ * Refetch whenever it gets focus (the main window may have changed the plan or
+ * holds), and re-render every 30 seconds so "Checked N minutes ago" moves.
+ */
+function useFreshOnFocus() {
+  const client = useQueryClient();
+  const [, tick] = useState(0);
+  useEffect(() => {
+    const refresh = () => void client.invalidateQueries();
+    window.addEventListener("focus", refresh);
+    const timer = setInterval(() => {
+      tick((n) => n + 1);
+    }, 30_000);
+    return () => {
+      window.removeEventListener("focus", refresh);
+      clearInterval(timer);
+    };
+  }, [client]);
+}
 
 function minutesAgo(at: number) {
   const m = Math.floor((Date.now() - at) / 60_000);
@@ -115,6 +142,7 @@ function ScoreStrip() {
 }
 
 export function TrayApp() {
+  useFreshOnFocus();
   const { status, error, checkedAt } = useDevice();
   const headline = !status
     ? "Wardwatch"

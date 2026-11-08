@@ -71,12 +71,19 @@ export function withRule(plan: UpdatePlan, tier: Tier, kind: Kind, timing: Timin
   return { ...plan, rules: { ...plan.rules, [tier]: { ...plan.rules[tier], [kind]: timing } } };
 }
 
-/** "22:00" → "10 pm" */
+/** The hourly choices, plus `current` if it is off the hour (another tool wrote "22:30"). */
+export function hourOptions(current: string): string[] {
+  return hours.includes(current) ? hours : [...hours, current].sort();
+}
+
+/** "22:00" → "10 pm", "22:30" → "10:30 pm" */
 export function hourLabel(hhmm: string): string {
   const h = Number(hhmm.slice(0, 2));
-  if (h === 0) return "Midnight";
-  if (h === 12) return "Noon";
-  return h < 12 ? `${String(h)} am` : `${String(h - 12)} pm`;
+  const m = hhmm.slice(3, 5);
+  if (m === "00" && h === 0) return "Midnight";
+  if (m === "00" && h === 12) return "Noon";
+  const hour = h % 12 === 0 ? 12 : h % 12;
+  return `${String(hour)}${m === "00" ? "" : `:${m}`} ${h < 12 ? "am" : "pm"}`;
 }
 
 export const hours = Array.from({ length: 24 }, (_, h) => `${String(h).padStart(2, "0")}:00`);

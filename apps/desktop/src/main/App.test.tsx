@@ -39,11 +39,11 @@ describe("App", () => {
   it("lists the account's devices in the account menu", async () => {
     renderAt(<App />);
     await userEvent.click(await screen.findByRole("button", { name: /Matt/ }));
-    expect(screen.getByRole("group", { name: "Account" })).toHaveTextContent(
+    expect(screen.getByRole("dialog", { name: "Account" })).toHaveTextContent(
       "Family iMacAll clear",
     );
     await userEvent.keyboard("{Escape}");
-    expect(screen.queryByRole("group", { name: "Account" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "Account" })).not.toBeInTheDocument();
   });
 
   it("shows app info and says when data is a sample", async () => {

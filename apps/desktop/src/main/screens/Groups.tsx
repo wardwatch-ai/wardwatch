@@ -3,7 +3,6 @@
 // and fix speed only; never apps, versions or device names.
 import { Button, Card, Eyebrow, SegmentedControl } from "@wardwatch/ui";
 import { useId, useState, type SyntheticEvent } from "react";
-import { AccountsError } from "../../lib/accounts";
 import {
   accounts,
   useGroup,
@@ -42,20 +41,21 @@ const periodCopy: Record<Period, { title: string; note: string; column: string }
 const monthName = (month: string) =>
   new Date(`${month}-01T12:00:00Z`).toLocaleString("en-US", { month: "long", timeZone: "UTC" });
 
-const errorText = (e: unknown) =>
-  e instanceof AccountsError || e instanceof Error ? e.message : "Something went wrong.";
+const errorText = (e: unknown) => (e instanceof Error ? e.message : "Something went wrong.");
 
 /** A one-field form (Start a group, Join with a code, Change stakes). */
 function InlineForm({
   label,
   submit,
   initial = "",
+  maxLength,
   onDone,
   run,
 }: {
   label: string;
   submit: string;
   initial?: string;
+  maxLength: number;
   onDone: () => void;
   run: (value: string) => Promise<unknown>;
 }) {
@@ -78,7 +78,7 @@ function InlineForm({
           setValue(e.target.value);
         }}
         className="min-h-11 rounded-[10px] border border-edge bg-surface px-3 text-text"
-        maxLength={140}
+        maxLength={maxLength}
         required
       />
       {write.isError && (
@@ -132,6 +132,7 @@ function Picker({
       {form === "start" ? (
         <InlineForm
           label="Group name"
+          maxLength={60}
           submit="Start"
           onDone={() => {
             setForm(null);
@@ -143,6 +144,7 @@ function Picker({
       ) : form === "join" ? (
         <InlineForm
           label="Invite code"
+          maxLength={32}
           submit="Join"
           onDone={() => {
             setForm(null);
@@ -300,6 +302,7 @@ function Stakes({ group, board }: { group: GroupDetail; board: Leaderboard }) {
       {editing ? (
         <InlineForm
           label="This month's stakes"
+          maxLength={140}
           submit="Save"
           initial={board.stake?.text ?? ""}
           onDone={() => {

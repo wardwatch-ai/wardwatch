@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hourLabel, matchingPreset, presets, withPreset, withRule } from "./plan";
+import { hourLabel, hourOptions, matchingPreset, presets, withPreset, withRule } from "./plan";
 import { samplePlan } from "./sample";
 
 describe("update plan", () => {
@@ -21,11 +21,15 @@ describe("update plan", () => {
   });
 
   it("labels hours", () => {
-    expect(["00:00", "08:00", "12:00", "22:00"].map(hourLabel)).toEqual([
+    expect(["00:00", "08:00", "12:00", "22:00", "22:30", "00:15"].map(hourLabel)).toEqual([
       "Midnight",
       "8 am",
       "Noon",
       "10 pm",
+      "10:30 pm",
+      "12:15 am",
     ]);
+    expect(hourOptions("22:30")).toContain("22:30");
+    expect(hourOptions("22:00")).toHaveLength(24);
   });
 });

@@ -46,6 +46,19 @@ describe("Apps", () => {
     expect(await screen.findByRole("button", { name: "Hold" })).toBeInTheDocument();
   });
 
+  it("doesn't hold twice, and shows the hold on an exploited program", async () => {
+    renderAt(<Apps />);
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "Google Chrome" }),
+    ).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Hold" }));
+    expect(await screen.findByText(/Held by you since/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Hold" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Update now" })).toHaveClass("ww-btn-act");
+    await userEvent.click(screen.getByRole("button", { name: "Release hold" }));
+    expect(await screen.findByRole("button", { name: "Hold" })).toBeInTheDocument();
+  });
+
   it("searches the list", async () => {
     renderAt(<Apps />);
     await userEvent.type(await screen.findByRole("searchbox", { name: "Search programs" }), "spot");

@@ -48,7 +48,9 @@ function StatusCard({ status }: { status: DeviceStatus }) {
             <p className="m-0 text-text-muted">
               {status.waiting.length > 0
                 ? "Nothing is under attack. The routine updates below can wait for Sunday."
-                : "This device's system, browsers and apps are up to date. We'll keep watch."}
+                : status.current === status.total
+                  ? "This device's system, browsers and apps are up to date. We'll keep watch."
+                  : `${String(status.current)} of ${String(status.total)} programs are checked and up to date; the rest aren't in the update feed yet. We'll keep watch.`}
             </p>
           </>
         ) : (
