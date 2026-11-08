@@ -207,3 +207,39 @@ export interface AccountDevice {
     fix?: { exploited: boolean; severity: FeedSeverity | null };
   };
 }
+
+// ---- Nudge plan (crates/wardwatch-nudge NudgePlan, from the core's get_nudges) ----
+
+export interface Nudge {
+  /** The finding's key (catalog app id). */
+  key: string;
+  app_id: string;
+  name: string;
+  category: Kind;
+  level: Tier;
+  exploited: boolean;
+  strength: { kind: "urgent" } | { kind: "quiet"; bars: number };
+  timing: Timing;
+  /** An exploited OS or browser hole whose broad alert isn't approved yet. */
+  awaiting_approval: boolean;
+  due_at: string | null;
+}
+
+/** What leads Home and the tray. Timestamps are RFC 3339. */
+export type TopCard =
+  | { kind: "under_attack"; keys: string[] }
+  | { kind: "tune_up"; keys: string[]; bars: number; at: string };
+
+export interface NudgePlan {
+  nudges: Nudge[];
+  top_card: TopCard;
+  notify: {
+    kind: "urgent" | "same_day" | "tune_up";
+    keys: string[];
+    title: string;
+    body: string;
+  }[];
+  install: string[];
+  tune_up_due: boolean;
+  next_check: string;
+}

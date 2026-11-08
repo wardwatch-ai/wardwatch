@@ -169,3 +169,44 @@ describe("kindLine", () => {
     });
   });
 });
+
+describe("summarize with the nudge plan", () => {
+  const tuneUp = {
+    kind: "tune_up" as const,
+    keys: ["google-chrome", "zoom"],
+    bars: 3,
+    at: "2026-11-15T10:00:00Z",
+  };
+
+  it("lets the engine's top card decide what leads", () => {
+    const s = summarize(programs(), true, { kind: "under_attack", keys: ["google-chrome"] });
+    expect(s.attack.map((p) => p.name)).toEqual(["Google Chrome"]);
+    expect(s.quietAttack).toEqual([]);
+  });
+
+  it("keeps an exploited program awaiting approval out of the lead, first in the tune-up", () => {
+    const s = summarize(programs(), true, tuneUp);
+    expect(s.attack).toEqual([]);
+    expect(s.quietAttack.map((p) => p.name)).toEqual(["Google Chrome"]);
+    // The tune-up is exactly the engine's keys, one program per finding.
+    expect(s.tuneUp.map((p) => p.name)).toEqual(["Google Chrome", "Zoom"]);
+  });
+
+  it("leads with one program per finding and keeps its other installs out of the quiet list", () => {
+    const list = programs();
+    const chrome = list.find((p) => p.finding === "google-chrome");
+    if (!chrome) throw new Error("no Chrome");
+    const twin = {
+      ...chrome,
+      key: "homebrew_cask:google-chrome",
+      source: "homebrew_cask" as const,
+    };
+    const s = summarize([...list, twin], true, { kind: "under_attack", keys: ["google-chrome"] });
+    expect(s.attack).toHaveLength(1);
+    expect(s.quietAttack).toEqual([]);
+  });
+
+  it("falls back to every exploited program without a plan", () => {
+    expect(summarize(programs(), true).attack.map((p) => p.name)).toEqual(["Google Chrome"]);
+  });
+});

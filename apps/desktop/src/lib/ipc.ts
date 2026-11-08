@@ -3,8 +3,8 @@
 // command names and payload shapes live in one place on each side.
 import { Channel, invoke, isTauri } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import type { Finding as ScreenFinding, Inventory, UpdatePlan } from "./model";
-import { sampleFindings, sampleInventory, samplePlan } from "./sample";
+import type { Finding as ScreenFinding, Inventory, NudgePlan, UpdatePlan } from "./model";
+import { sampleFindings, sampleInventory, sampleNudges, samplePlan } from "./sample";
 
 export interface AppInfo {
   name: string;
@@ -74,6 +74,20 @@ export async function listFindings(): Promise<ScreenFinding[] | null> {
     return await invoke<Finding[]>("list_findings");
   } catch (e) {
     console.warn("findings unavailable:", e);
+    return null;
+  }
+}
+
+/**
+ * How hard and when to nudge for each update (crates/wardwatch-nudge), or null
+ * when nothing could be checked, like listFindings.
+ */
+export async function getNudges(): Promise<NudgePlan | null> {
+  if (!isTauri()) return structuredClone(sampleNudges);
+  try {
+    return await invoke<NudgePlan>("get_nudges");
+  } catch (e) {
+    console.warn("nudge plan unavailable:", e);
     return null;
   }
 }

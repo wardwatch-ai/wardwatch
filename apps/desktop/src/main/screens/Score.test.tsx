@@ -24,7 +24,7 @@ describe("Score", () => {
       "section",
     );
     if (!moves) throw new Error("no moves section");
-    expect(within(moves).getByRole("button", { name: "Fix now" })).toHaveClass("ww-btn-act");
+    expect(await within(moves).findByRole("button", { name: "Fix now" })).toHaveClass("ww-btn-act");
     expect(within(moves).getByRole("button", { name: /Do it now/ })).toHaveClass("ww-btn-quiet");
     const phone = within(moves).getByText("Update the iPhone").closest("section");
     if (!phone) throw new Error("no iPhone card");

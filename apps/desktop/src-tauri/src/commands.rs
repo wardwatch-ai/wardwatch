@@ -9,9 +9,11 @@ use tauri::ipc::Channel;
 use tauri::{AppHandle, Emitter, Manager, Runtime, State};
 use wardwatch_catalog::Inventory;
 use wardwatch_feed::Finding;
+use wardwatch_nudge::NudgePlan;
 use wardwatch_update::{Method, Progress};
 
 use crate::fix::{self, FixResult, FixView};
+use crate::nudge;
 use crate::plan::{self, UpdatePlan};
 use crate::settings::{self, Settings};
 use crate::windows;
@@ -149,6 +151,21 @@ pub fn set_plan<R: Runtime>(
 ) -> Result<(), String> {
     let _guard = lock.0.lock().map_err(|e| e.to_string())?;
     plan::save(&plan_path(&app)?, &plan)
+}
+
+/// How hard and when to nudge for each update on this device, from the same
+/// fresh findings as `list_findings` and the saved Update plan. Read-only:
+/// nothing is sent from here, so nudge history isn't recorded yet.
+#[tauri::command]
+pub async fn get_nudges<R: Runtime>(
+    app: AppHandle<R>,
+    lock: State<'_, PlanLock>,
+) -> Result<NudgePlan, String> {
+    let stored = {
+        let _guard = lock.0.lock().map_err(|e| e.to_string())?;
+        plan::load(&plan_path(&app)?)
+    };
+    blocking(move || nudge::plan_for(&fix::list_findings(&app)?, &stored)).await
 }
 
 fn settings_path<R: Runtime>(app: &AppHandle<R>) -> Result<std::path::PathBuf, String> {

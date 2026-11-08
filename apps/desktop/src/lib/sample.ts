@@ -10,6 +10,7 @@ import type {
   Leaderboard,
   LeaderboardRow,
   Me,
+  NudgePlan,
   Period,
   ScoreResponse,
   Software,
@@ -189,6 +190,19 @@ export const samplePlan: UpdatePlan = {
   rules: balanced,
   quiet_hours: { start: "22:00", end: "08:00" },
   holds: [{ source: "mac_app", id: "com.apple.FinalCut", since: "2026-11-02" }],
+};
+
+/**
+ * The nudge engine's answer for the sample. Chrome leads as if its broad alert
+ * were approved, matching the spec's mocks; screens read only `top_card`.
+ */
+export const sampleNudges: NudgePlan = {
+  nudges: [],
+  top_card: { kind: "under_attack", keys: ["google-chrome"] },
+  notify: [],
+  install: [],
+  tune_up_due: false,
+  next_check: "2026-11-08T22:00:00Z",
 };
 
 export const sampleMe: Me = { username: "matt", real_name: "Matt" };

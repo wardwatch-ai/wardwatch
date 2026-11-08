@@ -4118,6 +4118,7 @@ dependencies = [
 name = "wardwatch-desktop"
 version = "0.1.0"
 dependencies = [
+ "jiff",
  "serde",
  "serde_json",
  "tauri",
@@ -4127,6 +4128,7 @@ dependencies = [
  "tempfile",
  "wardwatch-catalog",
  "wardwatch-feed",
+ "wardwatch-nudge",
  "wardwatch-update",
 ]
 

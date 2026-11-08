@@ -10,6 +10,7 @@ fn main() {
         "list_findings",
         "get_fix",
         "run_fix",
+        "get_nudges",
         "get_settings",
         "set_settings",
     ]);

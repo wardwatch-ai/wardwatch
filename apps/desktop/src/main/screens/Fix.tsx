@@ -52,7 +52,11 @@ export function Fix() {
         });
       });
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["findings"] }),
+    onSuccess: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["findings"] }),
+        queryClient.invalidateQueries({ queryKey: ["nudges"] }),
+      ]),
   });
 
   if (fix.isPending) return <Shell crumb="Loading">Checking this program…</Shell>;
