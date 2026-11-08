@@ -62,6 +62,19 @@ const BY_WINDOWS_NAME: &[(&str, bool, Browser)] = &[
     ("Vivaldi", false, Browser::Vivaldi),
 ];
 
+/// Scoop app names (main and extras buckets).
+const BY_SCOOP: &[(&str, Browser)] = &[
+    ("googlechrome", Browser::Chrome),
+    ("chromium", Browser::Chromium),
+    ("firefox", Browser::Firefox),
+    ("brave", Browser::Brave),
+    ("opera", Browser::Opera),
+    ("vivaldi", Browser::Vivaldi),
+];
+
+/// Microsoft Store package names. Store packages have no Uninstall key.
+const BY_STORE: &[(&str, Browser)] = &[("Mozilla.Firefox", Browser::Firefox)];
+
 fn lookup(table: &[(&str, Browser)], key: &str) -> Option<Browser> {
     table
         .iter()
@@ -88,13 +101,11 @@ pub(crate) fn identify(s: &Software) -> Option<Browser> {
             })
             .map(|&(_, _, b)| b),
         // Scoop browsers are portable copies that are not in the registry.
-        Source::Scoop if s.id.eq_ignore_ascii_case("googlechrome") => Some(Browser::Chrome),
-        Source::Scoop => lookup(BY_PACKAGE, &s.id),
+        Source::Scoop => lookup(BY_SCOOP, &s.id),
+        Source::MsStore => lookup(BY_STORE, &s.id),
         // Casks also install an app bundle, and Chocolatey packages run an
         // installer that registers the program; those entries carry the tag.
-        Source::HomebrewCask | Source::HomebrewFormula | Source::Chocolatey | Source::MsStore => {
-            None
-        }
+        Source::HomebrewCask | Source::HomebrewFormula | Source::Chocolatey => None,
     }
 }
 
@@ -213,6 +224,19 @@ mod tests {
             (
                 sw(Source::Chocolatey, "firefox", "Mozilla Firefox", "132.0"),
                 None,
+            ),
+            (
+                sw(
+                    Source::MsStore,
+                    "Mozilla.Firefox",
+                    "Mozilla Firefox",
+                    "132.0.0.0",
+                ),
+                Some(Browser::Firefox),
+            ),
+            (
+                sw(Source::Scoop, "vivaldi", "vivaldi", "7.0"),
+                Some(Browser::Vivaldi),
             ),
         ];
         for (s, want) in cases {

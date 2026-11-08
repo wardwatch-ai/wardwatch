@@ -66,15 +66,19 @@ impl Service {
 }
 
 /// The software whose install folder holds `program`, else a distro package
-/// named like the program's file.
-fn owner(software: &[Software], program: &Path) -> Option<SoftwareRef> {
+/// named like the program's file. `locations` are the normalized install
+/// folders of `software`, in the same order.
+fn owner(
+    software: &[Software],
+    locations: &[Option<String>],
+    program: &Path,
+) -> Option<SoftwareRef> {
     let path = normalize(program);
     let file = program.file_name()?.to_str()?;
-    let by_location = software.iter().find(|s| {
-        s.location
-            .as_deref()
-            .is_some_and(|loc| inside(&normalize(loc), &path))
-    });
+    let by_location = locations
+        .iter()
+        .position(|loc| loc.as_deref().is_some_and(|loc| inside(loc, &path)))
+        .map(|i| &software[i]);
     let by_name = || {
         software
             .iter()
@@ -87,18 +91,32 @@ fn owner(software: &[Software], program: &Path) -> Option<SoftwareRef> {
 }
 
 /// Links services to software, marks those whose program is running (unless
-/// the scanner already knew), and sorts them.
+/// the scanner already knew), sorts them, and merges duplicates (the same
+/// launchd label for the machine and the user).
 fn finish(services: &mut Vec<Service>, software: &[Software], running_exes: &[PathBuf]) {
     let running: HashSet<String> = running_exes.iter().map(|p| normalize(p)).collect();
+    let locations: Vec<Option<String>> = software
+        .iter()
+        .map(|s| s.location.as_deref().map(normalize))
+        .collect();
     for svc in services.iter_mut() {
         let Some(program) = &svc.program else {
             continue;
         };
-        svc.software = owner(software, program);
+        svc.software = owner(software, &locations, program);
         svc.running |= running.contains(&normalize(program));
     }
     services.sort_by(|a, b| (a.kind, &a.name).cmp(&(b.kind, &b.name)));
-    services.dedup_by(|a, b| a.kind == b.kind && a.name == b.name);
+    services.dedup_by(|later, first| {
+        let same = later.kind == first.kind && later.name == first.name;
+        if same {
+            first.starts_automatically |= later.starts_automatically;
+            first.running |= later.running;
+            first.display_name = first.display_name.take().or(later.display_name.take());
+            first.software = first.software.take().or(later.software.take());
+        }
+        same
+    });
 }
 
 pub fn scan(
@@ -149,7 +167,7 @@ pub fn watch_paths() -> Vec<PathBuf> {
 /// the world-readable `/proc/<pid>/cgroup`, since a user can't read the
 /// executable path of root's daemons.
 pub mod systemd {
-    use std::collections::HashSet;
+    use std::collections::{HashMap, HashSet};
     use std::fs;
     use std::path::{Path, PathBuf};
 
@@ -201,10 +219,11 @@ pub mod systemd {
         (description, program)
     }
 
-    /// The service a process belongs to, from its `/proc/<pid>/cgroup` text.
+    /// The system service a process belongs to, from its `/proc/<pid>/cgroup`
+    /// text. Processes of users' own units (under `user.slice`) don't count.
     pub fn parse_cgroup(text: &str) -> Option<String> {
         text.lines()
-            .filter_map(|l| l.rsplit(':').next())
+            .filter_map(|l| l.rsplit(':').next()?.strip_prefix("/system.slice/"))
             .flat_map(|path| path.split('/'))
             .rfind(|c| c.ends_with(".service"))
             .map(String::from)
@@ -244,55 +263,82 @@ pub mod systemd {
             .collect()
     }
 
-    /// Service units that are enabled or running. Templates (`getty@.service`),
-    /// aliases and masked units are skipped.
+    /// Service units that are enabled or running, including instances of
+    /// templates (`wg-quick@wg0.service`). A service counts as enabled when it,
+    /// or the socket, timer or path unit that starts it, is enabled. Bare
+    /// templates, aliases and masked units are skipped.
     pub fn scan_units(
         dirs: &[&Path],
         enabled_root: &Path,
         running: &HashSet<String>,
     ) -> Vec<Service> {
         let enabled = enabled_units(enabled_root);
-        let mut seen = HashSet::new();
-        let mut out = Vec::new();
+        // Unit name -> file, highest-precedence folder first; None if masked.
+        let mut files: HashMap<String, Option<PathBuf>> = HashMap::new();
         for dir in dirs {
             let Ok(entries) = fs::read_dir(dir) else {
                 continue;
             };
-            let mut names: Vec<String> = entries
-                .filter_map(|e| e.ok()?.file_name().into_string().ok())
-                .filter(|n| n.ends_with(".service") && !n.contains('@'))
-                .collect();
-            names.sort();
-            for name in names {
+            for name in entries.filter_map(|e| e.ok()?.file_name().into_string().ok()) {
+                if !name.ends_with(".service") || files.contains_key(&name) {
+                    continue;
+                }
                 let path = dir.join(&name);
                 if let Ok(target) = fs::read_link(&path) {
                     if target == Path::new("/dev/null") {
-                        seen.insert(name); // masked
+                        files.insert(name, None);
                         continue;
                     }
                     if target.file_name().is_some_and(|t| t != name.as_str()) {
                         continue; // alias of another unit
                     }
                 }
-                if !seen.insert(name.clone()) {
-                    continue;
-                }
-                let is_enabled = enabled.contains(&name);
-                let is_running = running.contains(&name);
-                if !is_enabled && !is_running {
-                    continue;
-                }
-                let Ok(bytes) = read_capped(&path) else {
-                    continue;
-                };
-                let (description, program) = parse_unit(&String::from_utf8_lossy(&bytes));
-                let mut svc = Service::new(ServiceKind::Systemd, name);
-                svc.display_name = description;
-                svc.starts_automatically = is_enabled;
-                svc.running = is_running;
-                svc.program = program;
-                out.push(svc);
+                files.insert(name, Some(path));
             }
+        }
+
+        let is_enabled = |name: &str| {
+            let stem = name.trim_end_matches(".service");
+            ["service", "socket", "timer", "path"]
+                .iter()
+                .any(|kind| enabled.contains(&format!("{stem}.{kind}")))
+        };
+        let instances = enabled
+            .iter()
+            .chain(running)
+            .filter(|n| n.ends_with(".service") && n.contains('@') && !n.ends_with("@.service"));
+        let mut names: Vec<&String> = files
+            .keys()
+            .filter(|n| !n.ends_with("@.service"))
+            .chain(instances)
+            .collect();
+        names.sort();
+        names.dedup();
+
+        let mut out = Vec::new();
+        for name in names {
+            let (on, up) = (is_enabled(name), running.contains(name));
+            if !on && !up {
+                continue;
+            }
+            // An instance runs its template's file unless it has its own.
+            let template = name
+                .split_once('@')
+                .map(|(prefix, _)| format!("{prefix}@.service"));
+            let file = match files.get(name.as_str()) {
+                Some(f) => f.as_ref(),
+                None => template.and_then(|t| files.get(&t)?.as_ref()),
+            };
+            let Some(Ok(bytes)) = file.map(|f| read_capped(f)) else {
+                continue; // masked, or no unit file
+            };
+            let (description, program) = parse_unit(&String::from_utf8_lossy(&bytes));
+            let mut svc = Service::new(ServiceKind::Systemd, name.clone());
+            svc.display_name = description;
+            svc.starts_automatically = on;
+            svc.running = up;
+            svc.program = program;
+            out.push(svc);
         }
         out
     }
@@ -354,8 +400,18 @@ pub mod launchd {
             ]
             .iter()
             .any(|k| truthy(k));
-        // Homebrew jobs run /opt/homebrew/opt/<name>/…, a link into the Cellar.
-        svc.program = program.map(|p| fs::canonicalize(&p).unwrap_or(p));
+        // Homebrew jobs run <prefix>/opt/<name>/…, a link into the Cellar.
+        // Other paths are left alone: resolving them could stall on a network mount.
+        svc.program = program.map(|p| {
+            let homebrew = crate::homebrew::PREFIXES
+                .iter()
+                .any(|prefix| p.starts_with(Path::new(prefix).join("opt")));
+            if homebrew {
+                fs::canonicalize(&p).unwrap_or(p)
+            } else {
+                p
+            }
+        });
         Some(svc)
     }
 
@@ -441,16 +497,17 @@ pub mod windows {
             return None;
         }
         let image = expand_env(get("ImagePath")?, lookup);
+        // NT paths (`\??\C:\…`) are ordinary paths with a prefix.
+        let image = image.strip_prefix(r"\??\").unwrap_or(&image);
         let lower = image.trim_start_matches('"').to_lowercase();
         let windows_dir = windows_dir.trim_end_matches('\\').to_lowercase();
         if lower.starts_with(&format!("{windows_dir}\\"))
             || lower.starts_with(r"\systemroot\")
             || lower.starts_with(r"system32\")
-            || lower.starts_with(r"\??\")
         {
             return None;
         }
-        let program = image_program(&image)?;
+        let program = image_program(image)?;
         let mut svc = Service::new(ServiceKind::Windows, name);
         svc.display_name = get("DisplayName")
             .filter(|d| !d.starts_with('@'))
@@ -471,22 +528,13 @@ pub mod windows {
             warnings.push("services: could not open the service list".into());
             return Vec::new();
         };
-        let windows_dir = std::env::var("SystemRoot").unwrap_or_else(|_| r"C:\Windows".into());
+        let windows_dir = crate::windows::windows_dir();
         let lookup = |n: &str| std::env::var(n).ok();
         root.enum_keys()
             .filter_map(Result::ok)
             .filter_map(|name| {
                 let key = root.open_subkey_with_flags(&name, KEY_READ).ok()?;
-                let values: Values = SERVICE_VALUES
-                    .iter()
-                    .filter_map(|&n| {
-                        let v = key
-                            .get_value::<String, _>(n)
-                            .ok()
-                            .or_else(|| key.get_value::<u32, _>(n).ok().map(|d| d.to_string()))?;
-                        Some((n.to_string(), v))
-                    })
-                    .collect();
+                let values = crate::windows::read_values(&key, SERVICE_VALUES);
                 parse_service(&name, &values, &windows_dir, lookup)
             })
             .collect()
@@ -520,6 +568,17 @@ mod tests {
             Some("cron.service")
         );
         assert_eq!(systemd::parse_cgroup("0::/init.scope\n"), None);
+        assert_eq!(
+            systemd::parse_cgroup(
+                "0::/user.slice/user-1000.slice/user@1000.service/app.slice/syncthing.service\n"
+            ),
+            None
+        );
+        assert_eq!(
+            systemd::parse_cgroup("0::/system.slice/system-getty.slice/getty@tty1.service\n")
+                .as_deref(),
+            Some("getty@tty1.service")
+        );
     }
 
     #[cfg(unix)]
@@ -541,6 +600,17 @@ mod tests {
         fs::write(lib.join("idle.service"), unit("Idle", "/usr/bin/idle")).unwrap();
         fs::write(lib.join("getty@.service"), unit("Getty", "/sbin/agetty")).unwrap();
         fs::write(lib.join("masked.service"), unit("Masked", "/usr/bin/m")).unwrap();
+        fs::write(lib.join("cron.service"), unit("Cron", "/usr/sbin/cron")).unwrap();
+        fs::write(
+            lib.join("wg-quick@.service"),
+            unit("WireGuard", "/usr/bin/wg-quick up %i"),
+        )
+        .unwrap();
+        // Enabled through its timer, and an enabled template instance.
+        for wanted in ["cron.timer", "wg-quick@wg0.service"] {
+            std::os::unix::fs::symlink(&lib, etc.join("multi-user.target.wants").join(wanted))
+                .unwrap();
+        }
         std::os::unix::fs::symlink(
             lib.join("ssh.service"),
             etc.join("multi-user.target.wants/ssh.service"),
@@ -557,12 +627,21 @@ mod tests {
             .collect();
         assert_eq!(
             summary,
-            [("cups.service", false, true), ("ssh.service", true, false)]
+            [
+                ("cron.service", true, false),
+                ("cups.service", false, true),
+                ("ssh.service", true, false),
+                ("wg-quick@wg0.service", true, false),
+            ]
         );
-        assert_eq!(found[1].display_name.as_deref(), Some("SSH"));
+        assert_eq!(found[2].display_name.as_deref(), Some("SSH"));
         assert_eq!(
-            found[1].program.as_deref(),
+            found[2].program.as_deref(),
             Some(Path::new("/usr/sbin/sshd"))
+        );
+        assert_eq!(
+            found[3].program.as_deref(),
+            Some(Path::new("/usr/bin/wg-quick"))
         );
     }
 
@@ -665,6 +744,22 @@ mod tests {
             ("ImagePath", r"C:\Program Files\A\a.exe"),
         ];
         assert!(windows::parse_service("a", &values(&per_user), r"C:\Windows", env).is_none());
+        let nt = [
+            ("Type", "16"),
+            ("Start", "2"),
+            ("ImagePath", r"\??\C:\Program Files\AV\agent.exe"),
+        ];
+        let svc = windows::parse_service("av", &values(&nt), r"C:\Windows", env).unwrap();
+        assert_eq!(
+            svc.program.as_deref(),
+            Some(Path::new(r"C:\Program Files\AV\agent.exe"))
+        );
+        let nt_os = [
+            ("Type", "16"),
+            ("Start", "2"),
+            ("ImagePath", r"\??\C:\Windows\system32\x.exe"),
+        ];
+        assert!(windows::parse_service("x", &values(&nt_os), r"C:\Windows", env).is_none());
         let manual = [
             ("Type", "16"),
             ("Start", "3"),
@@ -697,6 +792,8 @@ mod tests {
             svc("orphan", "/Library/Helpers/orphan"),
             svc("orphan", "/Library/Helpers/orphan"),
         ];
+        // The same label for the machine (disabled) and the user (runs at login).
+        services[3].starts_automatically = true;
         finish(&mut services, &software, &["/usr/sbin/sshd".into()]);
         let summary: Vec<(&str, Option<&str>, bool)> = services
             .iter()
@@ -716,6 +813,7 @@ mod tests {
                 ("us.zoom.updater", Some("us.zoom.xos"), false),
             ]
         );
+        assert!(services[0].starts_automatically, "duplicates merge");
         let json = serde_json::to_string(&services).unwrap();
         assert!(
             !json.contains("/Applications") && !json.contains("/usr/sbin"),

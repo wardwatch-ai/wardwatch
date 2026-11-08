@@ -161,6 +161,10 @@ const MAX_METADATA_BYTES: u64 = 4 << 20;
 
 pub(crate) fn read_capped(path: &std::path::Path) -> std::io::Result<Vec<u8>> {
     use std::io::Read;
+    // Only regular files: opening a FIFO planted in a user-writable folder would block.
+    if !std::fs::metadata(path)?.is_file() {
+        return Err(std::io::ErrorKind::InvalidInput.into());
+    }
     let mut buf = Vec::new();
     std::fs::File::open(path)?
         .take(MAX_METADATA_BYTES)
@@ -177,12 +181,9 @@ pub(crate) fn version_key(v: &str) -> Vec<u64> {
         .collect()
 }
 
-/// The current user's home folder (`HOME`, or `USERPROFILE` on Windows).
+/// The current user's home folder.
 pub(crate) fn home_dir() -> Option<PathBuf> {
-    let var = if cfg!(windows) { "USERPROFILE" } else { "HOME" };
-    std::env::var_os(var)
-        .filter(|h| !h.is_empty())
-        .map(PathBuf::from)
+    std::env::home_dir().filter(|h| !h.as_os_str().is_empty())
 }
 
 /// Scans this device. Never fails: a scanner that can't run adds a warning.

@@ -24,7 +24,7 @@ Services and browser extensions get their own lists:
 | | Read from | Left out |
 | --- | --- | --- |
 | `services` | systemd unit files (running units from `/proc/<pid>/cgroup`); launchd plists in `/Library` and `~/Library`; `HKLM\SYSTEM\CurrentControlSet\Services` | Linux units that are neither enabled nor running; Apple's jobs in `/System`; Windows drivers, per-user service templates, and services under the Windows folder |
-| `extensions` | Chromium-based browsers' `Extensions/<id>/<version>/manifest.json` and `Preferences` (enabled state) in every profile; Firefox `extensions.json`; Safari `.appex` bundles inside Mac apps | Themes, dictionaries, and add-ons that ship with the browser |
+| `extensions` | Chromium-based browsers' `Extensions/<id>/<version>/manifest.json` and `Preferences` (enabled state) in every profile; Firefox `extensions.json`; Safari `.appex` bundles inside Mac apps | Themes, dictionaries, and add-ons that ship with the browser (Chrome apps such as Docs Offline are listed as extensions) |
 
 Each service is linked to the software entry whose install folder holds its
 program (or a distro package named like the program). Store packages drop

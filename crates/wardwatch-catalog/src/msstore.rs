@@ -9,10 +9,9 @@
 //! apps) and the inbox apps under the Windows folder, which Windows Update
 //! services.
 
-use std::collections::BTreeMap;
-
 use serde::Deserialize;
 
+use crate::windows::Values;
 use crate::{Software, Source, version_key};
 
 /// Registry values read from each package's key.
@@ -71,7 +70,7 @@ fn literal(name: Option<&str>) -> Option<&str> {
 /// folder (`C:\Windows`); packages inside it are part of Windows.
 pub fn parse_package(
     full_name: &str,
-    values: &BTreeMap<String, String>,
+    values: &Values,
     manifest_xml: Option<&str>,
     windows_dir: &str,
 ) -> Option<Software> {
@@ -87,9 +86,13 @@ pub fn parse_package(
     if root.is_some_and(|r| r.to_lowercase().starts_with(&format!("{windows_dir}\\"))) {
         return None;
     }
-    let manifest = manifest_xml
-        .and_then(|x| quick_xml::de::from_str::<Manifest>(x).ok())
-        .unwrap_or_default();
+    let manifest = manifest_xml.and_then(|x| quick_xml::de::from_str::<Manifest>(x).ok());
+    // Every installed package has a readable manifest; without one a
+    // framework can't be told from an app, so a stale entry is dropped.
+    if root.is_some() && manifest.is_none() {
+        return None;
+    }
+    let manifest = manifest.unwrap_or_default();
     let props = manifest.properties;
     if props.framework || props.resource {
         return None;
@@ -127,6 +130,7 @@ mod sys {
 
     use super::*;
     use crate::read_capped;
+    use crate::windows::{read_values, windows_dir};
 
     const REPOSITORY: &str = r"Software\Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppModel\Repository\Packages";
 
@@ -137,16 +141,13 @@ mod sys {
             warnings.push("store: could not open the package repository".into());
             return Vec::new();
         };
-        let windows_dir = std::env::var("SystemRoot").unwrap_or_else(|_| r"C:\Windows".into());
+        let windows_dir = windows_dir();
         let mut out = Vec::new();
         for full_name in root.enum_keys().filter_map(Result::ok) {
             let Ok(key) = root.open_subkey_with_flags(&full_name, KEY_READ) else {
                 continue;
             };
-            let values: BTreeMap<String, String> = PACKAGE_VALUES
-                .iter()
-                .filter_map(|&n| Some((n.to_string(), key.get_value::<String, _>(n).ok()?)))
-                .collect();
+            let values = read_values(&key, PACKAGE_VALUES);
             let manifest = values
                 .get("PackageRootFolder")
                 .and_then(|r| read_capped(&Path::new(r).join("AppxManifest.xml")).ok())
@@ -171,7 +172,7 @@ mod tests {
 
     const TERMINAL: &str = "Microsoft.WindowsTerminal_1.21.2911.0_x64__8wekyb3d8bbwe";
 
-    fn values(display: &str, root: &str) -> BTreeMap<String, String> {
+    fn values(display: &str, root: &str) -> Values {
         [("DisplayName", display), ("PackageRootFolder", root)]
             .into_iter()
             .filter(|(_, v)| !v.is_empty())
@@ -239,6 +240,9 @@ mod tests {
         )
         .unwrap();
         assert_eq!(s.name, "Microsoft.WindowsTerminal");
+
+        // A package folder whose manifest can't be read is dropped.
+        assert!(parse_package(TERMINAL, &values("Terminal", root), None, r"C:\Windows").is_none());
 
         // Framework, resource pack, and inbox app are dropped.
         let vclibs = "Microsoft.VCLibs.140.00_14.0.33519.0_x64__8wekyb3d8bbwe";

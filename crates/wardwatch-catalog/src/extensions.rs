@@ -6,6 +6,7 @@
 //! cover them. Profile paths are never serialized; the same extension in
 //! several profiles is one entry.
 
+use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -18,8 +19,8 @@ use crate::{Browser, Software, Source, read_capped, version_key};
 pub struct Extension {
     /// The browser it is installed in.
     pub browser: Browser,
-    /// Chrome Web Store ID (also used by Edge, Brave, Opera and the rest),
-    /// Firefox add-on ID, or the Safari extension's bundle ID.
+    /// Chromium extension ID (32 letters, from the Chrome Web Store or Edge
+    /// Add-ons), Firefox add-on ID, or the Safari extension's bundle ID.
     pub id: String,
     pub name: String,
     pub version: Option<String>,
@@ -46,15 +47,15 @@ pub fn scan(software: &[Software], warnings: &mut Vec<String>) -> Vec<Extension>
     merge(out)
 }
 
-/// Files and folders that change when extensions are added, updated or removed.
+/// Folders that change when extensions are added, updated or removed.
 pub fn watch_paths() -> Vec<PathBuf> {
     let chromium = chromium_dirs()
         .into_iter()
         .flat_map(|(_, dir)| chromium_profiles(&dir))
         .map(|p| p.join("Extensions"));
-    let firefox = firefox_profiles()
-        .into_iter()
-        .map(|p| p.join("extensions.json"));
+    // Firefox keeps installed add-ons as .xpi files in `<profile>/extensions`.
+    // (Turning an extension on or off is picked up by the next scheduled scan.)
+    let firefox = firefox_profiles().into_iter().map(|p| p.join("extensions"));
     chromium.chain(firefox).collect()
 }
 
@@ -181,10 +182,13 @@ fn localize(ext_dir: &Path, text: &str, default_locale: Option<&str>) -> Option<
     else {
         return Some(text.to_string());
     };
-    let file = ext_dir
-        .join("_locales")
-        .join(default_locale?)
-        .join("messages.json");
+    // The locale comes from the manifest; don't let it climb out of `_locales`.
+    let locale = default_locale.filter(|l| {
+        !l.is_empty()
+            && l.bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-')
+    })?;
+    let file = ext_dir.join("_locales").join(locale).join("messages.json");
     let messages: serde_json::Map<String, Value> =
         serde_json::from_slice(&read_capped(&file).ok()?).ok()?;
     messages
@@ -195,23 +199,43 @@ fn localize(ext_dir: &Path, text: &str, default_locale: Option<&str>) -> Option<
         .filter(|m| !m.is_empty())
 }
 
-/// Whether an extension is on, from a profile's `Preferences` or
-/// `Secure Preferences` JSON: off when it has disable reasons.
-pub fn chromium_enabled(prefs: &Value, id: &str) -> Option<bool> {
-    let settings = prefs.get("extensions")?.get("settings")?.get(id)?;
-    let disabled_by_reasons = match settings.get("disable_reasons") {
+/// The part of a profile's `Preferences` or `Secure Preferences` that says
+/// which extensions are on. Everything else in those files is skipped.
+#[derive(Deserialize, Default)]
+pub struct ChromiumPrefs {
+    #[serde(default)]
+    extensions: PrefsExtensions,
+}
+
+#[derive(Deserialize, Default)]
+struct PrefsExtensions {
+    #[serde(default)]
+    settings: HashMap<String, ExtensionSetting>,
+}
+
+#[derive(Deserialize)]
+struct ExtensionSetting {
+    disable_reasons: Option<Value>,
+    state: Option<Value>,
+}
+
+/// Whether an extension is on: off when it has disable reasons.
+pub fn chromium_enabled(prefs: &ChromiumPrefs, id: &str) -> Option<bool> {
+    let settings = prefs.extensions.settings.get(id)?;
+    let disabled_by_reasons = match &settings.disable_reasons {
         Some(Value::Number(n)) => n.as_u64() != Some(0),
         Some(Value::Array(a)) => !a.is_empty(),
         _ => false,
     };
     // Older versions use `state`: 1 on, 0 off.
-    let disabled_by_state = settings.get("state").and_then(Value::as_u64) == Some(0);
+    let disabled_by_state = settings.state.as_ref().and_then(Value::as_u64) == Some(0);
     Some(!(disabled_by_reasons || disabled_by_state))
 }
 
 /// Extensions in one Chromium profile.
 pub fn scan_chromium_profile(browser: Browser, profile: &Path) -> Vec<Extension> {
-    let prefs: Vec<Value> = ["Secure Preferences", "Preferences"]
+    // A file over the read cap fails to parse, leaving `enabled` unknown.
+    let prefs: Vec<ChromiumPrefs> = ["Secure Preferences", "Preferences"]
         .iter()
         .filter_map(|f| serde_json::from_slice(&read_capped(&profile.join(f)).ok()?).ok())
         .collect();
@@ -486,8 +510,28 @@ mod tests {
     }
 
     #[test]
+    fn locale_cannot_leave_the_extension() {
+        let tmp = tempfile::tempdir().unwrap();
+        let ext = tmp.path().join("ext");
+        write(
+            &tmp.path().join("messages.json"),
+            r#"{"n":{"message":"outside"}}"#,
+        );
+        write(
+            &ext.join("_locales/en/messages.json"),
+            r#"{"n":{"message":"inside"}}"#,
+        );
+        assert_eq!(
+            localize(&ext, "__MSG_n__", Some("en")).as_deref(),
+            Some("inside")
+        );
+        assert_eq!(localize(&ext, "__MSG_n__", Some("../..")), None);
+        assert_eq!(localize(&ext, "plain", None).as_deref(), Some("plain"));
+    }
+
+    #[test]
     fn reads_enabled_state_from_preferences() {
-        let prefs: Value = serde_json::from_str(&format!(
+        let prefs: ChromiumPrefs = serde_json::from_str(&format!(
             r#"{{"extensions":{{"settings":{{"{UBLOCK}":{{"state":0}},"{DARK}":{{"state":1,"disable_reasons":0}}}}}}}}"#
         ))
         .unwrap();

@@ -58,7 +58,13 @@ pub fn scan_root(root: &Path) -> std::io::Result<Vec<Software>> {
         s.arch = read_capped(&current.join("install.json"))
             .ok()
             .and_then(|b| serde_json::from_slice::<InstallInfo>(&b).ok())
-            .and_then(|i| i.architecture);
+            .and_then(|i| i.architecture)
+            // Scoop says 64bit/32bit; the registry and Store say x64/x86.
+            .map(|a| match a.as_str() {
+                "64bit" => "x64".to_string(),
+                "32bit" => "x86".to_string(),
+                _ => a,
+            });
         // The app folder, not `current`: processes may run from either path.
         s.location = Some(dir);
         out.push(s);
@@ -116,7 +122,7 @@ mod tests {
             .collect();
         assert_eq!(
             summary,
-            [("7zip", None, None), ("git", Some("2.47.0"), Some("64bit"))]
+            [("7zip", None, None), ("git", Some("2.47.0"), Some("x64"))]
         );
         assert_eq!(
             found[1].location.as_deref(),
