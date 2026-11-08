@@ -6,6 +6,7 @@
 
 mod commands;
 mod fix;
+mod nudge;
 mod plan;
 mod settings;
 mod store;
@@ -35,6 +36,7 @@ pub fn run() {
             commands::list_findings,
             commands::get_fix,
             commands::run_fix,
+            commands::get_nudges,
             commands::get_settings,
             commands::set_settings
         ])

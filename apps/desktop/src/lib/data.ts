@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { createSampleAccounts, type AccountsClient } from "./accounts";
 import {
+  getNudges,
   getPlan,
   getSettings,
   listFindings,
@@ -29,6 +30,15 @@ export function useFindings() {
   return useQuery({ queryKey: ["findings"], queryFn: listFindings, staleTime: 10 * 60_000 });
 }
 
+/** The nudge engine's plan. It reads the saved plan, so saving one refetches it. */
+export function useNudges() {
+  return useQuery({
+    queryKey: ["nudges"],
+    queryFn: getNudges,
+    staleTime: 10 * 60_000,
+  });
+}
+
 export function usePlan() {
   return useQuery({ queryKey: ["plan"], queryFn: getPlan, staleTime: Infinity });
 }
@@ -47,6 +57,7 @@ export function useSavePlan() {
     onError: (_e, _plan, ctx) => {
       if (ctx?.before) client.setQueryData(["plan"], ctx.before);
     },
+    onSettled: () => client.invalidateQueries({ queryKey: ["nudges"] }),
   });
 }
 
@@ -69,6 +80,7 @@ export function useDevice() {
   const inventory = useInventory();
   const findings = useFindings();
   const plan = usePlan();
+  const nudges = useNudges();
   const holds = plan.data?.holds;
   const programs = useMemo(
     () =>
@@ -78,8 +90,11 @@ export function useDevice() {
     [inventory.data, findings.isSuccess, findings.data, holds],
   );
   const status = useMemo(
-    () => (programs ? summarize(programs, findings.data != null) : null),
-    [programs, findings.data],
+    () =>
+      programs && !nudges.isPending
+        ? summarize(programs, findings.data != null, nudges.data?.top_card ?? null)
+        : null,
+    [programs, findings.data, nudges.isPending, nudges.data],
   );
   return {
     inventory: inventory.data,
