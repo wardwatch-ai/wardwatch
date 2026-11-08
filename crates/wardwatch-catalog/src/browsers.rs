@@ -87,8 +87,14 @@ pub(crate) fn identify(s: &Software) -> Option<Browser> {
                 s.name == *name || (*prefix && s.name.starts_with(&format!("{name} ")))
             })
             .map(|&(_, _, b)| b),
-        // Casks also install an app bundle, which carries the tag.
-        Source::HomebrewCask | Source::HomebrewFormula => None,
+        // Scoop browsers are portable copies that are not in the registry.
+        Source::Scoop if s.id.eq_ignore_ascii_case("googlechrome") => Some(Browser::Chrome),
+        Source::Scoop => lookup(BY_PACKAGE, &s.id),
+        // Casks also install an app bundle, and Chocolatey packages run an
+        // installer that registers the program; those entries carry the tag.
+        Source::HomebrewCask | Source::HomebrewFormula | Source::Chocolatey | Source::MsStore => {
+            None
+        }
     }
 }
 
@@ -194,6 +200,18 @@ mod tests {
             ),
             (
                 sw(Source::HomebrewCask, "firefox", "firefox", "132.0"),
+                None,
+            ),
+            (
+                sw(Source::Scoop, "googlechrome", "googlechrome", "131.0"),
+                Some(Browser::Chrome),
+            ),
+            (
+                sw(Source::Scoop, "firefox", "firefox", "132.0"),
+                Some(Browser::Firefox),
+            ),
+            (
+                sw(Source::Chocolatey, "firefox", "Mozilla Firefox", "132.0"),
                 None,
             ),
         ];

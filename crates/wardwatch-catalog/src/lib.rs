@@ -17,16 +17,24 @@ use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 
 mod browsers;
+pub mod chocolatey;
+pub mod extensions;
 pub mod homebrew;
 pub mod linux;
 pub mod macos;
+pub mod msstore;
 mod running;
+pub mod scoop;
+pub mod services;
 pub mod windows;
 
 pub use browsers::Browser;
+pub use extensions::Extension;
+pub use services::{Service, ServiceKind};
 
-/// Version of the serialized [`Inventory`] shape.
-pub const SCHEMA_VERSION: u32 = 1;
+/// Version of the serialized [`Inventory`] shape. 2 added Store, Chocolatey
+/// and Scoop sources, `services` and `extensions`.
+pub const SCHEMA_VERSION: u32 = 2;
 
 /// Everything found on the device in one scan.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -34,6 +42,12 @@ pub struct Inventory {
     pub schema: u32,
     pub os: OsInfo,
     pub software: Vec<Software>,
+    /// Background services and launch jobs not shipped with the OS.
+    #[serde(default)]
+    pub services: Vec<Service>,
+    /// Browser extensions, one entry per extension version across profiles.
+    #[serde(default)]
+    pub extensions: Vec<Extension>,
     /// Scanners that failed, in words with no paths or usernames.
     pub warnings: Vec<String>,
 }
@@ -87,6 +101,13 @@ pub enum Source {
     Snap,
     /// Flatpak app or runtime; `id` is the application ID.
     Flatpak,
+    /// Microsoft Store (MSIX/AppX) package; `id` is the package name
+    /// (`Microsoft.WindowsTerminal`).
+    MsStore,
+    /// Chocolatey package; `id` is the package ID.
+    Chocolatey,
+    /// Scoop app; `id` is the app (manifest) name.
+    Scoop,
 }
 
 /// One installed piece of software.
@@ -147,6 +168,23 @@ pub(crate) fn read_capped(path: &std::path::Path) -> std::io::Result<Vec<u8>> {
     Ok(buf)
 }
 
+/// Sort key for dotted numeric versions (`1.21.2911.0`, `4.2.1_0`): the
+/// numeric parts in order, so `1.10` sorts after `1.9`.
+pub(crate) fn version_key(v: &str) -> Vec<u64> {
+    v.split(|c: char| !c.is_ascii_digit())
+        .filter(|p| !p.is_empty())
+        .map(|p| p.parse().unwrap_or(u64::MAX))
+        .collect()
+}
+
+/// The current user's home folder (`HOME`, or `USERPROFILE` on Windows).
+pub(crate) fn home_dir() -> Option<PathBuf> {
+    let var = if cfg!(windows) { "USERPROFILE" } else { "HOME" };
+    std::env::var_os(var)
+        .filter(|h| !h.is_empty())
+        .map(PathBuf::from)
+}
+
 /// Scans this device. Never fails: a scanner that can't run adds a warning.
 pub fn scan() -> Inventory {
     let mut warnings = Vec::new();
@@ -159,18 +197,28 @@ pub fn scan() -> Inventory {
         software.extend(homebrew::scan(&mut warnings));
     }
     #[cfg(windows)]
-    software.extend(windows::scan_registry(&mut warnings));
+    {
+        software.extend(windows::scan_registry(&mut warnings));
+        software.extend(msstore::scan(&mut warnings));
+        software.extend(chocolatey::scan(&mut warnings));
+        software.extend(scoop::scan(&mut warnings));
+    }
     #[cfg(target_os = "linux")]
     {
         software.extend(linux::scan_packages(&mut warnings));
         software.extend(homebrew::scan(&mut warnings));
     }
 
-    finish(&mut software, &running::running_executables());
+    let running_exes = running::running_executables();
+    finish(&mut software, &running_exes);
+    let services = services::scan(&software, &running_exes, &mut warnings);
+    let extensions = extensions::scan(&software, &mut warnings);
     Inventory {
         schema: SCHEMA_VERSION,
         os,
         software,
+        services,
+        extensions,
         warnings,
     }
 }
@@ -221,7 +269,7 @@ fn current_os(warnings: &mut Vec<String>) -> OsInfo {
 /// (an app bundle, `rpmdb.sqlite`, a snap's `current` link) without touching
 /// the folder itself.
 /// (Windows registry changes are watched with `RegNotifyChangeKeyValue` on the
-/// Uninstall keys instead.)
+/// Uninstall, Services and AppModel `Repository\Packages` keys instead.)
 pub fn watch_paths() -> Vec<PathBuf> {
     let mut paths: Vec<PathBuf> = Vec::new();
     #[cfg(target_os = "macos")]
@@ -247,6 +295,13 @@ pub fn watch_paths() -> Vec<PathBuf> {
         paths.push(std::path::Path::new(prefix).join("Cellar"));
         paths.push(std::path::Path::new(prefix).join("Caskroom"));
     }
+    #[cfg(windows)]
+    {
+        paths.push(chocolatey::root().join("lib"));
+        paths.extend(scoop::roots().into_iter().map(|r| r.join("apps")));
+    }
+    paths.extend(services::watch_paths());
+    paths.extend(extensions::watch_paths());
     paths.retain(|p| p.exists());
     paths
 }
@@ -276,6 +331,13 @@ mod tests {
         );
         let back: Software = serde_json::from_str(&json).unwrap();
         assert_eq!(back.location, None);
+    }
+
+    #[test]
+    fn version_key_orders_numerically() {
+        assert!(version_key("1.10.0") > version_key("1.9.3"));
+        assert!(version_key("4.2.1_0") > version_key("4.2.0_1"));
+        assert_eq!(version_key("1.21.2911.0"), [1, 21, 2911, 0]);
     }
 
     #[test]

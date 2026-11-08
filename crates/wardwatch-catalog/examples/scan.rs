@@ -34,6 +34,21 @@ fn main() {
             "running: {}",
             inv.software.iter().filter(|s| s.running).count()
         );
+        let mut services: BTreeMap<String, usize> = BTreeMap::new();
+        for s in &inv.services {
+            *services.entry(format!("{:?}", s.kind)).or_default() += 1;
+        }
+        println!(
+            "services: {} {services:?}, {} running, {} linked to software",
+            inv.services.len(),
+            inv.services.iter().filter(|s| s.running).count(),
+            inv.services.iter().filter(|s| s.software.is_some()).count()
+        );
+        let mut extensions: BTreeMap<String, usize> = BTreeMap::new();
+        for e in &inv.extensions {
+            *extensions.entry(format!("{:?}", e.browser)).or_default() += 1;
+        }
+        println!("extensions: {} {extensions:?}", inv.extensions.len());
         println!("warnings: {:?}", inv.warnings);
         println!("scan took {} ms", elapsed.as_millis());
     } else {
