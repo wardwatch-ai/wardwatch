@@ -11,6 +11,7 @@ import { Groups } from "./screens/Groups";
 import { Home } from "./screens/Home";
 import { Plan } from "./screens/Plan";
 import { Score } from "./screens/Score";
+import { TuneUp } from "./screens/TuneUp";
 
 const screens: Record<(typeof tabs)[number]["path"], React.ReactNode> = {
   "/": <Home />,
@@ -126,7 +127,7 @@ export function App() {
           {tabs.map((tab) => (
             <Route key={tab.path} path={tab.path} element={screens[tab.path]} />
           ))}
-          <Route path="/fix/tune-up" element={<Fix />} />
+          <Route path="/fix/tune-up" element={<TuneUp />} />
           <Route path="/fix/:source/:id" element={<Fix />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

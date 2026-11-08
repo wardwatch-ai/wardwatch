@@ -1,8 +1,23 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { getAppInfo, getPlan, listFindings, scanInventory, setPlan, showMainWindow } from "./ipc";
+import {
+  getAppInfo,
+  getFix,
+  getPlan,
+  listFindings,
+  runFix,
+  scanInventory,
+  setPlan,
+  showMainWindow,
+} from "./ipc";
 import { samplePlan } from "./sample";
 
-const core = vi.hoisted(() => ({ invoke: vi.fn(), isTauri: vi.fn() }));
+const core = vi.hoisted(() => ({
+  invoke: vi.fn(),
+  isTauri: vi.fn(),
+  Channel: class {
+    onmessage: (m: unknown) => void = () => undefined;
+  },
+}));
 vi.mock("@tauri-apps/api/core", () => core);
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn() }));
 
@@ -53,8 +68,41 @@ describe("ipc", () => {
     expect(core.invoke).toHaveBeenLastCalledWith("get_plan");
   });
 
-  it("reports nothing checked inside Tauri until the matcher lands", async () => {
+  it("reports nothing checked when the core can't match (no catalog yet)", async () => {
     core.isTauri.mockReturnValue(true);
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    core.invoke.mockRejectedValue("Wardwatch hasn't received a signed vulnerability catalog yet.");
     await expect(listFindings()).resolves.toBeNull();
+  });
+
+  it("names a program to the fix commands and streams progress over a channel", async () => {
+    core.isTauri.mockReturnValue(true);
+    core.invoke.mockResolvedValue([]);
+    await listFindings();
+    expect(core.invoke).toHaveBeenCalledWith("list_findings");
+    await getFix("dpkg", "openssl");
+    expect(core.invoke).toHaveBeenCalledWith("get_fix", { source: "dpkg", id: "openssl" });
+
+    const seen: unknown[] = [];
+    core.invoke.mockImplementation(
+      (_cmd: string, args: { onProgress: { onmessage: (m: unknown) => void } }) => {
+        args.onProgress.onmessage({ event: "step", step: 0, state: "working" });
+        return Promise.resolve({
+          outcome: { status: "installed" },
+          check: "closed",
+          finding: null,
+        });
+      },
+    );
+    await expect(
+      runFix("dpkg", "openssl", { kind: "app_updater", open_bundle: null }, (p) => seen.push(p)),
+    ).resolves.toMatchObject({
+      check: "closed",
+    });
+    expect(core.invoke).toHaveBeenLastCalledWith(
+      "run_fix",
+      expect.objectContaining({ source: "dpkg", id: "openssl" }),
+    );
+    expect(seen).toEqual([{ event: "step", step: 0, state: "working" }]);
   });
 });

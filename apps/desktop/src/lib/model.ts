@@ -1,7 +1,7 @@
 // Data shapes the screens read. Three sources feed them:
 //  - the Rust core over IPC (inventory from wardwatch-catalog, the update plan),
-//  - findings (inventory matched against the update feed; the fix screen thread's
-//    `list_findings` command, sample data until it lands),
+//  - findings (inventory matched against the update feed by the core's
+//    `list_findings`; the full shape is in ipc.ts, these are the fields screens read),
 //  - the accounts backend (score and groups, wardwatch-ai/backend accounts/), behind
 //    the client in accounts.ts.
 
@@ -59,8 +59,9 @@ export interface Vuln {
 }
 
 /**
- * One catalog app found on this device (crates/wardwatch-feed, PR #6; fields the
- * screens don't use are left out). `key` is the catalog's app id ("google-chrome").
+ * One catalog app found on this device (crates/wardwatch-feed; fields the
+ * screens don't use are left out, the full shape is ipc.ts Finding).
+ * `key` is the catalog's app id ("google-chrome").
  * `source` and `software_id` name the primary install ("os" and the OS id for the
  * OS); one finding can cover several installs, such as all dpkg packages built
  * from one source package.

@@ -5,9 +5,13 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use serde::Serialize;
+use tauri::ipc::Channel;
 use tauri::{AppHandle, Emitter, Manager, Runtime, State};
 use wardwatch_catalog::Inventory;
+use wardwatch_feed::Finding;
+use wardwatch_update::{Method, Progress};
 
+use crate::fix::{self, FixResult, FixView};
 use crate::plan::{self, UpdatePlan};
 use crate::windows;
 
@@ -135,6 +139,50 @@ pub fn set_plan<R: Runtime>(
 ) -> Result<(), String> {
     let _guard = lock.0.lock().map_err(|e| e.to_string())?;
     plan::save(&plan_path(&app)?, &plan)
+}
+
+// Scans and updates block, so they run off the async runtime's threads.
+async fn blocking<T: Send + 'static>(
+    f: impl FnOnce() -> Result<T, String> + Send + 'static,
+) -> Result<T, String> {
+    tauri::async_runtime::spawn_blocking(f)
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// This device's catalog apps, most urgent first.
+#[tauri::command]
+pub async fn list_findings<R: Runtime>(app: AppHandle<R>) -> Result<Vec<Finding>, String> {
+    blocking(move || fix::list_findings(&app)).await
+}
+
+/// One program's finding and the update plan, before anything runs.
+#[tauri::command]
+pub async fn get_fix<R: Runtime>(
+    app: AppHandle<R>,
+    source: String,
+    id: String,
+) -> Result<FixView, String> {
+    blocking(move || fix::get_fix(&app, &source, &id)).await
+}
+
+/// Runs the update for one program, streaming step progress to `on_progress`.
+/// `shown` is the plan method the screen showed; a different plan won't run.
+#[tauri::command]
+pub async fn run_fix<R: Runtime>(
+    app: AppHandle<R>,
+    source: String,
+    id: String,
+    shown: Method,
+    on_progress: Channel<Progress>,
+) -> Result<FixResult, String> {
+    blocking(move || {
+        fix::run_fix(&app, &source, &id, &shown, |p| {
+            // The window may have closed; the update carries on regardless.
+            let _ = on_progress.send(p);
+        })
+    })
+    .await
 }
 
 #[cfg(test)]

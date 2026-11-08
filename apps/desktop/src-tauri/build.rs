@@ -7,6 +7,9 @@ fn main() {
         "scan_inventory",
         "get_plan",
         "set_plan",
+        "list_findings",
+        "get_fix",
+        "run_fix",
     ]);
     let mut attributes = tauri_build::Attributes::new().app_manifest(manifest);
 

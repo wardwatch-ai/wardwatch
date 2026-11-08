@@ -1,13 +1,16 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "main",
-  "description": "The main window reads app info and this device's inventory, reads and saves the update plan, and listens for the tray asking it to switch screens.",
+  "description": "The main window reads app info and this device's inventory, reads and saves the update plan, lists findings, plans and runs a fix, and listens for the tray asking it to switch screens.",
   "windows": ["main"],
   "permissions": [
     "allow-app-info",
     "allow-scan-inventory",
     "allow-get-plan",
     "allow-set-plan",
+    "allow-list-findings",
+    "allow-get-fix",
+    "allow-run-fix",
     "core:event:allow-listen",
     "core:event:allow-unlisten"
   ]
