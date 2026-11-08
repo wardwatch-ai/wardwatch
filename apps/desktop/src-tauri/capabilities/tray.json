@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "tray",
+  "description": "The tray popover may read app info and open the main window.",
+  "windows": ["tray"],
+  "permissions": ["allow-app-info", "allow-show-main-window"]
+}
