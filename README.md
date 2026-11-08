@@ -23,6 +23,8 @@ pnpm --filter @wardwatch/desktop tauri dev   # run the app
 pnpm --filter @wardwatch/desktop dev         # UI only, in a browser
 ```
 
+Findings and the fix screen need a vulnerability catalog. Catalogs are unsigned until Wardwatch's signing keys exist, so only development builds load one: put the backend's `catalog.json` in the app's data folder, or point `WARDWATCH_CATALOG` at it. Release builds refuse every catalog for now. In a plain browser the UI uses the design spec's sample scenario instead.
+
 ## Check
 
 ```sh

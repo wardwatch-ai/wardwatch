@@ -1,7 +1,13 @@
 fn main() {
     // Listing the app's commands makes Tauri generate one permission per
     // command, so each window can only call what its capability grants.
-    let manifest = tauri_build::AppManifest::new().commands(&["app_info", "show_main_window"]);
+    let manifest = tauri_build::AppManifest::new().commands(&[
+        "app_info",
+        "show_main_window",
+        "list_findings",
+        "get_fix",
+        "run_fix",
+    ]);
     let mut attributes = tauri_build::Attributes::new().app_manifest(manifest);
 
     // Tauri normally embeds the Windows app manifest only into the app binary,

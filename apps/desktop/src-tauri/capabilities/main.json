@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "main",
-  "description": "The main window may read app info.",
+  "description": "The main window may read app info, list findings, and plan and run a fix.",
   "windows": ["main"],
-  "permissions": ["allow-app-info"]
+  "permissions": ["allow-app-info", "allow-list-findings", "allow-get-fix", "allow-run-fix"]
 }

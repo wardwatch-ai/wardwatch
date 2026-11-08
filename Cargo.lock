@@ -4121,6 +4121,9 @@ dependencies = [
  "tauri-build",
  "tauri-plugin-positioner",
  "tauri-plugin-single-instance",
+ "wardwatch-catalog",
+ "wardwatch-feed",
+ "wardwatch-update",
 ]
 
 [[package]]
@@ -4132,6 +4135,16 @@ dependencies = [
  "serde_json",
  "time",
  "wardwatch-catalog",
+]
+
+[[package]]
+name = "wardwatch-update"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "wardwatch-catalog",
+ "wardwatch-feed",
 ]
 
 [[package]]
