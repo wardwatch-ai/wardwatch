@@ -2,6 +2,7 @@
 import { ActGlyph, BandBar, Button, Card, Eyebrow, OkGlyph, SubscoreBar } from "@wardwatch/ui";
 import { useDevice, useDevices, useScore } from "../../lib/data";
 import { daysToSunday, pendingFixes, pointsForFixingNow } from "../../lib/estimate";
+import type { FeedSeverity } from "../../lib/model";
 import { type Program, listNames } from "../../lib/programs";
 import { worstSeverity } from "../../lib/format";
 import { Failed, Loading, UpdateButton } from "../parts";
@@ -81,7 +82,7 @@ function MoveTitle({ title, points }: { title: string; points: number | null }) 
       {points !== null && points > 0 && (
         <span className="ww-display text-xl text-ok" title="Estimated points">
           <span className="sr-only">About </span>+{points}
-          <span className="sr-only"> points</span>
+          <span className="sr-only">{points === 1 ? " point" : " points"}</span>
         </span>
       )}
     </div>
@@ -95,6 +96,17 @@ function RaiseYourScore() {
   const estimate = (programs: Program[], laterDays: number) =>
     score
       ? pointsForFixingNow(score.sums, score.algorithm, pendingFixes(programs), laterDays)
+      : null;
+  // An OS update on another device, done today rather than at the tune-up (or
+  // tomorrow, if exploited). The scorer counts an OS as a popular program.
+  const remoteEstimate = (fix?: { exploited: boolean; severity: FeedSeverity | null }) =>
+    score && fix
+      ? pointsForFixingNow(
+          score.sums,
+          score.algorithm,
+          [{ ...fix, popular: true }],
+          fix.exploited ? 1 : daysToSunday(new Date()),
+        )
       : null;
   const devices = useDevices().data ?? [];
   const remote = devices.filter((d) => !d.current && d.remote_fix);
@@ -143,7 +155,7 @@ function RaiseYourScore() {
     // Fixes on another device: dashed, no button, the steps to do it there.
     ...remote.map((d) => (
       <Card key={d.id} tone="remote" className="flex h-full flex-col gap-2.5">
-        <span className="text-base font-semibold">{d.remote_fix?.title}</span>
+        <MoveTitle title={d.remote_fix?.title ?? ""} points={remoteEstimate(d.remote_fix?.fix)} />
         <div className="text-sm">{d.remote_fix?.steps}</div>
         <div className="text-[13px] text-text-muted">{d.name} · do this on that device</div>
       </Card>

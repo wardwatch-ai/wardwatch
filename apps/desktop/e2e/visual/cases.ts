@@ -14,6 +14,8 @@ export interface VisualCase {
   /** App page and hash route to open. */
   url: string;
   viewport: { width: number; height: number };
+  /** The app's clock, when the screen needs another day than fixedNow. */
+  now?: Date;
 }
 
 const main = { width: 1280, height: 900 };
@@ -34,7 +36,16 @@ export const cases: VisualCase[] = [
     url: "/#/fix/mac_app/com.google.Chrome",
     viewport: main,
   },
-  { id: "score", title: "Score", mock: "Score6.dc.html", url: "/#/score", viewport: main },
+  {
+    id: "score",
+    title: "Score",
+    mock: "Score6.dc.html",
+    url: "/#/score",
+    viewport: main,
+    // A Wednesday, as in the approved design. fixedNow is a Sunday, when the
+    // tune-up is today and doing it early gains nothing, so no "+N" shows.
+    now: new Date("2026-11-11T12:00:00Z"),
+  },
   { id: "groups", title: "Groups", mock: "Groups4.dc.html", url: "/#/groups", viewport: main },
   { id: "apps", title: "Apps", mock: "Apps3.dc.html", url: "/#/apps", viewport: main },
   { id: "plan", title: "Update plan", mock: "Plan4.dc.html", url: "/#/plan", viewport: main },
@@ -83,7 +94,7 @@ export const fixedNow = new Date("2026-11-08T12:00:00Z");
  * approves is the picture CI compares against.
  */
 export async function captureApp(page: Page, c: VisualCase, theme: Theme): Promise<Buffer> {
-  await page.clock.setFixedTime(fixedNow);
+  await page.clock.setFixedTime(c.now ?? fixedNow);
   await page.emulateMedia({ colorScheme: theme, reducedMotion: "reduce" });
   await page.setViewportSize(c.viewport);
   await page.goto(c.url, { waitUntil: "networkidle" });

@@ -200,5 +200,10 @@ export interface AccountDevice {
   detail: string;
   checked: string;
   /** A fix that has to happen on that device: no button, just where and how. */
-  remote_fix?: { title: string; steps: string };
+  remote_fix?: {
+    title: string;
+    steps: string;
+    /** The known hole the update closes, as the server matched it; absent when it closes none. */
+    fix?: { exploited: boolean; severity: FeedSeverity | null };
+  };
 }

@@ -241,6 +241,7 @@ export const sampleDevices: AccountDevice[] = [
       title: "Update the iPhone",
       steps:
         "iOS 26.1.1 is ready. Open Settings on the iPhone, then General, then Software Update.",
+      fix: { exploited: false, severity: "high" },
     },
   },
 ];
