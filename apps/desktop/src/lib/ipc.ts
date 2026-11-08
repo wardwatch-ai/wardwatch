@@ -2,6 +2,9 @@
 // Every call from the UI to the core goes through this file, so the
 // command names and payload shapes live in one place on each side.
 import { Channel, invoke, isTauri } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
+import type { Finding as ScreenFinding, Inventory, UpdatePlan } from "./model";
+import { sampleFindings, sampleInventory, samplePlan } from "./sample";
 
 export interface AppInfo {
   name: string;
@@ -11,15 +14,67 @@ export interface AppInfo {
 
 const browserFallback: AppInfo = { name: "Wardwatch", version: "dev", os: "browser" };
 
+// Outside Tauri (`pnpm dev` in a browser, and tests) the UI runs on the design
+// spec's sample scenario, so screens can be designed and checked without the core.
+
 export async function getAppInfo(): Promise<AppInfo> {
-  // Lets `pnpm dev` run the UI in a plain browser while designing screens.
   if (!isTauri()) return browserFallback;
   return invoke<AppInfo>("app_info");
 }
 
-export async function showMainWindow(): Promise<void> {
+/** Opens the main window, optionally on a screen such as "/score" or a fix route. */
+export async function showMainWindow(route?: string): Promise<void> {
   if (!isTauri()) return;
-  await invoke("show_main_window");
+  await invoke("show_main_window", route === undefined ? {} : { route });
+}
+
+/** Calls `handler` when the tray asks the main window to switch screens. */
+export function onNavigate(handler: (route: string) => void): () => void {
+  if (!isTauri()) return () => undefined;
+  const stop = listen<string>("navigate", (e) => {
+    handler(e.payload);
+  });
+  return () => {
+    void stop.then((unlisten) => {
+      unlisten();
+    });
+  };
+}
+
+/** This device's OS and installed software. The core caches the last scan for 10 minutes. */
+export async function scanInventory(refresh = false): Promise<Inventory> {
+  if (!isTauri()) return structuredClone(sampleInventory);
+  return invoke<Inventory>("scan_inventory", { refresh });
+}
+
+/**
+ * This device's programs matched against the update feed, or null when nothing
+ * could be checked (no signed vulnerability catalog yet), so no screen claims a
+ * program is up to date when nobody checked.
+ */
+export async function listFindings(): Promise<ScreenFinding[] | null> {
+  if (!isTauri()) return structuredClone(sampleFindings);
+  try {
+    return await invoke<Finding[]>("list_findings");
+  } catch (e) {
+    console.warn("findings unavailable:", e);
+    return null;
+  }
+}
+
+let browserPlan = structuredClone(samplePlan);
+
+export async function getPlan(): Promise<UpdatePlan> {
+  if (!isTauri()) return structuredClone(browserPlan);
+  return invoke<UpdatePlan>("get_plan");
+}
+
+export async function setPlan(plan: UpdatePlan): Promise<void> {
+  if (!isTauri()) {
+    browserPlan = structuredClone(plan);
+    return;
+  }
+  await invoke("set_plan", { plan });
 }
 
 // ---- Findings and the 1-click fix (src-tauri/src/fix.rs) -------------------
@@ -109,11 +164,6 @@ export interface FixResult {
   /** After an install, what the rescan found. */
   check: "closed" | "only_unfixed_left" | "still_open" | "not_found" | null;
   finding: Finding | null;
-}
-
-export async function listFindings(): Promise<Finding[]> {
-  if (!isTauri()) return [sample.finding];
-  return invoke<Finding[]>("list_findings");
 }
 
 export async function getFix(source: string, id: string): Promise<FixView> {

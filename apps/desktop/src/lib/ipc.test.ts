@@ -1,5 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { getAppInfo, getFix, listFindings, runFix, showMainWindow } from "./ipc";
+import {
+  getAppInfo,
+  getFix,
+  getPlan,
+  listFindings,
+  runFix,
+  scanInventory,
+  setPlan,
+  showMainWindow,
+} from "./ipc";
+import { samplePlan } from "./sample";
 
 const core = vi.hoisted(() => ({
   invoke: vi.fn(),
@@ -9,6 +19,7 @@ const core = vi.hoisted(() => ({
   },
 }));
 vi.mock("@tauri-apps/api/core", () => core);
+vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn() }));
 
 describe("ipc", () => {
   beforeEach(() => {
@@ -29,14 +40,39 @@ describe("ipc", () => {
   it("does not touch IPC in a plain browser", async () => {
     core.isTauri.mockReturnValue(false);
     await expect(getAppInfo()).resolves.toMatchObject({ os: "browser" });
-    await showMainWindow();
+    await showMainWindow("/score");
+    await expect(scanInventory()).resolves.toMatchObject({ os: { name: "macOS" } });
+    await expect(listFindings()).resolves.not.toBeNull();
+    await setPlan({ ...samplePlan, holds: [] });
+    await expect(getPlan()).resolves.toMatchObject({ holds: [] });
     expect(core.invoke).not.toHaveBeenCalled();
   });
 
-  it("asks the core to show the main window", async () => {
+  it("asks the core to show the main window, optionally on a screen", async () => {
     core.isTauri.mockReturnValue(true);
     await showMainWindow();
-    expect(core.invoke).toHaveBeenCalledWith("show_main_window");
+    expect(core.invoke).toHaveBeenLastCalledWith("show_main_window", {});
+    await showMainWindow("/fix/mac_app/com.google.Chrome");
+    expect(core.invoke).toHaveBeenLastCalledWith("show_main_window", {
+      route: "/fix/mac_app/com.google.Chrome",
+    });
+  });
+
+  it("scans and stores the plan through the core", async () => {
+    core.isTauri.mockReturnValue(true);
+    await scanInventory(true);
+    expect(core.invoke).toHaveBeenLastCalledWith("scan_inventory", { refresh: true });
+    await setPlan(samplePlan);
+    expect(core.invoke).toHaveBeenLastCalledWith("set_plan", { plan: samplePlan });
+    await getPlan();
+    expect(core.invoke).toHaveBeenLastCalledWith("get_plan");
+  });
+
+  it("reports nothing checked when the core can't match (no catalog yet)", async () => {
+    core.isTauri.mockReturnValue(true);
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    core.invoke.mockRejectedValue("Wardwatch hasn't received a signed vulnerability catalog yet.");
+    await expect(listFindings()).resolves.toBeNull();
   });
 
   it("names a program to the fix commands and streams progress over a channel", async () => {

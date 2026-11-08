@@ -6,6 +6,7 @@
 
 mod commands;
 mod fix;
+mod plan;
 mod tray;
 mod windows;
 
@@ -19,10 +20,15 @@ pub fn run() {
         }))
         .plugin(tauri_plugin_positioner::init())
         .manage(windows::PopoverState::default())
+        .manage(commands::InventoryCache::default())
+        .manage(commands::PlanLock::default())
         .manage(fix::FixState::default())
         .invoke_handler(tauri::generate_handler![
             commands::app_info,
             commands::show_main_window,
+            commands::scan_inventory,
+            commands::get_plan,
+            commands::set_plan,
             commands::list_findings,
             commands::get_fix,
             commands::run_fix
