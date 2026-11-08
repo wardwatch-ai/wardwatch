@@ -79,6 +79,7 @@ jobs:
 
   visual:
     name: Screens match Matt's reviewed designs
+    if: github.event_name != 'schedule'
     # Screenshots are compared on one pinned OS and browser so rendering is stable.
     runs-on: ubuntu-24.04
     steps:
