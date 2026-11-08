@@ -23,6 +23,9 @@ serde = { version = "1", features = ["derive"] }
 tauri = { version = "2.12", features = ["tray-icon"] }
 tauri-plugin-positioner = { version = "2.4", features = ["tray-icon"] }
 tauri-plugin-single-instance = "2.5"
+wardwatch-catalog = { path = "../../../crates/wardwatch-catalog" }
+wardwatch-feed = { path = "../../../crates/wardwatch-feed" }
+wardwatch-update = { path = "../../../crates/wardwatch-update" }
 
 [dev-dependencies]
 tauri = { version = "2.12", features = ["tray-icon", "test"] }

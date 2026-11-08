@@ -1,0 +1,19 @@
+[package]
+name = "wardwatch-feed"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Reads Wardwatch's update and vulnerability catalog and matches it against this device's inventory."
+publish = false
+
+[dependencies]
+debversion = "0.5"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+time = { version = "0.3", features = ["parsing"] }
+wardwatch-catalog = { path = "../wardwatch-catalog" }
+
+[lints]
+workspace = true

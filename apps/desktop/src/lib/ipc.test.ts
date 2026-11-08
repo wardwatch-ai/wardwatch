@@ -1,7 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { getAppInfo, showMainWindow } from "./ipc";
+import { getAppInfo, getFix, listFindings, runFix, showMainWindow } from "./ipc";
 
-const core = vi.hoisted(() => ({ invoke: vi.fn(), isTauri: vi.fn() }));
+const core = vi.hoisted(() => ({
+  invoke: vi.fn(),
+  isTauri: vi.fn(),
+  Channel: class {
+    onmessage: (m: unknown) => void = () => undefined;
+  },
+}));
 vi.mock("@tauri-apps/api/core", () => core);
 
 describe("ipc", () => {
@@ -31,5 +37,36 @@ describe("ipc", () => {
     core.isTauri.mockReturnValue(true);
     await showMainWindow();
     expect(core.invoke).toHaveBeenCalledWith("show_main_window");
+  });
+
+  it("names a program to the fix commands and streams progress over a channel", async () => {
+    core.isTauri.mockReturnValue(true);
+    core.invoke.mockResolvedValue([]);
+    await listFindings();
+    expect(core.invoke).toHaveBeenCalledWith("list_findings");
+    await getFix("dpkg", "openssl");
+    expect(core.invoke).toHaveBeenCalledWith("get_fix", { source: "dpkg", id: "openssl" });
+
+    const seen: unknown[] = [];
+    core.invoke.mockImplementation(
+      (_cmd: string, args: { onProgress: { onmessage: (m: unknown) => void } }) => {
+        args.onProgress.onmessage({ event: "step", step: 0, state: "working" });
+        return Promise.resolve({
+          outcome: { status: "installed" },
+          check: "closed",
+          finding: null,
+        });
+      },
+    );
+    await expect(
+      runFix("dpkg", "openssl", { kind: "app_updater", open_bundle: null }, (p) => seen.push(p)),
+    ).resolves.toMatchObject({
+      check: "closed",
+    });
+    expect(core.invoke).toHaveBeenLastCalledWith(
+      "run_fix",
+      expect.objectContaining({ source: "dpkg", id: "openssl" }),
+    );
+    expect(seen).toEqual([{ event: "step", step: 0, state: "working" }]);
   });
 });

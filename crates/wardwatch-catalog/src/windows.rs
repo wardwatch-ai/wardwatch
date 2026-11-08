@@ -138,7 +138,7 @@ mod sys {
 
     const UNINSTALL: &str = r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall";
 
-    fn read_values(key: &RegKey, names: &[&str]) -> Values {
+    pub(crate) fn read_values(key: &RegKey, names: &[&str]) -> Values {
         names
             .iter()
             .filter_map(|&n| {
@@ -189,7 +189,15 @@ mod sys {
 }
 
 #[cfg(windows)]
+pub(crate) use sys::read_values;
+#[cfg(windows)]
 pub use sys::{os_info, scan_registry};
+
+/// The Windows folder (`%SystemRoot%`, normally `C:\Windows`).
+#[cfg(windows)]
+pub(crate) fn windows_dir() -> String {
+    std::env::var("SystemRoot").unwrap_or_else(|_| r"C:\Windows".into())
+}
 
 #[cfg(test)]
 mod tests {
