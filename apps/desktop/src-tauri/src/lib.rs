@@ -22,11 +22,15 @@ pub fn run() {
             windows::log_err("show main window", windows::show_main(app));
         }))
         .plugin(tauri_plugin_positioner::init())
+        // Notifications are sent from Rust only; no window is granted the
+        // plugin's commands, so the UI can't send any.
+        .plugin(tauri_plugin_notification::init())
         .manage(windows::PopoverState::default())
         .manage(commands::InventoryCache::default())
         .manage(commands::PlanLock::default())
         .manage(commands::SettingsLock::default())
         .manage(fix::FixState::default())
+        .manage(nudge::NudgeState::default())
         .invoke_handler(tauri::generate_handler![
             commands::app_info,
             commands::show_main_window,
@@ -42,6 +46,7 @@ pub fn run() {
         ])
         .setup(|app| {
             tray::create(app.handle())?;
+            nudge::spawn(app.handle().clone());
             Ok(())
         })
         .on_window_event(|window, event| match (window.label(), event) {
