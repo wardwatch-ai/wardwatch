@@ -134,13 +134,16 @@ fn plan_path<R: Runtime>(app: &AppHandle<R>) -> Result<std::path::PathBuf, Strin
 #[derive(Default)]
 pub struct PlanLock(Mutex<()>);
 
-#[tauri::command]
-pub fn get_plan<R: Runtime>(
-    app: AppHandle<R>,
-    lock: State<'_, PlanLock>,
-) -> Result<UpdatePlan, String> {
+/// The saved Update plan, read under the plan lock.
+pub fn load_plan<R: Runtime>(app: &AppHandle<R>) -> Result<UpdatePlan, String> {
+    let lock = app.state::<PlanLock>();
     let _guard = lock.0.lock().map_err(|e| e.to_string())?;
-    Ok(plan::load(&plan_path(&app)?))
+    Ok(plan::load(&plan_path(app)?))
+}
+
+#[tauri::command]
+pub fn get_plan<R: Runtime>(app: AppHandle<R>) -> Result<UpdatePlan, String> {
+    load_plan(&app)
 }
 
 #[tauri::command]
@@ -150,22 +153,18 @@ pub fn set_plan<R: Runtime>(
     plan: UpdatePlan,
 ) -> Result<(), String> {
     let _guard = lock.0.lock().map_err(|e| e.to_string())?;
-    plan::save(&plan_path(&app)?, &plan)
+    plan::save(&plan_path(&app)?, &plan)?;
+    // New rules or holds can change what to send and when.
+    app.state::<nudge::NudgeState>().wake();
+    Ok(())
 }
 
 /// How hard and when to nudge for each update on this device, from the same
-/// fresh findings as `list_findings` and the saved Update plan. Read-only:
-/// nothing is sent from here, so nudge history isn't recorded yet.
+/// fresh findings as `list_findings`, the saved Update plan and what was
+/// already sent. Read-only: the background loop in `nudge` does the sending.
 #[tauri::command]
-pub async fn get_nudges<R: Runtime>(
-    app: AppHandle<R>,
-    lock: State<'_, PlanLock>,
-) -> Result<NudgePlan, String> {
-    let stored = {
-        let _guard = lock.0.lock().map_err(|e| e.to_string())?;
-        plan::load(&plan_path(&app)?)
-    };
-    blocking(move || nudge::plan_for(&fix::list_findings(&app)?, &stored)).await
+pub async fn get_nudges<R: Runtime>(app: AppHandle<R>) -> Result<NudgePlan, String> {
+    blocking(move || nudge::current(&app)).await
 }
 
 fn settings_path<R: Runtime>(app: &AppHandle<R>) -> Result<std::path::PathBuf, String> {

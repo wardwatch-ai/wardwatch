@@ -1,8 +1,52 @@
-//! Runs the nudge engine (crates/wardwatch-nudge) for Home and the tray.
+//! Runs the nudge engine (crates/wardwatch-nudge): read-only for Home and the
+//! tray, and a background loop that sends the plan's system notifications.
+//!
+//! The loop re-plans at the plan's `next_check`, or shortly after the Update
+//! plan is saved. It checks the clock at least hourly, so a laptop that slept
+//! catches up within the hour after waking (tokio's timer pauses during sleep).
+//! Quiet hours, the Sunday Tune-Up at 10:00 and holds are all the engine's;
+//! this module only sends what it says and remembers that it did.
 
-use wardwatch_nudge::{ApprovedAlerts, Finding, History, NudgePlan};
+use std::path::{Path, PathBuf};
+use std::sync::{Mutex, MutexGuard, PoisonError};
+use std::time::Duration;
+
+use jiff::{Timestamp, Zoned};
+use serde::{Deserialize, Serialize};
+use tauri::{AppHandle, Manager, Runtime};
+use tauri_plugin_notification::NotificationExt;
+use tokio::sync::Notify;
+use wardwatch_nudge::{
+    ApprovedAlerts, Finding, History, Notification, NotificationKind, NudgePlan,
+};
 
 use crate::plan::UpdatePlan;
+use crate::{commands, fix, store};
+
+const HISTORY_VERSION: u64 = 1;
+const MIN_WAIT: Duration = Duration::from_secs(60);
+const MAX_WAIT: Duration = Duration::from_secs(60 * 60);
+/// After the plan is saved, wait this long so a run of toggles re-plans once.
+const SETTLE: Duration = Duration::from_secs(5);
+
+/// The loop's wake-up call and the lock on the history file.
+#[derive(Default)]
+pub struct NudgeState {
+    wake: Notify,
+    history: Mutex<()>,
+}
+
+impl NudgeState {
+    /// The guard protects no data, so a panic elsewhere mustn't lock it for good.
+    fn lock_history(&self) -> MutexGuard<'_, ()> {
+        self.history.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+
+    /// Re-plans now, for example after the Update plan changed.
+    pub fn wake(&self) {
+        self.wake.notify_one();
+    }
+}
 
 /// The engine's view of the saved plan. Both sides use the same JSON shape,
 /// so the stored form is converted through it rather than field by field.
@@ -11,21 +55,203 @@ fn engine_plan(stored: &UpdatePlan) -> Result<wardwatch_nudge::UpdatePlan, Strin
     wardwatch_nudge::UpdatePlan::from_json(&json)
 }
 
-pub fn plan_for(findings: &[Finding], stored: &UpdatePlan) -> Result<NudgePlan, String> {
+pub fn plan_for(
+    findings: &[Finding],
+    stored: &UpdatePlan,
+    history: &History,
+    now: &Zoned,
+) -> Result<NudgePlan, String> {
     // Broad OS and browser alerts stay held until signed alerts.json exists.
-    // History is empty because nothing sends notifications yet.
     Ok(wardwatch_nudge::plan(
         findings,
         &engine_plan(stored)?,
         &ApprovedAlerts::none(),
-        &History::default(),
-        &jiff::Zoned::now(),
+        history,
+        now,
     ))
+}
+
+/// One pass: plan, send each notification, record what went out. A
+/// notification that fails to show isn't recorded, so the next pass retries
+/// it. Returns when to look again.
+pub fn step(
+    findings: &[Finding],
+    stored: &UpdatePlan,
+    history: &mut History,
+    now: &Zoned,
+    mut send: impl FnMut(&Notification) -> Result<(), String>,
+) -> Result<Timestamp, String> {
+    let mut plan = plan_for(findings, stored, history, now)?;
+    if !plan.install.is_empty() {
+        // Installing by itself isn't built yet; Auto cells only show in the app.
+        eprintln!("wardwatch: not auto-installing yet: {:?}", plan.install);
+    }
+    let before = history.tune_up;
+    let mut failed = Vec::new();
+    plan.notify.retain(|n| match send(n) {
+        Ok(()) => true,
+        Err(e) => {
+            eprintln!("wardwatch: could not show a notification: {e}");
+            failed.push(n.kind);
+            false
+        }
+    });
+    history.record(&plan, now.timestamp());
+    if failed.contains(&NotificationKind::TuneUp) {
+        history.tune_up = before;
+    }
+    if failed.is_empty() {
+        Ok(plan.next_check)
+    } else {
+        Err(format!("{} notification(s) failed", failed.len()))
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+struct StoredHistory {
+    v: u64,
+    #[serde(flatten)]
+    history: History,
+}
+
+fn history_path<R: Runtime>(app: &AppHandle<R>) -> Result<PathBuf, String> {
+    app.path()
+        .app_config_dir()
+        .map(|dir| dir.join("nudge-history.json"))
+        .map_err(|e| format!("no config folder: {e}"))
+}
+
+/// A missing or unreadable file means nothing was sent yet. A file from a
+/// newer Wardwatch is an error: it can't be read or overwritten, and treating
+/// it as empty would re-send everything on every pass.
+fn load_history(path: &Path) -> Result<History, String> {
+    let Ok(bytes) = std::fs::read(path) else {
+        return Ok(History::default());
+    };
+    match serde_json::from_slice::<serde_json::Value>(&bytes)
+        .ok()
+        .and_then(|v| v.get("v").and_then(serde_json::Value::as_u64))
+    {
+        Some(v) if v > HISTORY_VERSION => {
+            Err("the nudge history was saved by a newer version of Wardwatch".into())
+        }
+        _ => Ok(serde_json::from_slice::<StoredHistory>(&bytes)
+            .map(|s| s.history)
+            .unwrap_or_else(|_| {
+                eprintln!("wardwatch: starting a fresh nudge history");
+                History::default()
+            })),
+    }
+}
+
+fn save_history(path: &Path, history: History) -> Result<(), String> {
+    let stored = StoredHistory {
+        v: HISTORY_VERSION,
+        history,
+    };
+    store::save(path, &stored, HISTORY_VERSION, "nudge history")
+}
+
+/// The nudge plan as of now, for Home and the tray. Sends nothing.
+pub fn current<R: Runtime>(app: &AppHandle<R>) -> Result<NudgePlan, String> {
+    let stored = commands::load_plan(app)?;
+    let findings = fix::list_findings(app)?;
+    let history = {
+        let state = app.state::<NudgeState>();
+        let _guard = state.lock_history();
+        load_history(&history_path(app)?)?
+    };
+    plan_for(&findings, &stored, &history, &Zoned::now())
+}
+
+fn run_once<R: Runtime>(app: &AppHandle<R>) -> Result<Timestamp, String> {
+    let stored = commands::load_plan(app)?;
+    let findings = fix::list_findings(app)?;
+    let state = app.state::<NudgeState>();
+    let path = history_path(app)?;
+    let mut history = {
+        let _guard = state.lock_history();
+        let history = load_history(&path)?;
+        // Make sure what we send can be recorded; otherwise every pass would
+        // send it again.
+        save_history(&path, history.clone())?;
+        history
+    };
+    // Only this loop writes the history, so sending needs no lock.
+    let result = step(&findings, &stored, &mut history, &Zoned::now(), |n| {
+        app.notification()
+            .builder()
+            .title(&n.title)
+            .body(&n.body)
+            .show()
+            .map_err(|e| e.to_string())
+    });
+    let _guard = state.lock_history();
+    save_history(&path, history)?;
+    result
+}
+
+fn wait_until(next: Timestamp) -> Duration {
+    let ms = next.duration_since(Timestamp::now()).as_millis();
+    Duration::from_millis(u64::try_from(ms).unwrap_or(0)).clamp(MIN_WAIT, MAX_WAIT)
+}
+
+/// Starts the background loop. Without a catalog yet (every release build for
+/// now) each pass fails quietly and the loop tries again within the hour.
+pub fn spawn<R: Runtime>(app: AppHandle<R>) {
+    tauri::async_runtime::spawn(async move {
+        loop {
+            let handle = app.clone();
+            let next = match tauri::async_runtime::spawn_blocking(move || run_once(&handle)).await {
+                Ok(Ok(next)) => next,
+                Ok(Err(e)) => {
+                    eprintln!("wardwatch: nudges not checked: {e}");
+                    Timestamp::now() + jiff::SignedDuration::from_hours(1)
+                }
+                Err(e) => {
+                    eprintln!("wardwatch: nudge check stopped: {e}");
+                    Timestamp::now() + jiff::SignedDuration::from_hours(1)
+                }
+            };
+            // Sleep until `next`, checking the clock at least hourly; a saved
+            // plan cuts it short.
+            let state = app.state::<NudgeState>();
+            while Timestamp::now() < next {
+                tokio::select! {
+                    () = tokio::time::sleep(wait_until(next)) => {}
+                    () = state.wake.notified() => {
+                        tokio::time::sleep(SETTLE).await;
+                        break;
+                    }
+                }
+            }
+        }
+    });
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn exploited_app() -> Finding {
+        serde_json::from_value(serde_json::json!({
+            "key": "zoom", "app_id": "zoom", "app_name": "Zoom", "kind": "app",
+            "source": "mac_app", "software_id": "us.zoom.xos", "name": "Zoom",
+            "browser": null, "version_scheme": "dotted", "installed": "1.0", "running": false,
+            "installs": [{"source": "mac_app", "id": "us.zoom.xos", "name": "Zoom",
+                          "version": "1.0", "running": false}],
+            "fixed_version": "2.0", "latest": "2.0", "update_available": true,
+            "exploited": true, "severity": "high",
+            "vulns": [{"id": "CVE-1", "aliases": [], "published": "2026-11-01",
+                       "severity": "high", "cvss": null, "exploited": true,
+                       "kev": null, "summary": "", "fixed": "2.0"}],
+        }))
+        .unwrap()
+    }
+
+    fn at(s: &str) -> Zoned {
+        format!("{s}[America/New_York]").parse().unwrap()
+    }
 
     #[test]
     fn the_saved_plan_reads_as_the_engines_plan() {
@@ -41,5 +267,127 @@ mod tests {
             Some(wardwatch_nudge::Preset::Balanced)
         );
         assert!(engine.is_held("mac_app", "com.apple.FinalCut"));
+    }
+
+    #[test]
+    fn sends_once_then_remembers_it() {
+        let findings = [exploited_app()];
+        let plan = UpdatePlan::default();
+        let mut history = History::default();
+        let mut sent = Vec::new();
+        // Tuesday 14:00, outside quiet hours.
+        step(
+            &findings,
+            &plan,
+            &mut history,
+            &at("2026-11-10T14:00"),
+            |n| {
+                sent.push(n.title.clone());
+                Ok(())
+            },
+        )
+        .unwrap();
+        assert_eq!(sent.len(), 1);
+        step(
+            &findings,
+            &plan,
+            &mut history,
+            &at("2026-11-10T14:05"),
+            |n| {
+                sent.push(n.title.clone());
+                Ok(())
+            },
+        )
+        .unwrap();
+        assert_eq!(sent.len(), 1, "no repeat within the reminder interval");
+    }
+
+    #[test]
+    fn quiet_hours_and_holds_send_nothing() {
+        let findings = [exploited_app()];
+        let mut history = History::default();
+        let mut sent = 0;
+        step(
+            &findings,
+            &UpdatePlan::default(),
+            &mut history,
+            &at("2026-11-10T23:30"),
+            |_| {
+                sent += 1;
+                Ok(())
+            },
+        )
+        .unwrap();
+        let mut held = UpdatePlan::default();
+        held.holds.push(crate::plan::Hold {
+            source: "mac_app".into(),
+            id: "us.zoom.xos".into(),
+            since: "2026-11-02".into(),
+        });
+        step(
+            &findings,
+            &held,
+            &mut history,
+            &at("2026-11-10T14:00"),
+            |_| {
+                sent += 1;
+                Ok(())
+            },
+        )
+        .unwrap();
+        assert_eq!(sent, 0);
+    }
+
+    #[test]
+    fn a_failed_notification_is_retried_next_pass() {
+        let findings = [exploited_app()];
+        let plan = UpdatePlan::default();
+        let mut history = History::default();
+        let now = at("2026-11-10T14:00");
+        assert!(
+            step(&findings, &plan, &mut history, &now, |_| Err(
+                "no daemon".into()
+            ))
+            .is_err()
+        );
+        assert!(history.notified.is_empty());
+        let mut sent = 0;
+        step(
+            &findings,
+            &plan,
+            &mut history,
+            &at("2026-11-10T14:05"),
+            |_| {
+                sent += 1;
+                Ok(())
+            },
+        )
+        .unwrap();
+        assert_eq!(sent, 1);
+    }
+
+    #[test]
+    fn history_round_trips_and_bad_files_start_fresh() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("nudge-history.json");
+        assert_eq!(load_history(&path).unwrap(), History::default());
+        let mut history = History::default();
+        history
+            .notified
+            .insert("zoom".into(), "2026-11-10T19:00:00Z".parse().unwrap());
+        save_history(&path, history.clone()).unwrap();
+        assert_eq!(load_history(&path).unwrap(), history);
+        std::fs::write(&path, b"not json").unwrap();
+        assert_eq!(load_history(&path).unwrap(), History::default());
+        // A newer file can't be read or replaced, so nothing gets sent.
+        std::fs::write(&path, br#"{"v":2}"#).unwrap();
+        assert!(load_history(&path).is_err());
+    }
+
+    #[test]
+    fn waits_between_a_minute_and_an_hour() {
+        assert_eq!(wait_until(Timestamp::now()), MIN_WAIT);
+        let far = Timestamp::now() + jiff::SignedDuration::from_hours(30);
+        assert_eq!(wait_until(far), MAX_WAIT);
     }
 }
