@@ -2,6 +2,8 @@
 name = "wardwatch-desktop"
 version = "0.1.0"
 description = "Wardwatch desktop app"
+# Becomes the Maintainer of the .deb and the Packager of the .rpm.
+authors = ["Wardwatch <hello@wardwatch.ai>"]
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true

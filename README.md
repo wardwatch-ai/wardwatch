@@ -10,6 +10,7 @@ Wardwatch watches for critical vulnerabilities on your devices and helps you upd
 | `apps/desktop/src-tauri` | The Tauri shell in Rust: main window, menu bar / tray popover, IPC commands                              |
 | `packages/*`             | Shared TypeScript packages, such as the design system (`@wardwatch/ui`)                                  |
 | `crates/*`               | Rust libraries with no Tauri dependency, such as the software catalog. Add each to the root `Cargo.toml` |
+| `packaging/linux`        | Build, assemble and test the `.deb`/`.rpm` and the apt/dnf repo trees, locally and unsigned              |
 
 The UI talks to Rust only through commands in `apps/desktop/src-tauri/src/commands.rs`, wrapped in `apps/desktop/src/lib/ipc.ts`. Each command is listed in `build.rs` and granted per window in `src-tauri/capabilities/`, so a window can call only what it needs.
 
