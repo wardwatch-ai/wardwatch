@@ -64,7 +64,8 @@
     {
       "DisplayName": "Notepad++ (64-bit x64)",
       "DisplayVersion": "8.7.1",
-      "Publisher": "Notepad++ Team"
+      "Publisher": "Notepad++ Team",
+      "DisplayIcon": "C:\\Program Files\\Notepad++\\notepad++.exe"
     }
   ],
   [

@@ -1,4 +1,6 @@
-org.mozilla.firefox	132.0.2	x86_64
-org.freedesktop.Platform	24.08.7	x86_64
-org.freedesktop.Platform	24.08.7	x86_64
-org.gnome.Platform		x86_64
+org.mozilla.firefox	132.0.2	stable	x86_64
+org.freedesktop.Platform	24.08.7	24.08	x86_64
+org.freedesktop.Platform	24.08.7	24.08	x86_64
+org.gnome.Platform		46	x86_64
+org.gnome.Platform		47	x86_64
+org.example.Nothing			

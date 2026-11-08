@@ -28,6 +28,7 @@ const BY_APP_ID: &[(&str, Browser)] = &[
     ("com.apple.safari", Browser::Safari),
     ("com.brave.browser", Browser::Brave),
     ("com.operasoftware.opera", Browser::Opera),
+    ("com.opera.opera", Browser::Opera),
     ("com.vivaldi.vivaldi", Browser::Vivaldi),
     ("company.thebrowser.browser", Browser::Arc),
 ];
@@ -40,9 +41,11 @@ const BY_PACKAGE: &[(&str, Browser)] = &[
     ("microsoft-edge-stable", Browser::Edge),
     ("firefox", Browser::Firefox),
     ("firefox-esr", Browser::Firefox),
+    ("mozillafirefox", Browser::Firefox),
     ("brave-browser", Browser::Brave),
     ("brave", Browser::Brave),
     ("opera-stable", Browser::Opera),
+    ("opera", Browser::Opera),
     ("vivaldi-stable", Browser::Vivaldi),
 ];
 
@@ -73,7 +76,7 @@ pub(crate) fn identify(s: &Software) -> Option<Browser> {
         Source::Dpkg | Source::Rpm => {
             // Ubuntu's "firefox" and "chromium-browser" debs are stubs that
             // install the snap; the snap entry carries the real version.
-            if s.version.as_deref().is_some_and(|v| v.contains("snap")) {
+            if s.version.as_deref().is_some_and(|v| v.contains("snap1")) {
                 return None;
             }
             lookup(BY_PACKAGE, &s.id)
@@ -171,6 +174,23 @@ mod tests {
             (
                 sw(Source::WindowsRegistry, "x", "Microsoft Edge", "130.0"),
                 Some(Browser::Edge),
+            ),
+            (
+                sw(Source::Flatpak, "com.opera.Opera", "Opera", "114.0"),
+                Some(Browser::Opera),
+            ),
+            (
+                sw(Source::Rpm, "MozillaFirefox", "MozillaFirefox", "132.0-1.1"),
+                Some(Browser::Firefox),
+            ),
+            (
+                sw(
+                    Source::Dpkg,
+                    "chromium-browser",
+                    "chromium-browser",
+                    "2:1snap1-0ubuntu2",
+                ),
+                None,
             ),
             (
                 sw(Source::HomebrewCask, "firefox", "firefox", "132.0"),

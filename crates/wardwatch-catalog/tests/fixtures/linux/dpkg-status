@@ -50,6 +50,11 @@ Status: install reinstreq half-installed
 Architecture: amd64
 Version: 2.0-1
 
+Package: tzdata
+Status: install ok triggers-awaited
+Architecture: all
+Version: 2024a-3ubuntu1.1
+
 Package: zlib1g
 Status: install ok installed
 Priority: required

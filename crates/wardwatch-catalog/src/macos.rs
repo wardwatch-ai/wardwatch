@@ -58,41 +58,29 @@ pub fn app_dirs() -> Vec<PathBuf> {
     dirs
 }
 
-#[derive(Deserialize)]
-struct InfoPlist {
-    #[serde(rename = "CFBundleIdentifier")]
-    id: Option<String>,
-    #[serde(rename = "CFBundleShortVersionString")]
-    short_version: Option<String>,
-    #[serde(rename = "CFBundleVersion")]
-    bundle_version: Option<String>,
-    #[serde(rename = "CFBundleDisplayName")]
-    display_name: Option<String>,
-    #[serde(rename = "CFBundleName")]
-    bundle_name: Option<String>,
+/// Reads a plist value as text. Some bundles store versions as `<integer>`
+/// or `<real>`, so those count too.
+fn text(v: Option<&plist::Value>) -> Option<String> {
+    let t = match v? {
+        plist::Value::String(s) => s.trim().to_string(),
+        plist::Value::Integer(i) => i.to_string(),
+        plist::Value::Real(r) => r.to_string(),
+        _ => return None,
+    };
+    (!t.is_empty()).then_some(t)
 }
 
 /// Builds an entry from an app's `Info.plist`. `fallback_name` is the bundle's
 /// folder name without `.app`.
 pub fn parse_info_plist(bytes: &[u8], fallback_name: &str) -> Result<Software, plist::Error> {
-    let info: InfoPlist = plist::from_bytes(bytes)?;
-    let name = [info.display_name, info.bundle_name]
-        .into_iter()
-        .flatten()
-        .map(|n| n.trim().to_string())
-        .find(|n| !n.is_empty())
+    let info: plist::Dictionary = plist::from_bytes(bytes)?;
+    let get = |k: &str| text(info.get(k));
+    let name = get("CFBundleDisplayName")
+        .or_else(|| get("CFBundleName"))
         .unwrap_or_else(|| fallback_name.to_string());
-    let id = info
-        .id
-        .map(|i| i.trim().to_string())
-        .filter(|i| !i.is_empty())
-        .unwrap_or_else(|| name.clone());
+    let id = get("CFBundleIdentifier").unwrap_or_else(|| name.clone());
     let mut s = Software::new(Source::MacApp, id, name);
-    s.version = info
-        .short_version
-        .or(info.bundle_version)
-        .map(|v| v.trim().to_string())
-        .filter(|v| !v.is_empty());
+    s.version = get("CFBundleShortVersionString").or_else(|| get("CFBundleVersion"));
     Ok(s)
 }
 
@@ -104,6 +92,10 @@ pub fn scan_apps(dirs: &[PathBuf], warnings: &mut Vec<String>) -> Vec<Software> 
     for dir in dirs {
         visit(dir, 0, &mut out, &mut unreadable);
     }
+    // A symlinked bundle (e.g. ~/Applications/X.app -> /Applications/X.app)
+    // resolves to the same location; keep one entry.
+    let mut seen = std::collections::HashSet::new();
+    out.retain(|s| seen.insert(s.location.clone()));
     if unreadable > 0 {
         warnings.push(format!(
             "macos: {unreadable} app bundles had no readable Info.plist"
@@ -121,12 +113,13 @@ fn visit(dir: &Path, depth: u8, out: &mut Vec<Software>, unreadable: &mut usize)
     for path in paths {
         if path.extension().is_some_and(|e| e == "app") {
             let fallback = path.file_stem().unwrap_or_default().to_string_lossy();
-            match fs::read(path.join("Contents/Info.plist"))
+            match crate::read_capped(&path.join("Contents/Info.plist"))
                 .ok()
                 .and_then(|b| parse_info_plist(&b, &fallback).ok())
             {
                 Some(mut s) => {
-                    s.location = Some(path);
+                    // Running processes report real paths, so store the real path.
+                    s.location = Some(fs::canonicalize(&path).unwrap_or(path));
                     out.push(s);
                 }
                 None => *unreadable += 1,
@@ -169,13 +162,22 @@ mod tests {
         assert_eq!(notes.name, "Binary Example");
         assert_eq!(notes.version.as_deref(), Some("812"));
 
+        // Integer CFBundleVersion and an empty short version, both seen in the wild.
+        let int = parse_info_plist(&fixture("Integer-Info.plist"), "Int App").unwrap();
+        assert_eq!(
+            (int.id.as_str(), int.name.as_str()),
+            ("com.example.int", "Int App")
+        );
+        assert_eq!(int.version.as_deref(), Some("812"));
+
         assert!(parse_info_plist(b"not a plist", "x").is_err());
     }
 
     #[test]
     fn scans_app_folders_one_level_deep() {
         let tmp = tempfile::tempdir().unwrap();
-        let root = tmp.path();
+        // Locations are canonical (on macOS the temp folder is under /private).
+        let root = &fs::canonicalize(tmp.path()).unwrap();
         let chrome = fixture("Chrome-Info.plist");
         for dir in [
             "Google Chrome.app",
@@ -193,7 +195,7 @@ mod tests {
             fs::write(root.join(dir).join("Contents/Info.plist"), &chrome).unwrap();
         }
         let mut warnings = Vec::new();
-        let found = scan_apps(&[root.to_path_buf()], &mut warnings);
+        let found = scan_apps(std::slice::from_ref(root), &mut warnings);
         let locations: Vec<_> = found
             .iter()
             .map(|s| {

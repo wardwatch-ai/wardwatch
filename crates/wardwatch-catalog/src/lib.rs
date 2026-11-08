@@ -134,6 +134,19 @@ impl Software {
     }
 }
 
+/// Largest metadata file read (an `Info.plist`, a `snap.yaml`). App folders
+/// can be user-writable, so a huge file there must not balloon memory.
+const MAX_METADATA_BYTES: u64 = 4 << 20;
+
+pub(crate) fn read_capped(path: &std::path::Path) -> std::io::Result<Vec<u8>> {
+    use std::io::Read;
+    let mut buf = Vec::new();
+    std::fs::File::open(path)?
+        .take(MAX_METADATA_BYTES)
+        .read_to_end(&mut buf)?;
+    Ok(buf)
+}
+
 /// Scans this device. Never fails: a scanner that can't run adds a warning.
 pub fn scan() -> Inventory {
     let mut warnings = Vec::new();
@@ -204,6 +217,9 @@ fn current_os(warnings: &mut Vec<String>) -> OsInfo {
 
 /// Files and folders whose changes mean the inventory may have changed, for an
 /// event-driven agent to watch instead of polling. Only existing paths are returned.
+/// Watch them recursively: updates often change files inside these folders
+/// (an app bundle, `rpmdb.sqlite`, a snap's `current` link) without touching
+/// the folder itself.
 /// (Windows registry changes are watched with `RegNotifyChangeKeyValue` on the
 /// Uninstall keys instead.)
 pub fn watch_paths() -> Vec<PathBuf> {
@@ -221,6 +237,7 @@ pub fn watch_paths() -> Vec<PathBuf> {
             "/usr/lib/sysimage/rpm",
             "/var/lib/flatpak/app",
             "/snap",
+            "/var/lib/snapd/snap",
             "/etc/os-release",
         ]
         .map(PathBuf::from),

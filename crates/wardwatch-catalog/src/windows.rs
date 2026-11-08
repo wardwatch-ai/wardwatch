@@ -15,6 +15,7 @@ pub const UNINSTALL_VALUES: &[&str] = &[
     "DisplayVersion",
     "Publisher",
     "InstallLocation",
+    "DisplayIcon",
     "SystemComponent",
     "ParentKeyName",
     "ReleaseType",
@@ -24,6 +25,7 @@ pub const UNINSTALL_VALUES: &[&str] = &[
 pub const CURRENT_VERSION_VALUES: &[&str] = &[
     "ProductName",
     "DisplayVersion",
+    "ReleaseId",
     "CurrentBuildNumber",
     "UBR",
     "CurrentMajorVersionNumber",
@@ -53,7 +55,8 @@ pub fn parse_current_version(v: &Values) -> Result<OsInfo, String> {
         name,
         version,
         build: None,
-        release: get("DisplayVersion").map(String::from),
+        // DisplayVersion arrived with 20H2; older Windows 10 and Server have ReleaseId.
+        release: get("DisplayVersion").or(get("ReleaseId")).map(String::from),
         kernel: None,
         arch: std::env::consts::ARCH.into(),
     })
@@ -75,8 +78,12 @@ pub fn parse_uninstall_entries<'a>(
         };
         if get("SystemComponent") == Some("1")
             || get("ParentKeyName").is_some()
-            || get("ReleaseType")
-                .is_some_and(|t| matches!(t, "Update" | "Hotfix" | "Security Update"))
+            || get("ReleaseType").is_some_and(|t| {
+                matches!(
+                    t,
+                    "Update" | "Hotfix" | "Security Update" | "Update Rollup" | "Service Pack"
+                )
+            })
         {
             continue;
         }
@@ -87,10 +94,37 @@ pub fn parse_uninstall_entries<'a>(
         let mut s = Software::new(Source::WindowsRegistry, key, name);
         s.version = version;
         s.publisher = get("Publisher").map(String::from);
-        s.location = get("InstallLocation").map(|l| l.trim_matches('"').into());
+        s.location = install_dir(get("InstallLocation"), get("DisplayIcon"));
         out.push(s);
     }
     out
+}
+
+/// The program's own folder: `InstallLocation`, else the folder of the
+/// `DisplayIcon` executable. Drive roots and shared folders such as
+/// `C:\Program Files` are rejected, since every program there would match.
+fn install_dir(location: Option<&str>, icon: Option<&str>) -> Option<std::path::PathBuf> {
+    let from_icon = || {
+        // "C:\App\app.exe,0" -> "C:\App"
+        let exe = icon?.trim_matches('"');
+        let exe = exe
+            .rsplit_once(',')
+            .map_or(exe, |(p, _)| p)
+            .trim_matches('"');
+        let dir = exe.rsplit_once('\\')?.0;
+        Some(dir.to_string())
+    };
+    let dir = location
+        .map(|l| l.trim_matches('"').trim_end_matches('\\').to_string())
+        .filter(|l| !l.is_empty())
+        .or_else(from_icon)?;
+    // Need at least two folders below the drive: "C:\Vendor\App".
+    let depth = dir.split('\\').filter(|p| !p.is_empty()).count();
+    let lower = dir.to_lowercase();
+    let shared = ["program files", "program files (x86)", "common files"]
+        .iter()
+        .any(|f| lower.ends_with(&format!("\\{f}")));
+    (depth >= 3 && !shared).then(|| dir.into())
 }
 
 #[cfg(windows)]
@@ -209,6 +243,30 @@ mod tests {
             Some(std::path::Path::new(
                 r"C:\Program Files\Google\Chrome\Application"
             ))
+        );
+        // No InstallLocation: falls back to the DisplayIcon's folder.
+        assert_eq!(
+            found[4].location.as_deref(),
+            Some(std::path::Path::new(r"C:\Program Files\Notepad++"))
+        );
+    }
+
+    #[test]
+    fn rejects_shared_install_folders() {
+        assert_eq!(install_dir(Some(r"C:\"), None), None);
+        assert_eq!(install_dir(Some(r"C:\Program Files\"), None), None);
+        assert_eq!(
+            install_dir(Some(r"C:\Program Files\Common Files"), None),
+            None
+        );
+        assert_eq!(install_dir(Some("\"\""), None), None);
+        assert_eq!(
+            install_dir(Some(r#""C:\Program Files\7-Zip\""#), None),
+            Some(r"C:\Program Files\7-Zip".into())
+        );
+        assert_eq!(
+            install_dir(None, Some(r#""C:\Tools\App\app.exe",0"#)),
+            Some(r"C:\Tools\App".into())
         );
     }
 }

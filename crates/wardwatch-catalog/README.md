@@ -8,7 +8,7 @@ update and vulnerability catalog, on the device.
 ```rust
 let inventory = wardwatch_catalog::scan();          // never fails; problems go in inventory.warnings
 let json = serde_json::to_string(&inventory)?;      // stable, versioned shape (inventory.schema)
-let watch = wardwatch_catalog::watch_paths();       // what to watch to rescan on change
+let watch = wardwatch_catalog::watch_paths();       // what to watch (recursively) to rescan on change
 ```
 
 ## What it reads
@@ -17,7 +17,7 @@ let watch = wardwatch_catalog::watch_paths();       // what to watch to rescan o
 | --- | --- | --- |
 | macOS | `SystemVersion.plist` (Rapid Security Response aware) | `Info.plist` of apps in `/Applications` and `~/Applications` (one folder deep), Homebrew Cellar and Caskroom |
 | Windows | `HKLM\…\Windows NT\CurrentVersion` (build.UBR, 23H2) | Uninstall registry keys (64-bit, 32-bit, current user), filtered like Settings > Installed apps |
-| Linux | `/etc/os-release` | dpkg status file, `rpm -qa`, snaps in `/snap`, `flatpak list`, Linuxbrew |
+| Linux | `/etc/os-release` | dpkg status file, `rpm -qa`, snaps in `/snap` or `/var/lib/snapd/snap`, `flatpak list` (runtimes too, by branch), Linuxbrew |
 
 Browsers (Chrome, Chromium, Edge, Firefox, Safari, Brave, Opera, Vivaldi, Arc)
 are tagged on whichever entry installed them. Ubuntu's stub `firefox` deb is
@@ -47,7 +47,7 @@ their epoch and revision because distro advisories are written against them.
 
 Microsoft Store apps, Chocolatey, Scoop, MacPorts, AppImage, background
 services (launchd, systemd, Windows services) and browser extensions are
-follow-ups. Developer tools are in the backlog.
+follow-ups, as is marking Flatpak apps as running (`flatpak ps`). Developer tools are in the backlog.
 
 ## Try it
 

@@ -61,38 +61,44 @@ pub fn os_info() -> Result<OsInfo, String> {
     Ok(os)
 }
 
-/// Parses dpkg's `/var/lib/dpkg/status`, keeping fully installed packages.
+/// Parses dpkg's `/var/lib/dpkg/status`, keeping installed packages
+/// (including ones only waiting on triggers, whose files are in place).
 pub fn parse_dpkg_status(text: &str) -> Vec<Software> {
     let mut out = Vec::new();
-    for stanza in text.split("\n\n") {
-        let mut f: BTreeMap<&str, &str> = BTreeMap::new();
-        for line in stanza.lines() {
-            // Continuation lines (descriptions, conffiles) start with a space.
-            if line.starts_with([' ', '\t']) {
-                continue;
+    let mut f: BTreeMap<&str, &str> = BTreeMap::new();
+    // A blank line ends a stanza; the trailing "" handles a file with no final blank line.
+    for line in text.lines().chain([""]) {
+        if line.trim().is_empty() {
+            if let Some(s) = dpkg_entry(&f) {
+                out.push(s);
             }
+            f.clear();
+        } else if !line.starts_with([' ', '\t']) {
+            // Continuation lines (descriptions, conffiles) start with a space.
             if let Some((k, v)) = line.split_once(':') {
                 f.insert(k, v.trim());
             }
         }
-        let (Some(pkg), Some(status)) = (f.get("Package"), f.get("Status")) else {
-            continue;
-        };
-        if status.split_whitespace().nth(2) != Some("installed") {
-            continue;
-        }
-        let mut s = Software::new(Source::Dpkg, *pkg, *pkg);
-        s.version = f.get("Version").map(|v| v.to_string());
-        s.arch = f.get("Architecture").map(|a| a.to_string());
-        // "Source: openssl (3.0.13-0ubuntu3)" names the source and, if different, its version.
-        s.source_package = f
-            .get("Source")
-            .and_then(|src| src.split_whitespace().next())
-            .filter(|src| src != pkg)
-            .map(String::from);
-        out.push(s);
     }
     out
+}
+
+fn dpkg_entry(f: &BTreeMap<&str, &str>) -> Option<Software> {
+    let pkg = *f.get("Package")?;
+    let state = f.get("Status")?.split_whitespace().nth(2)?;
+    if !matches!(state, "installed" | "triggers-awaited" | "triggers-pending") {
+        return None;
+    }
+    let mut s = Software::new(Source::Dpkg, pkg, pkg);
+    s.version = f.get("Version").map(|v| v.to_string());
+    s.arch = f.get("Architecture").map(|a| a.to_string());
+    // "Source: openssl (3.0.13-0ubuntu3)" names the source and, if different, its version.
+    s.source_package = f
+        .get("Source")
+        .and_then(|src| src.split_whitespace().next())
+        .filter(|src| *src != pkg)
+        .map(String::from);
+    Some(s)
 }
 
 /// `rpm --queryformat` for [`parse_rpm_output`]: name, [epoch:]version-release,
@@ -129,28 +135,31 @@ pub fn parse_rpm_output(text: &str) -> Vec<Software> {
 }
 
 /// `flatpak list` columns for [`parse_flatpak_output`].
-pub const FLATPAK_COLUMNS: &str = "application,version,arch";
+pub const FLATPAK_COLUMNS: &str = "application,version,branch,arch";
 
-/// Parses `flatpak list --columns=application,version,arch`. Apps and runtimes
-/// both count: an outdated runtime is as exposed as an outdated app.
+/// Parses `flatpak list --columns=application,version,branch,arch`. Apps and
+/// runtimes both count: an outdated runtime is as exposed as an outdated app.
+/// Runtimes often have no version, only a branch (`47`, `24.08`), so the
+/// branch stands in for the version then.
 pub fn parse_flatpak_output(text: &str) -> Vec<Software> {
     let mut seen = HashSet::new();
     let mut out = Vec::new();
     for line in text.lines() {
         let mut cols = line.split('\t').map(str::trim);
-        let (Some(id), version, arch) = (cols.next(), cols.next(), cols.next()) else {
+        let mut next = || cols.next().filter(|c| !c.is_empty()).map(String::from);
+        let (Some(id), version, branch, arch) = (next(), next(), next(), next()) else {
             continue;
         };
-        if id.is_empty() || id == "Application ID" {
+        if id == "Application ID" {
             continue;
         }
-        let version = version.filter(|v| !v.is_empty()).map(String::from);
-        if !seen.insert((id.to_string(), version.clone())) {
+        if !seen.insert((id.clone(), version.clone(), branch.clone())) {
             continue;
         }
-        let mut s = Software::new(Source::Flatpak, id, id);
+        let version = version.or(branch);
+        let mut s = Software::new(Source::Flatpak, &id, &id);
         s.version = version;
-        s.arch = arch.filter(|a| !a.is_empty()).map(String::from);
+        s.arch = arch;
         out.push(s);
     }
     out
@@ -164,7 +173,11 @@ pub fn parse_snap_version(yaml: &str) -> Option<String> {
         .filter(|v| !v.is_empty())
 }
 
-/// Lists snaps under a snap mount folder (normally `/snap`).
+/// Snap mount folders: `/snap` on Debian and Ubuntu, `/var/lib/snapd/snap`
+/// on Fedora, openSUSE and Arch (where `/snap` is at most a symlink to it).
+pub const SNAP_DIRS: [&str; 2] = ["/snap", "/var/lib/snapd/snap"];
+
+/// Lists snaps under one snap mount folder.
 pub fn scan_snaps(snap_dir: &Path) -> Vec<Software> {
     let Ok(entries) = fs::read_dir(snap_dir) else {
         return Vec::new();
@@ -173,7 +186,8 @@ pub fn scan_snaps(snap_dir: &Path) -> Vec<Software> {
         .filter_map(Result::ok)
         .filter_map(|e| {
             let name = e.file_name().into_string().ok()?;
-            let yaml = fs::read_to_string(e.path().join("current/meta/snap.yaml")).ok()?;
+            let yaml = crate::read_capped(&e.path().join("current/meta/snap.yaml")).ok()?;
+            let yaml = String::from_utf8_lossy(&yaml);
             let mut s = Software::new(Source::Snap, &name, &name);
             s.version = parse_snap_version(&yaml);
             s.location = Some(e.path());
@@ -201,8 +215,10 @@ fn run(tool: &str, args: &[&str]) -> Result<String, String> {
 pub fn scan_packages(warnings: &mut Vec<String>) -> Vec<Software> {
     let mut out = Vec::new();
 
-    if let Ok(text) = fs::read_to_string("/var/lib/dpkg/status") {
-        out.extend(parse_dpkg_status(&text));
+    match fs::read_to_string("/var/lib/dpkg/status") {
+        Ok(text) => out.extend(parse_dpkg_status(&text)),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+        Err(e) => warnings.push(format!("dpkg: could not read status ({})", e.kind())),
     }
 
     let rpm_db = ["/var/lib/rpm", "/usr/lib/sysimage/rpm"]
@@ -215,7 +231,15 @@ pub fn scan_packages(warnings: &mut Vec<String>) -> Vec<Software> {
         }
     }
 
-    out.extend(scan_snaps(Path::new("/snap")));
+    let mut snap_ids = HashSet::new();
+    for dir in SNAP_DIRS {
+        // When /snap links to /var/lib/snapd/snap, keep the first sighting.
+        out.extend(
+            scan_snaps(Path::new(dir))
+                .into_iter()
+                .filter(|s| snap_ids.insert(s.id.clone())),
+        );
+    }
 
     if Path::new("/usr/bin/flatpak").exists() {
         let columns = format!("--columns={FLATPAK_COLUMNS}");
@@ -284,10 +308,15 @@ mod tests {
                 ("google-chrome-stable", Some("131.0.6778.85-1"), None),
                 ("libssl3t64", Some("3.0.13-0ubuntu3.4"), Some("openssl")),
                 ("openssl", Some("3.0.13-0ubuntu3.4"), None),
+                ("tzdata", Some("2024a-3ubuntu1.1"), None),
                 ("zlib1g", Some("1:1.3.dfsg-3.1ubuntu2.1"), Some("zlib")),
             ]
         );
         assert_eq!(found[2].arch.as_deref(), Some("amd64"));
+
+        // Same file with Windows line endings (as git may check it out).
+        let crlf = fixture("dpkg-status").replace('\n', "\r\n");
+        assert_eq!(parse_dpkg_status(&crlf), found);
     }
 
     #[test]
@@ -328,7 +357,9 @@ mod tests {
             [
                 ("org.mozilla.firefox", Some("132.0.2")),
                 ("org.freedesktop.Platform", Some("24.08.7")),
-                ("org.gnome.Platform", None),
+                ("org.gnome.Platform", Some("46")),
+                ("org.gnome.Platform", Some("47")),
+                ("org.example.Nothing", None),
             ]
         );
     }

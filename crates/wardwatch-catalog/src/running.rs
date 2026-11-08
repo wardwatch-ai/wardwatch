@@ -29,7 +29,7 @@ pub(crate) fn running_executables() -> Vec<PathBuf> {
 /// executable isn't named after the package.
 const BROWSER_EXES: &[(Browser, &[&str])] = &[
     (Browser::Chrome, &["chrome"]),
-    (Browser::Chromium, &["chromium"]),
+    (Browser::Chromium, &["chromium", "chromium-browser"]),
     (Browser::Edge, &["msedge"]),
     (Browser::Firefox, &["firefox", "firefox-bin", "firefox-esr"]),
     (Browser::Brave, &["brave"]),
@@ -42,9 +42,18 @@ pub(crate) fn mark_running(software: &mut [Software], exes: &[PathBuf]) {
         .iter()
         .filter_map(|p| p.file_name()?.to_str())
         .collect();
+    let exe_paths: Vec<String> = exes.iter().map(|p| normalize(p)).collect();
     for s in software.iter_mut() {
         s.running = match (&s.location, s.source) {
-            (Some(loc), _) => exes.iter().any(|exe| is_inside(exe, loc)),
+            (Some(loc), _) => {
+                let dir = normalize(loc);
+                let dir = dir.trim_end_matches('/');
+                exe_paths.iter().any(|exe| {
+                    exe.len() > dir.len()
+                        && exe.starts_with(dir)
+                        && exe.as_bytes()[dir.len()] == b'/'
+                })
+            }
             // Distro packages have no single install folder, so match by name.
             (None, Source::Dpkg | Source::Rpm) => {
                 let browser_exes = s
@@ -60,15 +69,14 @@ pub(crate) fn mark_running(software: &mut [Software], exes: &[PathBuf]) {
     }
 }
 
-/// Whether `exe` is inside the folder `dir`. Case-insensitive on Windows.
-fn is_inside(exe: &Path, dir: &Path) -> bool {
+/// A path as a comparable string: `/` separators, and lowercase on Windows,
+/// whose paths are case-insensitive.
+fn normalize(p: &Path) -> String {
+    let s = p.to_string_lossy();
     if cfg!(windows) {
-        let norm = |p: &Path| p.to_string_lossy().replace('\\', "/").to_lowercase();
-        let (exe, dir) = (norm(exe), norm(dir));
-        let dir = dir.trim_end_matches('/');
-        exe.len() > dir.len() && exe.starts_with(dir) && exe.as_bytes()[dir.len()] == b'/'
+        s.replace('\\', "/").to_lowercase()
     } else {
-        exe.starts_with(dir)
+        s.into_owned()
     }
 }
 
