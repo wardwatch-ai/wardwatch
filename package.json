@@ -1,0 +1,19 @@
+{
+  "name": "wardwatch",
+  "private": true,
+  "packageManager": "pnpm@10.28.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "lint": "pnpm -r --if-present run lint",
+    "typecheck": "pnpm -r --if-present run typecheck",
+    "test": "pnpm -r --if-present run test",
+    "build": "pnpm -r --if-present run build",
+    "format": "prettier --write apps/desktop .github/workflows/desktop.yml .github/workflows/e2e.yml e2e README.md *.json *.yaml",
+    "format:check": "prettier --check apps/desktop .github/workflows/desktop.yml .github/workflows/e2e.yml e2e README.md *.json *.yaml"
+  },
+  "devDependencies": {
+    "prettier": "^3.9.10"
+  }
+}

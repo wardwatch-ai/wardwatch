@@ -1,0 +1,76 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Wardwatch",
+  "mainBinaryName": "wardwatch",
+  "version": "../package.json",
+  "identifier": "ai.wardwatch.Wardwatch",
+  "build": {
+    "beforeDevCommand": "pnpm dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "pnpm build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "withGlobalTauri": false,
+    "windows": [
+      {
+        "label": "main",
+        "title": "Wardwatch",
+        "url": "index.html",
+        "width": 1100,
+        "height": 760,
+        "minWidth": 800,
+        "minHeight": 560
+      },
+      {
+        "label": "tray",
+        "title": "Wardwatch",
+        "url": "tray.html",
+        "width": 400,
+        "height": 560,
+        "visible": false,
+        "decorations": false,
+        "resizable": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; img-src 'self' data:; style-src 'self'; connect-src ipc: http://ipc.localhost",
+      "freezePrototype": true
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["app", "dmg", "msi", "deb", "rpm"],
+    "category": "Utility",
+    "shortDescription": "Watches for critical vulnerabilities and helps you update",
+    "longDescription": "Wardwatch keeps a list of the software on this computer, checks it against known critical vulnerabilities, and nudges you to update what matters first.",
+    "publisher": "Wardwatch",
+    "homepage": "https://wardwatch.ai",
+    "license": "GPL-3.0-or-later",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "macOS": {
+      "minimumSystemVersion": "11.0"
+    },
+    "linux": {
+      "deb": {
+        "section": "utils"
+      },
+      "rpm": {
+        "release": "1"
+      }
+    },
+    "windows": {
+      "wix": {
+        "upgradeCode": "C5DBEA40-D8D7-4B60-8966-D1336F11CA76"
+      }
+    }
+  }
+}
