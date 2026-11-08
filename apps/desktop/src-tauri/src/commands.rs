@@ -49,7 +49,7 @@ pub const NAVIGATE_EVENT: &str = "navigate";
 
 /// Routes the tray may open. Anything else is refused, so the tray (or anything
 /// that gets to call this) can't steer the main window somewhere unexpected.
-pub fn is_allowed_route(route: &str) -> bool {
+pub(crate) fn is_allowed_route(route: &str) -> bool {
     const TABS: &[&str] = &["/", "/score", "/groups", "/apps", "/plan", "/fix/tune-up"];
     if TABS.contains(&route) {
         return true;

@@ -179,11 +179,12 @@ fn run_once<R: Runtime>(app: &AppHandle<R>) -> Result<Timestamp, String> {
     };
     // Only this loop writes the history, so sending needs no lock.
     let result = step(&findings, &stored, &mut history, &Zoned::now(), |n| {
+        let (what, value) = click_target(n);
         app.notification()
             .builder()
             .title(&n.title)
             .body(&n.body)
-            .extra(ROUTE, route_for(n, &findings))
+            .extra(what, value)
             .show()
             .map_err(|e| e.to_string())
     });
@@ -192,44 +193,55 @@ fn run_once<R: Runtime>(app: &AppHandle<R>) -> Result<Timestamp, String> {
     result
 }
 
-/// The `extra` key that carries the screen a notification opens.
+/// The `extra` keys that say what a notification is about: one program's
+/// catalog key, or a fixed screen for a batch.
+const KEY: &str = "key";
 const ROUTE: &str = "route";
 
-/// The screen a click on `n` opens: the fix screen for one program, the
-/// tune-up for a batch, Home if the program is gone. Routes use the same
-/// encoding as the UI's `fixPath`.
-fn route_for(n: &Notification, findings: &[Finding]) -> String {
-    match (n.kind, n.keys.as_slice()) {
-        (NotificationKind::TuneUp, _) => "/fix/tune-up".into(),
-        (_, [key]) => findings.iter().find(|f| &f.key == key).map_or_else(
-            || "/".into(),
-            |f| {
-                format!(
-                    "/fix/{}/{}",
-                    path_part(&f.source),
-                    path_part(&f.software_id)
-                )
-            },
-        ),
-        _ => "/fix/tune-up".into(),
+/// What a click on `n` should open. A single program is named by its stable
+/// catalog key and looked up at click time, since its install id can change
+/// once it's updated (Windows registry ids carry the version).
+fn click_target(n: &Notification) -> (&'static str, String) {
+    match n.keys.as_slice() {
+        [key] if n.kind != NotificationKind::TuneUp => (KEY, key.clone()),
+        _ => (ROUTE, "/fix/tune-up".into()),
     }
+}
+
+/// The fix screen for the program `key` as it's installed now, or Home if
+/// it's gone. Routes use the same encoding as the UI's `fixPath`.
+fn route_for_key(key: &str, findings: &[Finding]) -> String {
+    findings
+        .iter()
+        .find(|f| f.key == key)
+        .map(|f| fix_route(&f.source, &f.software_id))
+        .filter(|r| commands::is_allowed_route(r))
+        .unwrap_or_else(|| "/".into())
+}
+
+/// The fix screen for one program.
+pub fn fix_route(source: &str, id: &str) -> String {
+    format!("/fix/{}/{}", path_part(source), path_part(id))
 }
 
 /// Percent-encodes everything but letters, digits and `-._~`.
 fn path_part(s: &str) -> String {
+    use std::fmt::Write;
     let mut out = String::with_capacity(s.len());
     for b in s.bytes() {
         if b.is_ascii_alphanumeric() || b"-._~".contains(&b) {
             out.push(char::from(b));
         } else {
-            out.push_str(&format!("%{b:02X}"));
+            let _ = write!(out, "%{b:02X}");
         }
     }
     out
 }
 
 /// Opens the notification's screen when it's clicked. Registered at launch,
-/// before anything is sent, so the plugin reports clicks.
+/// before anything is sent, so the plugin reports clicks. What's reported
+/// depends on the OS: Windows reports a click only while the toast is on
+/// screen, not from the Action Center.
 pub fn on_click<R: Runtime>(app: &AppHandle<R>) {
     let handle = app.clone();
     // Never fails on desktop.
@@ -237,12 +249,25 @@ pub fn on_click<R: Runtime>(app: &AppHandle<R>) {
         if action.action_id() != "tap" {
             return;
         }
-        let route = action
-            .notification()
-            .and_then(|n| n.extra().get(ROUTE))
-            .and_then(serde_json::Value::as_str);
-        // open_screen re-checks the route against the allowed screens.
-        if let Err(e) = commands::open_screen(&handle, Some(route.unwrap_or("/"))) {
+        let extra = action.notification().map(|n| n.extra());
+        let get = |k: &str| {
+            extra
+                .and_then(|e| e.get(k))
+                .and_then(serde_json::Value::as_str)
+        };
+        // This runs on the plugin's own thread, so a rescan here is fine.
+        let route = match (get(KEY), get(ROUTE)) {
+            (Some(key), _) => fix::list_findings(&handle)
+                .map(|findings| route_for_key(key, &findings))
+                .unwrap_or_else(|_| "/".into()),
+            (None, Some(route)) => route.to_owned(),
+            (None, None) => "/".into(),
+        };
+        // open_screen re-checks the route against the allowed screens; if it
+        // refuses, still open Wardwatch.
+        if commands::open_screen(&handle, Some(&route)).is_err()
+            && let Err(e) = commands::open_screen(&handle, Some("/"))
+        {
             eprintln!("wardwatch: could not open the notification's screen: {e}");
         }
     });
@@ -458,20 +483,26 @@ mod tests {
         windows_app.source = "windows_registry".into();
         windows_app.software_id = "Mozilla Firefox 145.0.1 (x64 en-US)".into();
         let findings = [exploited_app(), windows_app];
-        let one = |key| route_for(&notification(NotificationKind::Urgent, &[key]), &findings);
-        assert_eq!(one("zoom"), "/fix/mac_app/us.zoom.xos");
         assert_eq!(
-            one("firefox"),
+            click_target(&notification(NotificationKind::Urgent, &["zoom"])),
+            (KEY, "zoom".to_owned())
+        );
+        let batch = notification(NotificationKind::SameDay, &["zoom", "firefox"]);
+        assert_eq!(click_target(&batch), (ROUTE, "/fix/tune-up".to_owned()));
+        let tune_up = notification(NotificationKind::TuneUp, &["zoom"]);
+        assert_eq!(click_target(&tune_up), (ROUTE, "/fix/tune-up".to_owned()));
+
+        assert_eq!(route_for_key("zoom", &findings), "/fix/mac_app/us.zoom.xos");
+        assert_eq!(
+            route_for_key("firefox", &findings),
             "/fix/windows_registry/Mozilla%20Firefox%20145.0.1%20%28x64%20en-US%29"
         );
-        assert_eq!(one("gone"), "/");
-        let batch = notification(NotificationKind::SameDay, &["zoom", "firefox"]);
-        assert_eq!(route_for(&batch, &findings), "/fix/tune-up");
-        let tune_up = notification(NotificationKind::TuneUp, &["zoom"]);
-        assert_eq!(route_for(&tune_up, &findings), "/fix/tune-up");
-        for n in [one("zoom"), one("firefox")] {
-            assert!(commands::is_allowed_route(&n), "{n}");
-        }
+        assert_eq!(route_for_key("gone", &findings), "/");
+        // A route the allow-list would refuse opens Home instead.
+        let mut huge = exploited_app();
+        huge.key = "huge".into();
+        huge.software_id = "x".repeat(600);
+        assert_eq!(route_for_key("huge", &[huge]), "/");
     }
 
     #[test]
