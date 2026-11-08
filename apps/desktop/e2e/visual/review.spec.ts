@@ -1,12 +1,23 @@
 // Builds the review set in out/: for each screen and theme, the mock, the app,
-// a diff of the two, and whether the app changed since its last approval.
+// a diff of the two, and <id>.json saying whether the app changed since its last verdict.
 // Matt marks each one "ok" or "fix"; approve.ts then records his verdicts.
 import { test } from "@playwright/test";
+import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import pixelmatch from "pixelmatch";
 import { PNG } from "pngjs";
-import { captureApp, cases, dir, mockPng, outDir, readApprovals, sha256, themes } from "./cases.ts";
+import {
+  captureApp,
+  cases,
+  dir,
+  mockPng,
+  outDir,
+  readApprovals,
+  sameImage,
+  sha256,
+  themes,
+} from "./cases.ts";
 
 /** Pads an image to width x height with its own top-left pixel (the page background). */
 function pad(img: PNG, width: number, height: number): PNG {
@@ -18,7 +29,8 @@ function pad(img: PNG, width: number, height: number): PNG {
 }
 
 const approvals = readApprovals();
-const report: Record<string, unknown>[] = [];
+// The commit the screens were rendered from, so approve.ts can refuse a stale review.
+const commit = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
 
 test.beforeAll(() => {
   mkdirSync(outDir, { recursive: true });
@@ -52,8 +64,9 @@ for (const c of cases) {
       const approved = existsSync(approvedFile)
         ? PNG.sync.read(readFileSync(approvedFile))
         : undefined;
-      report.push({
+      const row = {
         id,
+        commit,
         case: c.id,
         theme,
         title: c.title,
@@ -67,14 +80,12 @@ for (const c of cases) {
           approval?.mock === sha256(mock) &&
           approved?.width === a.width &&
           approved.height === a.height &&
-          pixelmatch(approved.data, a.data, null, a.width, a.height) === 0,
+          pixelmatch(approved.data, a.data, null, a.width, a.height, sameImage) === 0,
         last: approval ?? null,
-      });
+      };
+      // One file per screen: a failed test restarts the worker, so nothing is
+      // collected in memory across tests.
+      writeFileSync(join(outDir, `${id}.json`), JSON.stringify(row, null, 2) + "\n");
     });
   }
 }
-
-test.afterAll(() => {
-  report.sort((x, y) => String(x.id).localeCompare(String(y.id)));
-  writeFileSync(join(outDir, "report.json"), JSON.stringify(report, null, 2) + "\n");
-});

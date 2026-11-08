@@ -11,18 +11,21 @@ brand fonts.
 ## The loop
 
 1. **Review.** `pnpm visual:review` writes `out/`: for each screen the mock, the
-   app, a pixel diff and `report.json` (how much differs, and whether the screen
-   changed since its last verdict). Claude turns that into a review page where
+   app, a pixel diff and `<id>.json` (how much differs, the commit, and whether the
+   screen changed since its last verdict). Claude turns that into a review page where
    Matt marks each screen "Looks right" or "Needs fixing", with a note.
-2. **Record.** `pnpm visual:approve verdicts.json` copies the screens Matt saw
+2. **Record.** `pnpm visual:approve verdicts.json` checks that the review was rendered from
+   the current commit, then copies the screens Matt saw
    into `approved/` and records each verdict in `approvals.json` (verdict, note,
    who, when, and the sha256 of the mock and app images). A "Needs fixing"
    screen is recorded too; its note is the work to do, and the fix comes back
    for review as a changed screen.
 3. **Gate.** `pnpm visual` (CI, job "Screens match Matt's reviewed designs")
    fails when a screen has no verdict, when its mock changed since the verdict,
-   or when the app no longer matches the approved image beyond anti-aliasing
-   noise. On failure CI uploads the review set as the `visual-review` artifact.
+   when `approved/` holds an image other than the one Matt reviewed, or when
+   any pixel of the app differs from the approved image (renders are
+   byte-identical on the pinned platform). "Needs fixing" screens pass but are
+   listed on every run. On failure CI uploads the review set as the `visual-review` artifact.
 
 So any visual change to a screen needs Matt's eyes before it merges, and
 nothing else does.

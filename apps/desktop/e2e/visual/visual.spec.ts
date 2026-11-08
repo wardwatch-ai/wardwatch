@@ -3,7 +3,8 @@
 // screen nobody reviewed yet fails, and `pnpm visual:review` shows why.
 import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
-import { captureApp, cases, mockPng, readApprovals, sha256, themes } from "./cases.ts";
+import { join } from "node:path";
+import { captureApp, cases, dir, mockPng, readApprovals, sha256, themes } from "./cases.ts";
 
 const approvals = readApprovals();
 
@@ -17,6 +18,16 @@ for (const c of cases) {
         approval?.mock,
         `the ${c.title} mock changed since it was reviewed; run pnpm visual:review`,
       ).toBe(sha256(readFileSync(mockPng(c.id, theme))));
+
+      expect(
+        sha256(readFileSync(join(dir, "approved", `${id}.png`))),
+        `approved/${id}.png is not the image Matt reviewed; record verdicts with pnpm visual:approve`,
+      ).toBe(approval?.app);
+      if (approval?.verdict === "fix") {
+        // Recorded as known, so it doesn't block; shown on every run until fixed.
+        test.info().annotations.push({ type: "needs fixing", description: approval.note });
+        console.log(`${id} needs fixing: ${approval.note}`);
+      }
 
       const png = await captureApp(page, c, theme);
       expect(png, `${id} changed since Matt reviewed it; run pnpm visual:review`).toMatchSnapshot(

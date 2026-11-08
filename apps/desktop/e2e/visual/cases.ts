@@ -48,6 +48,13 @@ export const mockPng = (id: string, theme: Theme) => join(dir, "mocks", `${id}-$
 export const outDir = join(dir, "out");
 export const approvalsFile = join(dir, "approvals.json");
 
+/**
+ * Two renders count as the same screen only when no pixel differs beyond
+ * pixelmatch's colour threshold. Renders are byte-identical on the pinned
+ * platform, so any real change, even one digit, needs a new review.
+ */
+export const sameImage = { threshold: 0.1 };
+
 export const sha256 = (data: Buffer) => createHash("sha256").update(data).digest("hex");
 
 export interface Approval {

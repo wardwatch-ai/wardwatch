@@ -14,10 +14,10 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   forbidOnly: !!process.env.CI,
-  reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : "list",
+  reporter: "list",
   expect: {
-    // Allow anti-aliasing noise only; any real change needs a review.
-    toMatchSnapshot: { maxDiffPixelRatio: 0.0005, threshold: 0.1 },
+    // Same rule as review.spec.ts (sameImage in cases.ts): no pixel may change.
+    toMatchSnapshot: { maxDiffPixels: 0, threshold: 0.1 },
   },
   use: {
     baseURL: `http://localhost:${String(port)}`,

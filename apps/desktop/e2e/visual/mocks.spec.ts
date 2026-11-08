@@ -52,10 +52,9 @@ for (const c of cases) {
         let html = readFileSync(join(dir, "mocks/src", c.mock), "utf8");
         // Each artboard has a "dark" prop; flip its default for the dark render.
         if (theme === "dark") {
-          html = html.replace(
-            `"dark":{"editor":"boolean","default":false}`,
-            `"dark":{"editor":"boolean","default":true}`,
-          );
+          const light = `"dark":{"editor":"boolean","default":false}`;
+          if (!html.includes(light)) throw new Error(`${c.mock} has no dark prop to switch on`);
+          html = html.replace(light, `"dark":{"editor":"boolean","default":true}`);
         }
         return route.fulfill({ contentType: "text/html", body: html });
       });

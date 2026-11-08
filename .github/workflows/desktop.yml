@@ -95,19 +95,21 @@ jobs:
         working-directory: apps/desktop
         run: pnpm exec playwright install --with-deps chromium
       - name: Compare screens with their approved versions
+        id: gate
         working-directory: apps/desktop
         run: pnpm visual
       - name: Build the review set (mock, app and diff per screen)
-        if: failure()
+        if: failure() && steps.gate.outcome == 'failure'
         working-directory: apps/desktop
         run: pnpm visual:review
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: failure()
+        if: failure() && steps.gate.outcome == 'failure'
         with:
           name: visual-review
+          # out/: the review set. .results/: the gate's actual/expected/diff images.
           path: |
             apps/desktop/e2e/visual/out/
-            apps/desktop/playwright-report/
+            apps/desktop/e2e/.results/
           retention-days: 14
 
   app:
