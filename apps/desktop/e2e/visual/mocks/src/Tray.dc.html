@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Wardwatch menu bar popover</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&amp;family=Manrope:wght@800&amp;display=swap">
+<style>
+body{margin:0}
+.ww{--bg:#E3D9C6;--surface:#FBF8F2;--line:#E3D9C6;--text:#23211F;--muted:#6B6358;--brand:#A23B2C;--link:#A23B2C;--ok:#2F6F62;--ok-tint:#E4EFEA;--act-tint:#FFF4E0;--act-ink:#8A5300;--tower:#23211F;--hover:#F3EDE2;background:var(--bg);color:var(--text);font-family:Inter,system-ui,sans-serif;font-size:14px;line-height:1.45}
+.ww.dark{--bg:#171614;--surface:#2E2B28;--line:#45403A;--text:#F3EDE2;--muted:#B8AE9F;--brand:#C4503C;--link:#F0A08C;--ok:#7FCFA8;--ok-tint:#24352F;--act-tint:#3A2F1C;--act-ink:#F7C76A;--tower:#F3EDE2;--hover:#38342F}
+.ww h1,.ww h2{font-family:Manrope,system-ui,sans-serif;font-weight:800;margin:0;letter-spacing:-0.01em}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 16px;border-radius:10px;border:1px solid transparent;font:600 14px/1 Inter,system-ui,sans-serif;cursor:pointer;text-decoration:none;box-sizing:border-box}
+.btn-act{background:#F2B33D;color:#23211F;border:2px solid #23211F}.ww.dark .btn-act{border-color:transparent}
+.ww a.btn-act,.ww a.btn-act:hover,.ww button.btn-act{color:#23211F}.ww a.btn-brand,.ww a.btn-brand:hover{color:#fff}
+.btn-quiet{background:transparent;color:var(--text);border-color:var(--line)}
+.item{display:flex;align-items:center;gap:10px;min-height:44px;padding:0 12px;border-radius:8px;color:var(--text);text-decoration:none;font-size:14px}
+.item:hover{background:var(--hover)}
+.chk{display:flex;align-items:center;gap:10px;padding:6px 0;font-size:13px}
+</style>
+</helmet>
+<div class="ww {{theme}}" style="width: 400px; height: 740px; box-sizing: border-box; padding: 20px 20px 0; position: relative">
+  <div aria-hidden="true" style="position: absolute; top: 12px; right: 52px; width: 16px; height: 16px; background: var(--surface); transform: rotate(45deg); border-radius: 3px"></div>
+  <div style="position: relative; background: var(--surface); border-radius: 14px; box-shadow: 0 12px 32px rgba(35,33,31,.22); overflow: hidden; display: flex; flex-direction: column">
+    <div style="display: flex; align-items: center; gap: 12px; padding: 16px 16px 12px">
+      <sc-if value="{{needsYou}}" hint-placeholder-val="{{ true }}">
+        <svg width="40" height="40" viewBox="0 0 64 64" role="img" aria-label="Beams on"><path d="M28 16.5 L3 9 L3 24 Z" fill="#F2B33D"></path><path d="M36 16.5 L61 9 L61 24 Z" fill="#F2B33D"></path><path d="M26 13 L32 7.5 L38 13 Z" fill="var(--tower)"></path><rect x="27.5" y="13" width="9" height="7" fill="#F2B33D"></rect><rect x="24" y="20" width="16" height="3" rx="1" fill="var(--tower)"></rect><path d="M26.5 23 L37.5 23 L39.2 40 L24.8 40 Z" fill="var(--brand)"></path><path d="M24.8 40 L39.2 40 L41 57 L23 57 Z" fill="#FFFFFF" stroke="#23211F" stroke-width="1.5"></path><rect x="21" y="57" width="22" height="3" rx="1" fill="var(--tower)"></rect></svg>
+      </sc-if>
+      <sc-if value="{{allClear}}" hint-placeholder-val="{{ false }}">
+        <svg width="40" height="40" viewBox="0 0 64 64" role="img" aria-label="Beams off"><path d="M26 13 L32 7.5 L38 13 Z" fill="var(--tower)"></path><rect x="27.5" y="13" width="9" height="7" fill="var(--line)"></rect><rect x="24" y="20" width="16" height="3" rx="1" fill="var(--tower)"></rect><path d="M26.5 23 L37.5 23 L39.2 40 L24.8 40 Z" fill="var(--brand)"></path><path d="M24.8 40 L39.2 40 L41 57 L23 57 Z" fill="#FFFFFF" stroke="#23211F" stroke-width="1.5"></path><rect x="21" y="57" width="22" height="3" rx="1" fill="var(--tower)"></rect></svg>
+      </sc-if>
+      <div style="flex: 1">
+        <h1 style="font-size: 18px">{{headline}}</h1>
+        <div style="color: var(--muted); font-size: 12px">Checked 4 minutes ago</div>
+      </div>
+    </div>
+
+    <sc-if value="{{needsYou}}" hint-placeholder-val="{{ true }}">
+      <div style="margin: 0 12px; padding: 14px; border-radius: 12px; background: var(--act-tint); display: flex; flex-direction: column; gap: 10px">
+        <div style="display: flex; align-items: center; gap: 8px; color: var(--act-ink); font-weight: 600; font-size: 12px"><svg width="12" height="12" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 L22 20 L2 20 Z" fill="#F2B33D"></path></svg>UNDER ATTACK NOW</div>
+        <div style="font-weight: 600; font-size: 15px">Update Chrome</div>
+        <div style="font-size: 13px"><div>This is being exploited right now.</div><div style="color: var(--muted)">1 minute to update. Tabs will come back.</div></div>
+        <div style="display: flex; gap: 8px">
+          <button class="btn btn-act" type="button" style="flex: 1">Update now</button>
+          <a class="btn btn-quiet" href="Fix.dc.html" style="background: var(--surface)">Why?</a>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{allClear}}" hint-placeholder-val="{{ false }}">
+      <div style="margin: 0 12px; padding: 14px; border-radius: 12px; background: var(--hover); display: flex; flex-direction: column; gap: 10px">
+        <div style="font-weight: 600; font-size: 12px; color: var(--muted); letter-spacing: .04em">SUNDAY TUNE-UP</div>
+        <div style="font-weight: 600; font-size: 15px">Zoom, VLC and macOS 16.1.1</div>
+        <div style="font-size: 13px; color: var(--muted)">Routine updates, no rush. We'll remind you Sunday morning.</div>
+        <div style="display: flex; gap: 8px">
+          <button class="btn btn-quiet" type="button" style="flex: 1; background: var(--surface)">Update now</button>
+          <a class="btn btn-quiet" href="Apps3.dc.html" style="background: var(--surface)">Details</a>
+        </div>
+      </div>
+    </sc-if>
+
+    <div style="padding: 6px 16px 10px; border-top: 1px solid var(--line); margin-top: 8px">
+      <div class="chk"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ok)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg><span style="flex: 1">System</span><span style="color: var(--muted)">Current</span></div>
+      <div class="chk"><sc-if value="{{needsYou}}" hint-placeholder-val="{{ true }}"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 L22 20 L2 20 Z" fill="#F2B33D"></path></svg></sc-if><sc-if value="{{allClear}}" hint-placeholder-val="{{ false }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ok)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></sc-if><span style="flex: 1">Browsers</span><span style="color: var(--muted)">{{browsers}}</span></div>
+      <div class="chk"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ok)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg><span style="flex: 1">Apps</span><span style="color: var(--muted)">137 of 139 current</span></div>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 12px; margin: 0 12px; padding: 12px; border-radius: 10px; background: var(--ok-tint)">
+      <span style="font-family: Manrope, system-ui, sans-serif; font-weight: 800; font-size: 26px">{{score}}</span>
+      <div style="flex: 1; font-size: 13px"><div style="font-weight: 600; color: var(--ok)">{{band}}</div><div style="color: var(--muted)">2nd in Ward family</div></div>
+      <a href="Score6.dc.html" style="color: var(--link); font-size: 13px; font-weight: 600">Score</a>
+    </div>
+
+    <div style="padding: 8px; margin-top: 8px; border-top: 1px solid var(--line)">
+      <a class="item" href="Harbor.dc.html">Open Wardwatch</a>
+      <a class="item" href="#">Pause reminders for today</a>
+      <a class="item" href="#">Settings</a>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"status":{"editor":"enum","options":["needs-you","all-clear"],"default":"needs-you"},"dark":{"editor":"boolean","default":false},"$preview":{"width":400,"height":740}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const status = this.props.status ?? 'needs-you';
+    const needsYou = status === 'needs-you';
+    return {
+      needsYou,
+      allClear: !needsYou,
+      headline: needsYou ? 'One thing needs you' : 'All clear',
+      browsers: needsYou ? 'Chrome needs you' : 'All current',
+      score: needsYou ? '84' : '91',
+      band: needsYou ? 'Good' : 'Excellent',
+      theme: (this.props.dark ?? false) ? 'dark' : ''
+    };
+  }
+}
+</script>
+</body>
+</html>
