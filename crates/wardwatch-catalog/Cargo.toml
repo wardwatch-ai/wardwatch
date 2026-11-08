@@ -1,9 +1,10 @@
 [package]
 name = "wardwatch-catalog"
 version = "0.1.0"
-edition = "2024"
-rust-version = "1.90"
-license = "GPL-3.0-or-later"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
 description = "Finds the OS version, browsers, and installed and running software on macOS, Windows and Linux."
 publish = false
 
@@ -18,3 +19,6 @@ winreg = "0.56"
 
 [dev-dependencies]
 tempfile = "3"
+
+[lints]
+workspace = true

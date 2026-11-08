@@ -8,7 +8,7 @@ mod commands;
 mod tray;
 mod windows;
 
-use tauri::WindowEvent;
+use tauri::{Manager, WindowEvent};
 
 pub fn run() {
     let app = tauri::Builder::default()
@@ -17,6 +17,7 @@ pub fn run() {
             windows::log_err("show main window", windows::show_main(app));
         }))
         .plugin(tauri_plugin_positioner::init())
+        .manage(windows::PopoverState::default())
         .invoke_handler(tauri::generate_handler![
             commands::app_info,
             commands::show_main_window
@@ -26,15 +27,24 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(|window, event| match (window.label(), event) {
-            // Closing the main window keeps Wardwatch watching from the tray.
-            // Quit lives in the tray menu.
+            // On macOS and Windows, closing the main window keeps Wardwatch in the
+            // menu bar / tray, where Quit lives. Many Linux desktops (stock GNOME)
+            // show no tray at all, so there closing the window quits the app.
+            #[cfg(not(target_os = "linux"))]
             (windows::MAIN, WindowEvent::CloseRequested { api, .. }) => {
                 api.prevent_close();
                 windows::log_err("hide main window", window.hide());
             }
+            // The hidden popover window would keep the app alive, so exit explicitly.
+            #[cfg(target_os = "linux")]
+            (windows::MAIN, WindowEvent::CloseRequested { .. }) => {
+                window.app_handle().exit(0);
+            }
             // The popover behaves like a menu: it goes away when you click elsewhere.
             (windows::TRAY, WindowEvent::Focused(false)) => {
-                windows::log_err("hide tray popover", window.hide());
+                if let Some(popover) = window.app_handle().get_webview_window(windows::TRAY) {
+                    windows::log_err("hide tray popover", windows::hide_popover_on_blur(&popover));
+                }
             }
             _ => {}
         })

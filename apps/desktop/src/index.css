@@ -1,16 +1,3 @@
 @import "tailwindcss";
-
-/* Placeholder colors until @wardwatch/ui lands; the design system owns the real tokens. */
-:root {
-  color-scheme: light dark;
-  font-family: system-ui, sans-serif;
-  background: #f3ede2;
-  color: #23211f;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    background: #23211f;
-    color: #f3ede2;
-  }
-}
+@import "@wardwatch/ui/styles.css";
+@import "@wardwatch/ui/tailwind.css";

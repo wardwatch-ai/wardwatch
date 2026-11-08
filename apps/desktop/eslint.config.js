@@ -20,5 +20,4 @@ export default tseslint.config(
       "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
     },
   },
-  { files: ["eslint.config.js"], extends: [tseslint.configs.disableTypeChecked] },
 );

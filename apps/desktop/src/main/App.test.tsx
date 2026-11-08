@@ -29,6 +29,12 @@ describe("App", () => {
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Score");
   });
 
+  it("sends unknown paths to Home", () => {
+    renderApp("/nowhere");
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Home");
+    expect(screen.getByRole("link", { name: "Home" })).toHaveAttribute("aria-current", "page");
+  });
+
   it("shows app info from the core, falling back outside Tauri", async () => {
     renderApp();
     expect(await screen.findByText("Wardwatch dev on browser")).toBeInTheDocument();

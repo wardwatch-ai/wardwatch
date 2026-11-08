@@ -1,6 +1,9 @@
 //! Window labels and show/hide helpers. Labels match `tauri.conf.json`.
 
-use tauri::{AppHandle, Manager, Runtime};
+use std::sync::Mutex;
+use std::time::{Duration, Instant};
+
+use tauri::{AppHandle, Manager, Runtime, WebviewWindow};
 use tauri_plugin_positioner::{Position, WindowExt};
 
 pub const MAIN: &str = "main";
@@ -29,10 +32,40 @@ pub fn hide_tray_popover<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
     }
 }
 
-pub fn show_tray_popover<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
+/// When the popover loses focus because the tray icon itself was clicked,
+/// the blur arrives before the click. Remembering when the blur hid the
+/// popover lets that click close it instead of reopening it.
+#[derive(Default)]
+pub struct PopoverState {
+    hidden_by_blur_at: Mutex<Option<Instant>>,
+}
+
+const BLUR_CLICK_WINDOW: Duration = Duration::from_millis(300);
+
+pub fn hide_popover_on_blur<R: Runtime>(window: &WebviewWindow<R>) -> tauri::Result<()> {
+    if let Ok(mut at) = window.state::<PopoverState>().hidden_by_blur_at.lock() {
+        *at = Some(Instant::now());
+    }
+    window.hide()
+}
+
+pub fn toggle_tray_popover<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
     let Some(window) = app.get_webview_window(TRAY) else {
         return Ok(());
     };
+    if window.is_visible()? {
+        return window.hide();
+    }
+    let just_hidden = app
+        .state::<PopoverState>()
+        .hidden_by_blur_at
+        .lock()
+        .ok()
+        .and_then(|mut at| at.take())
+        .is_some_and(|at| at.elapsed() < BLUR_CLICK_WINDOW);
+    if just_hidden {
+        return Ok(());
+    }
     window.move_window(POPOVER_POSITION)?;
     window.show()?;
     window.set_focus()

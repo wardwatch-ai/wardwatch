@@ -1,4 +1,4 @@
-import { NavLink, Route, Routes } from "react-router";
+import { Navigate, NavLink, Route, Routes } from "react-router";
 import { useAppInfo } from "../lib/useAppInfo";
 import { tabs } from "./routes";
 
@@ -14,7 +14,7 @@ function Placeholder({ title }: { title: string }) {
 }
 
 export function App() {
-  const { data: info } = useAppInfo();
+  const { data: info, error } = useAppInfo();
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -25,7 +25,7 @@ export function App() {
             <NavLink
               key={tab.path}
               to={tab.path}
-              end
+              end={tab.path === "/"}
               className={({ isActive }) => (isActive ? "font-semibold underline" : "opacity-80")}
             >
               {tab.label}
@@ -38,11 +38,15 @@ export function App() {
           {tabs.map((tab) => (
             <Route key={tab.path} path={tab.path} element={<Placeholder title={tab.label} />} />
           ))}
-          <Route path="*" element={<Placeholder title="Home" />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
       <footer className="px-6 py-2 text-xs opacity-60">
-        {info ? `${info.name} ${info.version} on ${info.os}` : "Loading"}
+        {error
+          ? `Could not reach the Wardwatch core: ${error.message}`
+          : info
+            ? `${info.name} ${info.version} on ${info.os}`
+            : "Loading"}
       </footer>
     </div>
   );

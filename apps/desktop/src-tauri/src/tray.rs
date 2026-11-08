@@ -1,6 +1,6 @@
 //! The menu bar (macOS) / system tray (Windows, Linux) icon.
 //!
-//! Left click opens the popover. Linux tray hosts don't report clicks, so the
+//! Left click toggles the popover. Linux tray hosts don't report clicks, so the
 //! menu is the way in there.
 
 use tauri::image::Image;
@@ -46,8 +46,8 @@ pub fn create<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
             } = event
             {
                 windows::log_err(
-                    "show tray popover",
-                    windows::show_tray_popover(tray.app_handle()),
+                    "toggle tray popover",
+                    windows::toggle_tray_popover(tray.app_handle()),
                 );
             }
         })
