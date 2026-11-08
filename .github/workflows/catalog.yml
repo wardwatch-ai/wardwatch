@@ -59,6 +59,7 @@ jobs:
       - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
       - run: cargo build --release --example scan
+      # The crate is in the root Cargo workspace, so builds land in the root target/.
       - run: |
-          docker run --rm -v "$PWD/target/release/examples/scan:/scan:ro" fedora:41 /scan --summary | tee out.txt
+          docker run --rm -v "$GITHUB_WORKSPACE/target/release/examples/scan:/scan:ro" fedora:41 /scan --summary | tee out.txt
           grep -q '"Rpm"' out.txt
