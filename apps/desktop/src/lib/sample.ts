@@ -3,6 +3,7 @@
 // accounts data uses it everywhere until the backend is deployed.
 import type {
   AccountDevice,
+  AutoInstall,
   Finding,
   GroupDetail,
   GroupSummary,
@@ -369,4 +370,36 @@ export const sampleStakeIdeas = [
   "Last place buys the first round.",
   "Last place does the dishes for a week.",
   "Everyone gives $5 to the winner's favorite charity.",
+];
+
+// What Auto did by itself, newest first: one of each result. Times sit just
+// before the design check's pinned clock (2026-11-08T12:00Z).
+export const sampleAutoInstalls: AutoInstall[] = [
+  {
+    at: "2026-11-08T10:05:00Z",
+    key: "zoom",
+    name: "Zoom",
+    from: "6.4.2",
+    to: "6.5.0",
+    result: "skipped",
+    why: "it's open right now",
+  },
+  {
+    at: "2026-11-07T16:30:00Z",
+    key: "firefox",
+    name: "Firefox",
+    from: "144.0.2",
+    to: "145.0.1",
+    result: "installed",
+    why: "",
+  },
+  {
+    at: "2026-11-06T15:00:00Z",
+    key: "vlc",
+    name: "VLC",
+    from: "3.0.20",
+    to: "3.0.21",
+    result: "failed",
+    why: "the updater has nothing newer yet",
+  },
 ];

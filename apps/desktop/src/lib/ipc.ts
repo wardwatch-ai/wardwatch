@@ -3,8 +3,22 @@
 // command names and payload shapes live in one place on each side.
 import { Channel, invoke, isTauri } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import type { Finding as ScreenFinding, Inventory, NudgePlan, UpdatePlan } from "./model";
-import { sampleFindings, sampleInventory, sampleNudges, samplePlan } from "./sample";
+import type {
+  AutoInstall,
+  Finding as ScreenFinding,
+  Inventory,
+  NudgePlan,
+  UpdatePlan,
+} from "./model";
+import {
+  sampleAutoInstalls,
+  sampleFindings,
+  sampleInventory,
+  sampleNudges,
+  samplePlan,
+} from "./sample";
+
+export type { AutoInstall } from "./model";
 
 export interface AppInfo {
   name: string;
@@ -333,20 +347,8 @@ export async function setSettings(settings: Settings): Promise<void> {
 
 // ---- Automatic installs (src-tauri/src/auto.rs) -----------------------------
 
-export interface AutoInstall {
-  /** RFC 3339 */
-  at: string;
-  key: string;
-  name: string;
-  from: string;
-  to: string | null;
-  /** installed: done and checked; skipped: waits for you (`why` says why); failed. */
-  result: "installed" | "skipped" | "failed";
-  why: string;
-}
-
 /** What the Update plan's Auto cells did by themselves, newest first. */
 export async function listAutoInstalls(): Promise<AutoInstall[]> {
-  if (!isTauri()) return [];
+  if (!isTauri()) return structuredClone(sampleAutoInstalls);
   return invoke<AutoInstall[]>("list_auto_installs");
 }
