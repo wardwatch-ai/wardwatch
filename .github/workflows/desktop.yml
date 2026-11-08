@@ -70,6 +70,9 @@ jobs:
       - name: Install Chromium for Playwright
         working-directory: apps/desktop
         run: pnpm exec playwright install --with-deps chromium
+      # Recorded so a rendering difference can be traced to the runner's hardware.
+      - name: Runner CPU
+        run: grep -m1 "model name" /proc/cpuinfo
       - name: Compare screens with their approved versions
         id: gate
         working-directory: apps/desktop

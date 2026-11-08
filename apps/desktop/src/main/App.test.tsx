@@ -59,4 +59,20 @@ describe("App", () => {
     renderAt(<App />);
     expect(await screen.findByText(/Wardwatch dev on browser/)).toHaveTextContent("sample data");
   });
+
+  it("goes back to the screen that opened a fix", async () => {
+    renderAt(<App />, "/apps");
+    const [update] = await screen.findAllByRole("button", { name: /^Update now/ });
+    if (!update) throw new Error("no update button on Apps");
+    await userEvent.click(update);
+    await userEvent.click(await screen.findByRole("button", { name: "Back to Apps" }));
+    expect(screen.getByRole("link", { name: "Apps" })).toHaveAttribute("aria-current", "page");
+  });
+
+  it("offers Home from a fix opened outside the app, such as the menu bar", async () => {
+    renderAt(<App />, "/fix/mac_app/com.google.Chrome");
+    const main = screen.getByRole("main");
+    expect(await within(main).findByRole("link", { name: "Home" })).toHaveAttribute("href", "/");
+    expect(within(main).queryByRole("button", { name: /^Back to/ })).toBeNull();
+  });
 });

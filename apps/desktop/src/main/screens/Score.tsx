@@ -1,10 +1,12 @@
 // Score (Score 6): score card, "Raise your score" under it, devices on the right.
 import { ActGlyph, BandBar, Button, Card, Eyebrow, OkGlyph, SubscoreBar } from "@wardwatch/ui";
-import { useNavigate } from "react-router";
 import { useDevice, useDevices, useScore } from "../../lib/data";
-import { listNames } from "../../lib/programs";
+import { daysToSunday, pendingFixes, pointsForFixingNow } from "../../lib/estimate";
+import type { FeedSeverity } from "../../lib/model";
+import { type Program, listNames } from "../../lib/programs";
 import { worstSeverity } from "../../lib/format";
 import { Failed, Loading, UpdateButton } from "../parts";
+import { useOpen } from "../useOpen";
 
 function ScoreCard() {
   const { data: score, error } = useScore();
@@ -72,50 +74,88 @@ function Subscore({ label, value, note }: { label: string; value: number; note: 
   );
 }
 
+/** Card title with the estimated points, as on the approved Score design. */
+function MoveTitle({ title, points }: { title: string; points: number | null }) {
+  return (
+    <div className="flex items-baseline justify-between gap-2">
+      <span className="text-base font-semibold">{title}</span>
+      {points !== null && points > 0 && (
+        <span className="ww-display text-xl text-ok" title="Estimated points">
+          <span className="sr-only">About </span>+{points}
+          <span className="sr-only">{points === 1 ? " point" : " points"}</span>
+        </span>
+      )}
+    </div>
+  );
+}
+
 function RaiseYourScore() {
-  const navigate = useNavigate();
+  const open = useOpen();
   const { status, inventory } = useDevice();
+  const score = useScore().data;
+  const estimate = (programs: Program[], laterDays: number) =>
+    score
+      ? pointsForFixingNow(score.sums, score.algorithm, pendingFixes(programs), laterDays)
+      : null;
+  // An OS update on another device, done today rather than at the tune-up (or
+  // tomorrow, if exploited). The scorer counts an OS as a popular program.
+  const remoteEstimate = (fix?: { exploited: boolean; severity: FeedSeverity | null }) =>
+    score && fix
+      ? pointsForFixingNow(
+          score.sums,
+          score.algorithm,
+          [{ ...fix, popular: true }],
+          fix.exploited ? 1 : daysToSunday(new Date()),
+        )
+      : null;
   const devices = useDevices().data ?? [];
   const remote = devices.filter((d) => !d.current && d.remote_fix);
   const here = devices.find((d) => d.current)?.name ?? inventory?.os.name ?? "This device";
   const moves = [
     ...(status?.urgent ?? []).map((p) => (
       <Card key={p.key} tone="urgent" className="flex h-full flex-col gap-2.5">
-        <span className="text-base font-semibold">Fix {p.name}</span>
+        {/* Today rather than tomorrow: an exploited hole is only "in time" for a day. */}
+        <MoveTitle title={`Fix ${p.name}`} points={estimate([p], 1)} />
         <div className="text-sm">
           This is being exploited right now. Fixing it today stops your score sliding.
         </div>
         <div className="text-[13px] text-text-muted">{here} · 1 minute</div>
-        <div className="mt-auto">
-          <UpdateButton program={p}>Fix now</UpdateButton>
-        </div>
+        <UpdateButton program={p} className="mt-auto w-full">
+          Fix now
+        </UpdateButton>
       </Card>
     )),
     ...(status && status.waiting.length > 0
       ? [
           <Card key="tune-up" className="flex h-full flex-col gap-2.5">
-            <span className="text-base font-semibold">Do the tune-up early</span>
+            <MoveTitle
+              title="Do the tune-up early"
+              // Counts everything waiting as due Sunday; monthly and automatic
+              // slots would gain more. TODO: use each program's plan slot.
+              points={estimate(status.waiting, daysToSunday(new Date()))}
+            />
             <div className="text-sm">
               {listNames(status.waiting)} {status.waiting.length === 1 ? "is" : "are"} waiting for
               Sunday. Doing them now counts as a faster fix.
             </div>
             <div className="text-[13px] text-text-muted">{here}</div>
-            <div className="mt-auto">
-              <Button
-                variant="quiet"
-                severity={worstSeverity(status.waiting)}
-                onClick={() => void navigate("/fix/tune-up")}
-              >
-                Do it now
-              </Button>
-            </div>
+            <Button
+              variant="quiet"
+              severity={worstSeverity(status.waiting)}
+              className="mt-auto w-full"
+              onClick={() => {
+                open("/fix/tune-up");
+              }}
+            >
+              Do it now
+            </Button>
           </Card>,
         ]
       : []),
     // Fixes on another device: dashed, no button, the steps to do it there.
     ...remote.map((d) => (
       <Card key={d.id} tone="remote" className="flex h-full flex-col gap-2.5">
-        <span className="text-base font-semibold">{d.remote_fix?.title}</span>
+        <MoveTitle title={d.remote_fix?.title ?? ""} points={remoteEstimate(d.remote_fix?.fix)} />
         <div className="text-sm">{d.remote_fix?.steps}</div>
         <div className="text-[13px] text-text-muted">{d.name} · do this on that device</div>
       </Card>

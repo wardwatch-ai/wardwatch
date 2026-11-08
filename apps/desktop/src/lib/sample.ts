@@ -216,6 +216,8 @@ export const sampleScore: ScoreResponse = {
   fix_speed: 78,
   percentile: 71,
   patches_scored: 42,
+  // Consistent with 90 up to date and 78 fix speed.
+  sums: { total: 40, in_time: 36, speed: 31.2 },
   algorithm: 1,
 };
 
@@ -253,6 +255,7 @@ export const sampleDevices: AccountDevice[] = [
       title: "Update the iPhone",
       steps:
         "iOS 26.1.1 is ready. Open Settings on the iPhone, then General, then Software Update.",
+      fix: { exploited: false, severity: "high" },
     },
   },
 ];

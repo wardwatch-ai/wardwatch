@@ -35,6 +35,8 @@ describe("Update plan", () => {
     expect(start).toHaveValue("22:00");
     await userEvent.selectOptions(start, "21:00");
     expect(screen.getByRole("combobox", { name: "Quiet hours start" })).toHaveValue("21:00");
+    // The label people see is drawn beside the (transparent) select, so it must follow it.
+    expect(screen.getByText("9 pm", { selector: "span" })).toBeInTheDocument();
     expect(screen.getByText(/Held apps: 1/)).toBeInTheDocument();
   });
 });

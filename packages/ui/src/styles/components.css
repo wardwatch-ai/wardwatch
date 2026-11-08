@@ -87,7 +87,7 @@ a.ww-tab:hover { color: var(--ww-text); }
 .ww-band-track > span:nth-child(3) { background: var(--ww-band-3); }
 .ww-band-track > span:nth-child(4) { background: var(--ww-band-4); border-radius: 0 7px 7px 0; }
 .ww-band-marker {
-  position: absolute; top: -5px; width: 18px; height: 18px; margin-left: -9px; box-sizing: border-box;
+  position: absolute; top: 50%; width: 18px; height: 18px; margin: -9px 0 0 -9px; box-sizing: border-box;
   border-radius: 50%; background: var(--ww-surface); border: 4px solid var(--ww-text);
 }
 .ww-band-labels { font-size: 12px; color: var(--ww-text-muted); }

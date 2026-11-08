@@ -3,126 +3,126 @@
     "verdict": "ok",
     "note": "",
     "mock": "14be330121133e2067acda1254b4c247647778bb0d17c533d295ff6d78307ca5",
-    "app": "d31a2cc2ce57ed87e80d59cd3dacd27116f36401b2161b8e710dcea2c9bbe05d",
+    "app": "5c3ce5501d0dbe18dd15a801f393e11bfd2f7d8ac0ce96406e2e05557d25fdb1",
     "by": "Matt",
-    "at": "2026-11-08T17:47:14.873Z",
-    "review": "https://claude.ai/artifact/FN7ZHAuDbyvsSZiGmVwMr7 (run r1-pr7)"
+    "at": "2026-11-08T19:32:24.300Z",
+    "review": "https://claude.ai/artifact/FN7ZHAuDbyvsSZiGmVwMr7 (run r2-pr16)"
   },
   "apps-light": {
     "verdict": "ok",
     "note": "",
     "mock": "51bb157a3a60c6e4602bf6a1d99767f181ab6c72cada2cf941cfef930c5123a7",
-    "app": "24dcca97ec22be474b61e26b4f37cc06b66bcd6ceed63a6769908d378772512a",
+    "app": "e5a909ca3c6072ca68fb56a3b694bc643d1f0d238c60a78c84dc5b0c16560420",
     "by": "Matt",
-    "at": "2026-11-08T17:47:14.873Z",
-    "review": "https://claude.ai/artifact/FN7ZHAuDbyvsSZiGmVwMr7 (run r1-pr7)"
+    "at": "2026-11-08T19:32:24.300Z",
+    "review": "https://claude.ai/artifact/FN7ZHAuDbyvsSZiGmVwMr7 (run r2-pr16)"
   },
   "fix-dark": {
-    "verdict": "fix",
-    "note": "same as above",
+    "verdict": "ok",
+    "note": "",
     "mock": "573c86f1a31db2e92f5f16732a604a89035e862272ec8617bd4c958576d8c115",
-    "app": "884e318d5372aa9ad84601bad9af9008aaf49ce166239a0df6563591b3f78ea5",
+    "app": "a5998a343654e0ea6b829122ab420c49b75187fdc3568afa800dd2e8c3022166",
     "by": "Matt",
-    "at": "2026-11-08T17:47:14.873Z",
-    "review": "https://claude.ai/artifact/FN7ZHAuDbyvsSZiGmVwMr7 (run r1-pr7)"
+    "at": "2026-11-08T19:32:24.300Z",
+    "review": "https://claude.ai/artifact/FN7ZHAuDbyvsSZiGmVwMr7 (run r2-pr16)"
   },
   "fix-light": {
-    "verdict": "fix",
-    "note": "that \"bread crumb\" secondary nav needs improving. I am not sure the mock had this right either. this probably needs to go back to design. how do we get to this page and where does \"home\" in that breadcrumb take you?",
+    "verdict": "ok",
+    "note": "",
     "mock": "a39dc4e3b12f86895e3357e6fda171bda222a15eb7a46ef938e8d3fd055ba892",
-    "app": "6e0686ebce95c6e9d425e71440981a87abd3e1f1e568167292f6d74992b40a7e",
+    "app": "bee066f0b20fe076806fdb589884830edcfa7c64e686e85252bda95e806e37eb",
     "by": "Matt",
-    "at": "2026-11-08T17:47:14.873Z",
-    "review": "https://claude.ai/artifact/FN7ZHAuDbyvsSZiGmVwMr7 (run r1-pr7)"
+    "at": "2026-11-08T19:32:24.300Z",
+    "review": "https://claude.ai/artifact/FN7ZHAuDbyvsSZiGmVwMr7 (run r2-pr16)"
   },
   "groups-dark": {
-    "verdict": "fix",
-    "note": "worried about contrast on the 3 positions, specifically the 3rd place needs improving.",
+    "verdict": "ok",
+    "note": "",
     "mock": "6b75fff8d45dc522b168b4e273525b66e7fc646b2d4e91050213c93526279167",
-    "app": "8ccdf5644855d74e2f1a81fd0d6b9c4c5530657328aff22cb66e9f6e4d8213a5",
+    "app": "aa2c8221d812b9fb9fe6a87f9020b6ea50d7cd44a90c10fb44b7ef68671f7989",
     "by": "Matt",
-    "at": "2026-11-08T17:47:14.873Z",
-    "review": "https://claude.ai/artifact/FN7ZHAuDbyvsSZiGmVwMr7 (run r1-pr7)"
+    "at": "2026-11-08T19:32:24.300Z",
+    "review": "https://claude.ai/artifact/FN7ZHAuDbyvsSZiGmVwMr7 (run r2-pr16)"
   },
   "groups-light": {
-    "verdict": "fix",
-    "note": "No verdict given. Recorded with the Groups dark note: podium contrast, especially 3rd place. Goes back to Matt with the Groups fix.",
+    "verdict": "ok",
+    "note": "",
     "mock": "915cc5967638ef3133006b53f516de671986d1dfbf0d5b2c8c85c09a1bc773ae",
-    "app": "e816aabce39186685496706644c8a6e945782a66938d4ab8b9d1e25afedaacea",
-    "by": "Claude (Matt left this one unmarked)",
-    "at": "2026-11-08T17:47:15.174Z",
-    "review": "https://claude.ai/artifact/FN7ZHAuDbyvsSZiGmVwMr7 (run r1-pr7)"
+    "app": "50f696eab8836dea9d69dfbf97c65444e0987d78526be9f63eacad80533f192d",
+    "by": "Matt",
+    "at": "2026-11-08T19:32:24.300Z",
+    "review": "https://claude.ai/artifact/FN7ZHAuDbyvsSZiGmVwMr7 (run r2-pr16)"
   },
   "home-dark": {
     "verdict": "ok",
     "note": "",
     "mock": "6069aeb11a201cce32d6f69fbf95c172f63f368c64b792a0b8eef5e6a907b9c6",
-    "app": "8f35adbb54f58bc316049989eca35a9febdd23423777403e78472730b838b05a",
+    "app": "457c17d8edaf84643e201443a95de620cbcbe0c6f6c3638f59e0e37ee1d930fb",
     "by": "Matt",
-    "at": "2026-11-08T17:47:14.873Z",
-    "review": "https://claude.ai/artifact/FN7ZHAuDbyvsSZiGmVwMr7 (run r1-pr7)"
+    "at": "2026-11-08T20:02:58.332Z",
+    "review": "https://claude.ai/artifact/FN7ZHAuDbyvsSZiGmVwMr7 (round 3 for home, tray, plan; round 4 for score)"
   },
   "home-light": {
     "verdict": "ok",
     "note": "",
     "mock": "fea2ca319bfe9be97926f6679200ae8b1677854f646f6bcd01fa90863a666bc5",
-    "app": "146736e1bc547219547d64dc38100f897fcad02a2bd8d087b103203bdb138c16",
+    "app": "9aad120dba11291c53f25e770c5fe52ddccdf5156670542a7347e4f24e03bcfc",
     "by": "Matt",
-    "at": "2026-11-08T17:47:14.873Z",
-    "review": "https://claude.ai/artifact/FN7ZHAuDbyvsSZiGmVwMr7 (run r1-pr7)"
+    "at": "2026-11-08T20:02:58.332Z",
+    "review": "https://claude.ai/artifact/FN7ZHAuDbyvsSZiGmVwMr7 (round 3 for home, tray, plan; round 4 for score)"
   },
   "plan-dark": {
-    "verdict": "fix",
-    "note": "same as above.",
+    "verdict": "ok",
+    "note": "",
     "mock": "6613412752b9d464e0684d9e87d652b86c275851b5a0e868c87d9a9801b25c80",
-    "app": "4dbe3d0f952c4399f092b49386de06250083e5cea20159eef4023ae0d514ee18",
+    "app": "848280b80f9a3559e92f2a7217fdfd06ac442bf0e194f52adf2914544e2d1082",
     "by": "Matt",
-    "at": "2026-11-08T17:47:14.873Z",
-    "review": "https://claude.ai/artifact/FN7ZHAuDbyvsSZiGmVwMr7 (run r1-pr7)"
+    "at": "2026-11-08T20:02:58.332Z",
+    "review": "https://claude.ai/artifact/FN7ZHAuDbyvsSZiGmVwMr7 (round 3 for home, tray, plan; round 4 for score)"
   },
   "plan-light": {
-    "verdict": "fix",
-    "note": "the icons in the table are missing. colors of each selector are off and the table headers aren't quite right either.",
+    "verdict": "ok",
+    "note": "",
     "mock": "2c80066388f6f6e2da9ab9be1d518c6d3d19a91acc90b92cec4d7e7c10af1897",
-    "app": "00d76d1c3c9291ff3c1f26bf5a54a26a4da2fe2bf81103df5b12e8663b9b845b",
+    "app": "684422baafb161b6db1b8cae733fe3afde79dd52e65237790121f4b025a03213",
     "by": "Matt",
-    "at": "2026-11-08T17:47:14.873Z",
-    "review": "https://claude.ai/artifact/FN7ZHAuDbyvsSZiGmVwMr7 (run r1-pr7)"
+    "at": "2026-11-08T20:02:58.332Z",
+    "review": "https://claude.ai/artifact/FN7ZHAuDbyvsSZiGmVwMr7 (round 3 for home, tray, plan; round 4 for score)"
   },
   "score-dark": {
-    "verdict": "fix",
-    "note": "same as above",
+    "verdict": "ok",
+    "note": "",
     "mock": "2d9e7ac1f0f5936caaa65d2c1cea42fb0366e973e716cfa752335f1fed5c0cb8",
-    "app": "b79b10234a9b3f9db656ce2b2bf836aaeeb7160fa4b6b46166a1fc2be94f69fe",
+    "app": "366d9ae153bab1fe8d1f5770a7b9cfb7ed78c4d1110ba750339b088337c124e5",
     "by": "Matt",
-    "at": "2026-11-08T17:47:14.873Z",
-    "review": "https://claude.ai/artifact/FN7ZHAuDbyvsSZiGmVwMr7 (run r1-pr7)"
+    "at": "2026-11-08T20:02:58.332Z",
+    "review": "https://claude.ai/artifact/FN7ZHAuDbyvsSZiGmVwMr7 (round 3 for home, tray, plan; round 4 for score)"
   },
   "score-light": {
-    "verdict": "fix",
-    "note": "buttons in \"raise your score\" need to be full card width and we're missing the estimated score impact of taking the action.",
+    "verdict": "ok",
+    "note": "",
     "mock": "a5761f1f34320290d5a26136cd30690561075e010b6985d03dc255daa04cf1c4",
-    "app": "255b49c90b34c2984665af3cd20e3dd950d30c5fc1fa4f786ad39888037b4787",
+    "app": "6c3eedc6bc842bcf1d6d2b5676246b67e720abada10d39436e841cad59ed4900",
     "by": "Matt",
-    "at": "2026-11-08T17:47:14.873Z",
-    "review": "https://claude.ai/artifact/FN7ZHAuDbyvsSZiGmVwMr7 (run r1-pr7)"
+    "at": "2026-11-08T20:02:58.332Z",
+    "review": "https://claude.ai/artifact/FN7ZHAuDbyvsSZiGmVwMr7 (round 3 for home, tray, plan; round 4 for score)"
   },
   "tray-dark": {
-    "verdict": "fix",
-    "note": "tied to above.",
+    "verdict": "ok",
+    "note": "",
     "mock": "399c44049de4f7f9b0c0a5c59198b6ea693f24c337dbde3e7cae6c5ee86c2869",
-    "app": "b1011c67c2049712e0d491477623854553e9808fd7cc3e7c30c76aca4afced9f",
+    "app": "6509e0be347827d56c43f4f35b77a1efed2dfdaaf82944b906b60963205c3ec6",
     "by": "Matt",
-    "at": "2026-11-08T17:47:14.873Z",
-    "review": "https://claude.ai/artifact/FN7ZHAuDbyvsSZiGmVwMr7 (run r1-pr7)"
+    "at": "2026-11-08T20:02:58.332Z",
+    "review": "https://claude.ai/artifact/FN7ZHAuDbyvsSZiGmVwMr7 (round 3 for home, tray, plan; round 4 for score)"
   },
   "tray-light": {
-    "verdict": "fix",
-    "note": "bottom options do not align. verify checkmarks are shown when systems are current.",
+    "verdict": "ok",
+    "note": "",
     "mock": "1623fd19ff80947296fab8035df45035d853d7a1ebd45f30874c85267d8f6bda",
-    "app": "641ae229636194557dbdb97f5e397b68ca8ef879be551f7d36ec0664387a6961",
+    "app": "c25ae7794054823fd7edc0a6dea9fe747924c52314adfe42f34e1cdaa626fa58",
     "by": "Matt",
-    "at": "2026-11-08T17:47:14.873Z",
-    "review": "https://claude.ai/artifact/FN7ZHAuDbyvsSZiGmVwMr7 (run r1-pr7)"
+    "at": "2026-11-08T20:02:58.332Z",
+    "review": "https://claude.ai/artifact/FN7ZHAuDbyvsSZiGmVwMr7 (round 3 for home, tray, plan; round 4 for score)"
   }
 }
