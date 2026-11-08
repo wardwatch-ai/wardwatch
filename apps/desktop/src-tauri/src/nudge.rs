@@ -183,12 +183,69 @@ fn run_once<R: Runtime>(app: &AppHandle<R>) -> Result<Timestamp, String> {
             .builder()
             .title(&n.title)
             .body(&n.body)
+            .extra(ROUTE, route_for(n, &findings))
             .show()
             .map_err(|e| e.to_string())
     });
     let _guard = state.lock_history();
     save_history(&path, history)?;
     result
+}
+
+/// The `extra` key that carries the screen a notification opens.
+const ROUTE: &str = "route";
+
+/// The screen a click on `n` opens: the fix screen for one program, the
+/// tune-up for a batch, Home if the program is gone. Routes use the same
+/// encoding as the UI's `fixPath`.
+fn route_for(n: &Notification, findings: &[Finding]) -> String {
+    match (n.kind, n.keys.as_slice()) {
+        (NotificationKind::TuneUp, _) => "/fix/tune-up".into(),
+        (_, [key]) => findings.iter().find(|f| &f.key == key).map_or_else(
+            || "/".into(),
+            |f| {
+                format!(
+                    "/fix/{}/{}",
+                    path_part(&f.source),
+                    path_part(&f.software_id)
+                )
+            },
+        ),
+        _ => "/fix/tune-up".into(),
+    }
+}
+
+/// Percent-encodes everything but letters, digits and `-._~`.
+fn path_part(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for b in s.bytes() {
+        if b.is_ascii_alphanumeric() || b"-._~".contains(&b) {
+            out.push(char::from(b));
+        } else {
+            out.push_str(&format!("%{b:02X}"));
+        }
+    }
+    out
+}
+
+/// Opens the notification's screen when it's clicked. Registered at launch,
+/// before anything is sent, so the plugin reports clicks.
+pub fn on_click<R: Runtime>(app: &AppHandle<R>) {
+    let handle = app.clone();
+    // Never fails on desktop.
+    let _ = app.notification().on_action(move |action| {
+        if action.action_id() != "tap" {
+            return;
+        }
+        let route = action
+            .notification()
+            .and_then(|n| n.extra().get(ROUTE))
+            .and_then(serde_json::Value::as_str);
+        // open_screen re-checks the route against the allowed screens.
+        if let Err(e) = commands::open_screen(&handle, Some(route.unwrap_or("/"))) {
+            eprintln!("wardwatch: could not open the notification's screen: {e}");
+        }
+    });
 }
 
 fn wait_until(next: Timestamp) -> Duration {
@@ -382,6 +439,39 @@ mod tests {
         // A newer file can't be read or replaced, so nothing gets sent.
         std::fs::write(&path, br#"{"v":2}"#).unwrap();
         assert!(load_history(&path).is_err());
+    }
+
+    fn notification(kind: NotificationKind, keys: &[&str]) -> Notification {
+        Notification {
+            kind,
+            keys: keys.iter().map(|k| (*k).to_string()).collect(),
+            title: String::new(),
+            body: String::new(),
+            alert_id: None,
+        }
+    }
+
+    #[test]
+    fn clicks_open_the_programs_fix_screen_or_the_tune_up() {
+        let mut windows_app = exploited_app();
+        windows_app.key = "firefox".into();
+        windows_app.source = "windows_registry".into();
+        windows_app.software_id = "Mozilla Firefox 145.0.1 (x64 en-US)".into();
+        let findings = [exploited_app(), windows_app];
+        let one = |key| route_for(&notification(NotificationKind::Urgent, &[key]), &findings);
+        assert_eq!(one("zoom"), "/fix/mac_app/us.zoom.xos");
+        assert_eq!(
+            one("firefox"),
+            "/fix/windows_registry/Mozilla%20Firefox%20145.0.1%20%28x64%20en-US%29"
+        );
+        assert_eq!(one("gone"), "/");
+        let batch = notification(NotificationKind::SameDay, &["zoom", "firefox"]);
+        assert_eq!(route_for(&batch, &findings), "/fix/tune-up");
+        let tune_up = notification(NotificationKind::TuneUp, &["zoom"]);
+        assert_eq!(route_for(&tune_up, &findings), "/fix/tune-up");
+        for n in [one("zoom"), one("firefox")] {
+            assert!(commands::is_allowed_route(&n), "{n}");
+        }
     }
 
     #[test]

@@ -49,7 +49,7 @@ pub const NAVIGATE_EVENT: &str = "navigate";
 
 /// Routes the tray may open. Anything else is refused, so the tray (or anything
 /// that gets to call this) can't steer the main window somewhere unexpected.
-fn is_allowed_route(route: &str) -> bool {
+pub fn is_allowed_route(route: &str) -> bool {
     const TABS: &[&str] = &["/", "/score", "/groups", "/apps", "/plan", "/fix/tune-up"];
     if TABS.contains(&route) {
         return true;
@@ -77,13 +77,19 @@ pub fn show_main_window<R: Runtime>(
     app: AppHandle<R>,
     route: Option<String>,
 ) -> Result<(), String> {
-    if let Some(route) = &route
+    open_screen(&app, route.as_deref())
+}
+
+/// Shows the main window, on `route` if given. Used by the tray and by clicks
+/// on notifications; the route must be one of the allowed screens.
+pub fn open_screen<R: Runtime>(app: &AppHandle<R>, route: Option<&str>) -> Result<(), String> {
+    if let Some(route) = route
         && !is_allowed_route(route)
     {
         return Err(format!("not a Wardwatch screen: {route}"));
     }
-    windows::hide_tray_popover(&app).map_err(|e| e.to_string())?;
-    windows::show_main(&app).map_err(|e| e.to_string())?;
+    windows::hide_tray_popover(app).map_err(|e| e.to_string())?;
+    windows::show_main(app).map_err(|e| e.to_string())?;
     if let Some(route) = route {
         app.emit_to(windows::MAIN, NAVIGATE_EVENT, route)
             .map_err(|e| e.to_string())?;
