@@ -6,8 +6,14 @@
     "node": ">=22"
   },
   "scripts": {
-    "typecheck": "pnpm -r typecheck",
-    "test": "pnpm -r test",
-    "build": "pnpm -r build"
+    "lint": "pnpm -r --if-present run lint",
+    "typecheck": "pnpm -r --if-present run typecheck",
+    "test": "pnpm -r --if-present run test",
+    "build": "pnpm -r --if-present run build",
+    "format": "prettier --write apps/desktop .github/workflows/desktop.yml README.md *.json *.yaml",
+    "format:check": "prettier --check apps/desktop .github/workflows/desktop.yml README.md *.json *.yaml"
+  },
+  "devDependencies": {
+    "prettier": "^3.9.10"
   }
 }

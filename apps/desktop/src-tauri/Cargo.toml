@@ -1,0 +1,29 @@
+[package]
+name = "wardwatch-desktop"
+version = "0.1.0"
+description = "Wardwatch desktop app"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lib]
+# The `_lib` suffix avoids a name clash with the binary on Windows (cargo#8519).
+name = "wardwatch_desktop_lib"
+crate-type = ["rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.7", features = [] }
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+tauri = { version = "2.12", features = ["tray-icon"] }
+tauri-plugin-positioner = { version = "2.4", features = ["tray-icon"] }
+tauri-plugin-single-instance = "2.5"
+
+[dev-dependencies]
+tauri = { version = "2.12", features = ["tray-icon", "test"] }
+
+[lints]
+workspace = true
