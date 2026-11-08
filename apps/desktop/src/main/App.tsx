@@ -1,52 +1,137 @@
-import { Navigate, NavLink, Route, Routes } from "react-router";
+import { AccountPill, OkGlyph, ActGlyph, TopBar } from "@wardwatch/ui";
+import { useEffect, useId, useRef, useState } from "react";
+import { Navigate, NavLink, Route, Routes, useNavigate } from "react-router";
+import { accounts, useDevice, useDevices, useMe, useScore } from "../lib/data";
+import { onNavigate } from "../lib/ipc";
 import { useAppInfo } from "../lib/useAppInfo";
 import { tabs } from "./routes";
+import { Apps } from "./screens/Apps";
+import { Fix } from "./screens/Fix";
+import { Groups } from "./screens/Groups";
+import { Home } from "./screens/Home";
+import { Plan } from "./screens/Plan";
+import { Score } from "./screens/Score";
 
-function Placeholder({ title }: { title: string }) {
+const screens: Record<(typeof tabs)[number]["path"], React.ReactNode> = {
+  "/": <Home />,
+  "/score": <Score />,
+  "/groups": <Groups />,
+  "/apps": <Apps />,
+  "/plan": <Plan />,
+};
+
+/** Account pill and its menu, which lists the account's devices. */
+function Account() {
+  const me = useMe().data;
+  const score = useScore().data;
+  const devices = useDevices().data ?? [];
+  const [open, setOpen] = useState(false);
+  const menuId = useId();
+  const root = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: Event) => {
+      if (
+        e instanceof KeyboardEvent ? e.key === "Escape" : !root.current?.contains(e.target as Node)
+      ) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("keydown", close);
+    document.addEventListener("mousedown", close);
+    return () => {
+      document.removeEventListener("keydown", close);
+      document.removeEventListener("mousedown", close);
+    };
+  }, [open]);
+
+  if (!me) return null;
+  const name = me.real_name ?? me.username ?? "You";
   return (
-    <section aria-labelledby="screen-title" className="p-8">
-      <h1 id="screen-title" className="text-2xl font-bold">
-        {title}
-      </h1>
-      <p className="mt-2 opacity-70">This screen is not built yet.</p>
-    </section>
+    <div ref={root} className="relative">
+      <AccountPill
+        name={name}
+        score={score?.score ?? 0}
+        aria-haspopup="true"
+        aria-expanded={open}
+        aria-controls={menuId}
+        onClick={() => {
+          setOpen(!open);
+        }}
+      />
+      {open && (
+        <div
+          id={menuId}
+          role="group"
+          aria-label="Account"
+          className="ww-card ww-card-default absolute right-0 top-[52px] z-10 flex w-72 flex-col gap-2 shadow-lg"
+        >
+          <div>
+            <div className="font-semibold">{name}</div>
+            <div className="text-sm text-text-muted">
+              Signed in · {devices.length} {devices.length === 1 ? "device" : "devices"} on this
+              account
+            </div>
+          </div>
+          <div className="ww-eyebrow mt-2">Your devices</div>
+          <ul className="m-0 flex list-none flex-col gap-1 p-0">
+            {devices.map((d) => (
+              <li key={d.id} className="flex min-h-11 items-center gap-2.5">
+                {d.status === "needs_you" ? <ActGlyph /> : <OkGlyph />}
+                <span className="flex-1 font-semibold">{d.name}</span>
+                <span className="text-sm text-text-muted">
+                  {d.status === "needs_you"
+                    ? "Needs you"
+                    : d.status === "waiting"
+                      ? "Waiting"
+                      : "All clear"}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
   );
 }
 
 export function App() {
   const { data: info, error } = useAppInfo();
+  const navigate = useNavigate();
+  const urgent = (useDevice().status?.urgent.length ?? 0) > 0;
+
+  // The tray opens screens here (Update now, Score, Update plan).
+  useEffect(() => onNavigate((route) => void navigate(route)), [navigate]);
 
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="flex items-center gap-6 border-b border-black/10 px-6 py-3 dark:border-white/10">
-        <span className="font-bold">Wardwatch</span>
-        <nav aria-label="Main" className="flex gap-4">
-          {tabs.map((tab) => (
-            <NavLink
-              key={tab.path}
-              to={tab.path}
-              end={tab.path === "/"}
-              className={({ isActive }) => (isActive ? "font-semibold underline" : "opacity-80")}
-            >
-              {tab.label}
-            </NavLink>
-          ))}
-        </nav>
-      </header>
-      <main className="flex-1">
+      <TopBar
+        beams={urgent}
+        nav={tabs.map((tab) => (
+          <NavLink key={tab.path} to={tab.path} end={tab.path === "/"} className="ww-tab">
+            {tab.label}
+          </NavLink>
+        ))}
+        account={<Account />}
+      />
+      <main className="mx-auto box-border w-full max-w-[1200px] flex-1 px-4 py-6 sm:px-7 sm:py-8">
         <Routes>
           {tabs.map((tab) => (
-            <Route key={tab.path} path={tab.path} element={<Placeholder title={tab.label} />} />
+            <Route key={tab.path} path={tab.path} element={screens[tab.path]} />
           ))}
+          <Route path="/fix/tune-up" element={<Fix />} />
+          <Route path="/fix/:source/:id" element={<Fix />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
-      <footer className="px-6 py-2 text-xs opacity-60">
+      <footer className="px-7 py-2 text-xs text-text-muted">
         {error
           ? `Could not reach the Wardwatch core: ${error.message}`
           : info
             ? `${info.name} ${info.version} on ${info.os}`
             : "Loading"}
+        {accounts.preview && " · Score and groups show sample data until sign-in is live."}
       </footer>
     </div>
   );
