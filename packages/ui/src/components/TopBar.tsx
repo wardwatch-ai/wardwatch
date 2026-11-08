@@ -23,7 +23,7 @@ export function TopBar({ beams, nav, account }: { beams: boolean; nav: ReactNode
  * link component instead (React Router's NavLink sets aria-current for you).
  */
 export function NavTab({ current, className, ...rest }: AnchorHTMLAttributes<HTMLAnchorElement> & { current?: boolean }) {
-  return <a {...rest} className={cx("ww-tab", className)} aria-current={current ? "page" : undefined} />;
+  return <a {...rest} className={cx("ww-tab", className)} aria-current={current ? "page" : rest["aria-current"]} />;
 }
 
 type AccountPillProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children"> & {

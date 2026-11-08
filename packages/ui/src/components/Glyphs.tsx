@@ -10,7 +10,7 @@ function a11y(title?: string) {
 export function ActGlyph({ size = 14, title }: GlyphProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" {...a11y(title)}>
-      <path d="M12 3 L22 20 L2 20 Z" fill="var(--ww-act)" />
+      <path d="M12 3 L22 20 L2 20 Z" fill="var(--ww-act)" stroke="var(--ww-act-edge)" strokeWidth={1.5} strokeLinejoin="round" />
     </svg>
   );
 }

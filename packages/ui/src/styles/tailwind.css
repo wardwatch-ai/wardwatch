@@ -7,6 +7,12 @@
   --color-bg: var(--ww-bg);
   --color-surface: var(--ww-surface);
   --color-line: var(--ww-line);
+  --color-edge: var(--ww-edge);
+  --color-tower: var(--ww-tower);
+  --color-band-1: var(--ww-band-1);
+  --color-band-2: var(--ww-band-2);
+  --color-band-3: var(--ww-band-3);
+  --color-band-4: var(--ww-band-4);
   --color-text: var(--ww-text);
   --color-text-muted: var(--ww-text-muted);
   --color-brand: var(--ww-brand);

@@ -31,10 +31,12 @@ const pairs: Array<[ColorToken, ColorToken, number]> = [
   ),
   ["brand", "bg", GRAPHIC],
   ["brand", "surface", GRAPHIC],
-  // Graphics: severity meter (filled bar vs empty bar), status glyphs, focus ring
-  ["text", "line", GRAPHIC],
-  ["ok", "surface", GRAPHIC],
-  ["text", "surface", GRAPHIC],
+  // Graphics: severity meter (filled bar vs empty bar, empty bar vs button background),
+  // the off lantern, the act glyph's edge on the urgent card
+  ["text", "edge", GRAPHIC],
+  ["edge", "surface", GRAPHIC],
+  ["edge", "bg", GRAPHIC],
+  ["tower", "surface", GRAPHIC],
 ];
 
 describe.each(["light", "dark"] as ThemeName[])("%s theme contrast", (theme) => {

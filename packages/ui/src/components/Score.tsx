@@ -9,7 +9,8 @@ export const bands = [
 
 export type BandName = (typeof bands)[number]["name"];
 
-const clamp = (n: number) => Math.min(100, Math.max(0, n));
+/** Clamps to 0-100; NaN or Infinity (for example 0/0 before any device reports) counts as 0. */
+const clamp = (n: number) => (Number.isFinite(n) ? Math.min(100, Math.max(0, n)) : 0);
 
 /** The band a 0-100 score falls in. */
 export function bandFor(score: number): BandName {

@@ -5,7 +5,10 @@ on:
     branches: [main]
     paths: ["packages/ui/**", "pnpm-lock.yaml", "package.json", "pnpm-workspace.yaml", ".github/workflows/ui.yml"]
   pull_request:
-    paths: ["packages/ui/**", "pnpm-lock.yaml", "package.json", "pnpm-workspace.yaml", ".github/workflows/ui.yml"]
+
+concurrency:
+  group: ui-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read

@@ -87,6 +87,11 @@ describe("Lighthouse", () => {
     const off = render(<Lighthouse beams={false} />);
     expect(off.getByRole("img", { name: "All clear" }).querySelectorAll("path")).toHaveLength(3);
   });
+
+  it("keeps the lantern visible when the beams are off", () => {
+    const { container } = render(<Lighthouse beams={false} />);
+    expect(container.querySelector('rect[x="27.5"]')).toHaveAttribute("fill", "var(--ww-tower)");
+  });
 });
 
 describe("Score", () => {
@@ -101,6 +106,7 @@ describe("Score", () => {
     [100, "Excellent"],
     [140, "Excellent"],
     [-5, "At risk"],
+    [Number.NaN, "At risk"],
   ] as const)("score %s is %s", (score, band) => {
     expect(bandFor(score)).toBe(band);
   });
@@ -138,6 +144,15 @@ describe("toggles", () => {
     await userEvent.click(screen.getByRole("button", { name: "This month" }));
     expect(screen.getByRole("button", { name: "This month" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("button", { name: "Last 30 days" })).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("NavTab keeps a caller's aria-current", () => {
+    render(
+      <NavTab href="#a" aria-current="page">
+        Apps
+      </NavTab>,
+    );
+    expect(screen.getByRole("link", { name: "Apps" })).toHaveAttribute("aria-current", "page");
   });
 
   it("chip reflects on", () => {
