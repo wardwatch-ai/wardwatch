@@ -4,6 +4,11 @@ import { defineConfig } from "@playwright/test";
 // the sample scenario (no Tauri core). See e2e/visual/README.md.
 const port = 4173;
 
+// Greyscale text only. Chromium otherwise picks LCD (colour-fringed) or greyscale
+// antialiasing per layer depending on compositing, which varied run to run on the
+// plan screen's dropdowns and failed the gate with nothing changed.
+const app = { launchOptions: { args: ["--disable-lcd-text"] } };
+
 export default defineConfig({
   testDir: "e2e",
   // Screenshots are compared only in CI (ubuntu-24.04, Playwright's Chromium): font
@@ -28,8 +33,8 @@ export default defineConfig({
     deviceScaleFactor: 1,
   },
   projects: [
-    { name: "visual", testMatch: "visual/visual.spec.ts" },
-    { name: "visual-review", testMatch: "visual/review.spec.ts" },
+    { name: "visual", testMatch: "visual/visual.spec.ts", use: app },
+    { name: "visual-review", testMatch: "visual/review.spec.ts", use: app },
     { name: "visual-mocks", testMatch: "visual/mocks.spec.ts" },
   ],
   webServer: {
