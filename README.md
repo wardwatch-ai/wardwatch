@@ -36,7 +36,7 @@ cargo fmt --all --check && cargo clippy --workspace --all-targets -- -D warnings
 pnpm --filter @wardwatch/desktop tauri build  # unsigned local bundles in target/release/bundle
 ```
 
-CI runs the same checks and builds unsigned bundles on macOS, Windows and Linux. It never signs, uploads or publishes builds.
+CI runs the same checks and builds unsigned bundles. Pull requests build on Linux (and type-check the macOS and Windows scanner code); macOS and Windows build nightly when `main` changed, from **Run workflow**, or on a PR labelled `full-ci` (from its next push). It never signs, uploads or publishes builds.
 
 End-to-end, CI also drives the real app with WebdriverIO and tauri-driver on Linux ([`e2e/`](e2e/README.md)), and runs the scanner, matcher, nudge engine and 1-click updater inside throwaway, offline distro containers with a planted vulnerable package ([`tests/devices/`](tests/devices/README.md)).
 
