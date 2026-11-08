@@ -146,17 +146,22 @@ impl Catalog {
     /// Parses a catalog and refuses one with another schema version or past
     /// its `expires_at` (so a stale or replayed copy can't say you're safe).
     pub fn from_json(bytes: &[u8], now: SystemTime) -> Result<Catalog, CatalogError> {
-        #[derive(Deserialize)]
-        struct Header {
-            schema_version: u32,
+        let catalog: Catalog = serde_json::from_slice(bytes).map_err(|e| {
+            // Name a schema change rather than a parse error when that's why.
+            #[derive(Deserialize)]
+            struct Header {
+                schema_version: u32,
+            }
+            match serde_json::from_slice::<Header>(bytes) {
+                Ok(h) if h.schema_version != SCHEMA_VERSION => {
+                    CatalogError::Schema(h.schema_version)
+                }
+                _ => CatalogError::Parse(e.to_string()),
+            }
+        })?;
+        if catalog.schema_version != SCHEMA_VERSION {
+            return Err(CatalogError::Schema(catalog.schema_version));
         }
-        let header: Header =
-            serde_json::from_slice(bytes).map_err(|e| CatalogError::Parse(e.to_string()))?;
-        if header.schema_version != SCHEMA_VERSION {
-            return Err(CatalogError::Schema(header.schema_version));
-        }
-        let catalog: Catalog =
-            serde_json::from_slice(bytes).map_err(|e| CatalogError::Parse(e.to_string()))?;
         let expires = time::OffsetDateTime::parse(
             &catalog.expires_at,
             &time::format_description::well_known::Rfc3339,
@@ -201,7 +206,7 @@ pub struct VulnHit {
 /// A catalog app found on this device, and what updating it would close.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Finding {
-    /// `source:id` of the primary install; stable across scans.
+    /// The catalog app id: stable across scans and updates, unlike the primary install.
     pub key: String,
     pub app_id: String,
     pub app_name: String,
@@ -273,7 +278,7 @@ fn match_app(app: &CatalogApp, inventory: &Inventory) -> Option<Finding> {
             let source = source_name(s.source);
             if installs
                 .iter()
-                .any(|(i, _)| i.source == source && i.id == s.id)
+                .any(|(i, _)| i.source == source && i.id == s.id && i.version == version)
             {
                 continue;
             }
@@ -295,10 +300,12 @@ fn match_app(app: &CatalogApp, inventory: &Inventory) -> Option<Finding> {
         version::compare(scheme, &installs[a].0.version, &installs[b].0.version)
             .unwrap_or(Ordering::Equal)
     })?;
+    let browser = installs[primary]
+        .1
+        .or_else(|| installs.iter().find_map(|(_, b)| *b));
     let first = installs.remove(primary);
-    let browser = first.1.or_else(|| installs.iter().find_map(|(_, b)| *b));
-    let mut all = vec![first.0];
-    all.extend(installs.into_iter().map(|(i, _)| i));
+    installs.insert(0, first);
+    let all: Vec<Install> = installs.into_iter().map(|(i, _)| i).collect();
     let installed = all[0].version.clone();
     let scopes = device_scopes(&inventory.os);
 
@@ -313,8 +320,11 @@ fn match_app(app: &CatalogApp, inventory: &Inventory) -> Option<Finding> {
             }
             hit = true;
             match r.fixed.as_deref() {
-                Some(f) => fixed = Some(max_version(scheme, fixed, f)),
-                None => unfixed = true,
+                Some(f) if version::compare(scheme, f, f).is_some() => {
+                    fixed = Some(max_version(scheme, fixed, f))
+                }
+                // No fix, or one we can't read: there's no version to point to.
+                _ => unfixed = true,
             }
         }
         if hit {
@@ -351,7 +361,7 @@ fn match_app(app: &CatalogApp, inventory: &Inventory) -> Option<Finding> {
     let update_available = newer(&fixed_version) || newer(&latest);
     let first = &all[0];
     Some(Finding {
-        key: format!("{}:{}", first.source, first.id),
+        key: app.id.clone(),
         app_id: app.id.clone(),
         app_name: app.name.clone(),
         kind: app.kind,
@@ -377,10 +387,13 @@ fn rule_matches(rule: &MatchRule, s: &Software) -> bool {
         return false;
     }
     match s.source {
-        Source::WindowsRegistry => rule
-            .name_prefix
-            .as_deref()
-            .is_some_and(|p| s.name.starts_with(p)),
+        Source::WindowsRegistry => {
+            rule.id.as_deref() == Some(s.id.as_str())
+                || rule
+                    .name_prefix
+                    .as_deref()
+                    .is_some_and(|p| s.name.starts_with(p))
+        }
         // The catalog names distro packages by source package, which covers
         // every binary package built from it.
         Source::Dpkg | Source::Rpm => {
@@ -441,17 +454,19 @@ fn applies(r: &Range, scopes: &[String]) -> bool {
     r.scope.as_ref().is_none_or(|s| scopes.contains(s))
 }
 
+/// A bound that doesn't read in the app's scheme fails closed: it counts as
+/// affected, so a malformed catalog entry can't make a device look safe.
 fn in_range(scheme: Scheme, v: &str, r: &Range) -> bool {
     let cmp = |b: &str| version::compare(scheme, v, b);
     if let Some(intro) = r.introduced.as_deref() {
         // OSV writes "0" for "from the start".
-        if intro != "0" && !cmp(intro).is_some_and(Ordering::is_ge) {
+        if intro != "0" && cmp(intro).is_some_and(Ordering::is_lt) {
             return false;
         }
     }
     match (r.fixed.as_deref(), r.last_affected.as_deref()) {
-        (Some(f), _) => cmp(f).is_some_and(Ordering::is_lt),
-        (None, Some(l)) => cmp(l).is_some_and(Ordering::is_le),
+        (Some(f), _) => cmp(f).is_none_or(Ordering::is_lt),
+        (None, Some(l)) => cmp(l).is_none_or(Ordering::is_le),
         (None, None) => true,
     }
 }

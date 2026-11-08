@@ -18,10 +18,10 @@ then worst severity, then name). Serialized with serde:
 
 ```jsonc
 {
-  "key": "mac_app:com.google.Chrome",   // source:id of the primary install
+  "key": "google-chrome",               // the catalog app id; stable across scans and updates
   "app_id": "google-chrome", "app_name": "Google Chrome",
   "kind": "app",                        // app | os | package
-  "source": "mac_app", "software_id": "com.google.Chrome", "name": "Google Chrome",
+  "source": "mac_app", "software_id": "com.google.Chrome", "name": "Google Chrome", // primary install
   "browser": "chrome",                  // or null; from the scanner
   "version_scheme": "dotted",           // dotted | deb | rpm
   "installed": "157.0.8103.30",         // the oldest install's version
@@ -43,7 +43,7 @@ then worst severity, then name). Serialized with serde:
 ## Matching rules
 
 - `match` rules use the scanner's source names. `windows_registry` matches a
-  `DisplayName` prefix. `dpkg` and `rpm` match the **source** package, so all
+  `DisplayName` prefix, or the Uninstall key name when a rule gives an `id`. `dpkg` and `rpm` match the **source** package, so all
   binary packages built from it (`openssl`, `libssl3t64`) become installs of
   one finding. `os` matches the device's `os.id` and uses `os.version`.
 - An app installed more than once (a cask and its app bundle, say) is one
@@ -52,6 +52,8 @@ then worst severity, then name). Serialized with serde:
   its distro release as an OSV ecosystem (`Debian:12`, `Ubuntu:24.04:LTS`).
 - Ranges follow OSV semantics. A hole affected through a range with no fix
   gets `fixed: null`, and doesn't hold back `fixed_version` for the others.
+- A catalog bound that doesn't read in the app's `version_scheme` fails
+  closed: the hole counts as affecting the device, with no fixed version.
 - An install whose version doesn't read in the app's `version_scheme` is
   skipped rather than guessed at.
 
@@ -65,7 +67,12 @@ maintained crate builds on our MSRV.
 - **Signature checks.** Catalogs are unsigned until the keys exist. Only
   development builds may accept one; checking `catalog.json.sig` and the key
   delegation goes in front of `Catalog::from_json` then.
-- Fedora and other rpm distros have no distro-scoped ranges in the catalog yet.
+- Fedora and other rpm distros have no distro-scoped ranges in the catalog yet,
+  and Debian/Ubuntu derivatives (Mint, Pop!_OS) get none until the scanner
+  reports `ID_LIKE`.
+- A cap on how far `expires_at` may sit past `generated_at`, once catalogs are
+  signed, so a leaked key can't mint a long-lived catalog.
+- Telling callers about installs skipped for an unreadable version.
 
 ## Try it
 

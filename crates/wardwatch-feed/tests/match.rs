@@ -73,7 +73,11 @@ fn mac_chrome_behind_an_exploited_fix() {
     let found = match_inventory(&inv, &catalog());
     assert_eq!(found.len(), 1);
     let f = &found[0];
-    assert_eq!(f.key, "mac_app:com.google.Chrome");
+    assert_eq!(f.key, "google-chrome");
+    assert_eq!(
+        (f.source.as_str(), f.software_id.as_str()),
+        ("mac_app", "com.google.Chrome")
+    );
     assert_eq!(f.app_id, "google-chrome");
     assert_eq!(f.kind, AppKind::App);
     assert_eq!(f.browser, Some(Browser::Chrome));
@@ -157,7 +161,8 @@ fn debian_packages_group_by_source_package() {
     assert_eq!(found.len(), 1);
     let f = &found[0];
     assert_eq!(f.kind, AppKind::Package);
-    assert_eq!(f.key, "dpkg:libssl3", "the oldest install is primary");
+    assert_eq!(f.key, "openssl-linux");
+    assert_eq!(f.software_id, "libssl3", "the oldest install is primary");
     assert_eq!(f.installed, "3.0.19-1");
     let names: Vec<_> = f.installs.iter().map(|i| i.id.as_str()).collect();
     assert_eq!(names, ["libssl3", "openssl"]);
@@ -217,7 +222,7 @@ fn findings_serialize_in_the_documented_shape() {
     );
     let inv = inventory(os(OsFamily::Macos, "macos", "16.1"), vec![chrome]);
     let json = serde_json::to_value(&match_inventory(&inv, &catalog())[0]).unwrap();
-    assert_eq!(json["key"], "mac_app:com.google.Chrome");
+    assert_eq!(json["key"], "google-chrome");
     assert_eq!(json["kind"], "app");
     assert_eq!(json["severity"], "critical");
     assert_eq!(json["version_scheme"], "dotted");
@@ -244,4 +249,65 @@ fn refuses_expired_wrong_schema_and_garbage() {
         Catalog::from_json(b"{}", now()),
         Err(CatalogError::Parse(_))
     ));
+}
+
+#[test]
+fn a_stale_second_copy_of_an_app_decides() {
+    let new = sw(
+        Source::MacApp,
+        "com.google.Chrome",
+        "Google Chrome",
+        "157.0.8103.40",
+    );
+    let old = sw(
+        Source::MacApp,
+        "com.google.Chrome",
+        "Google Chrome",
+        "150.0.1.1",
+    );
+    let inv = inventory(os(OsFamily::Macos, "macos", "16.1"), vec![new, old]);
+    let f = &match_inventory(&inv, &catalog())[0];
+    assert_eq!(f.installed, "150.0.1.1");
+    assert_eq!(f.installs.len(), 2);
+    assert!(f.update_available);
+}
+
+#[test]
+fn unreadable_catalog_bounds_fail_closed() {
+    let json = String::from_utf8(FIXTURE.to_vec())
+        .unwrap()
+        .replace("\"157.0.8103.40\"", "\"v157-beta\"");
+    let catalog = Catalog::from_json(json.as_bytes(), now()).unwrap();
+    let chrome = sw(
+        Source::MacApp,
+        "com.google.Chrome",
+        "Google Chrome",
+        "157.0.8103.39",
+    );
+    let inv = inventory(os(OsFamily::Macos, "macos", "16.1"), vec![chrome]);
+    let f = &match_inventory(&inv, &catalog)[0];
+    let hit = f
+        .vulns
+        .iter()
+        .find(|v| v.id == "CVE-2099-0007")
+        .expect("still reported");
+    assert_eq!(hit.fixed, None, "no readable fix version to point to");
+    assert!(f.exploited);
+}
+
+#[test]
+fn registry_rules_may_name_the_uninstall_key() {
+    let json = String::from_utf8(FIXTURE.to_vec()).unwrap().replace(
+        "\"name_prefix\":\"Google Chrome\"",
+        "\"id\":\"{8A69D345-D564-463C-AFF1-A69D9E530F96}\"",
+    );
+    let catalog = Catalog::from_json(json.as_bytes(), now()).unwrap();
+    let chrome = sw(
+        Source::WindowsRegistry,
+        "{8A69D345-D564-463C-AFF1-A69D9E530F96}",
+        "Chrome",
+        "150.0",
+    );
+    let inv = inventory(os(OsFamily::Windows, "windows", "10.0.1"), vec![chrome]);
+    assert_eq!(match_inventory(&inv, &catalog).len(), 1);
 }
