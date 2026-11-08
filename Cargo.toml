@@ -1,7 +1,7 @@
 [workspace]
 resolver = "3"
 # Libraries go in crates/<name>; list each one here.
-members = ["apps/desktop/src-tauri", "crates/wardwatch-catalog"]
+members = ["apps/desktop/src-tauri", "crates/wardwatch-catalog", "crates/wardwatch-feed"]
 
 [workspace.package]
 edition = "2024"
