@@ -13,22 +13,18 @@ name: Desktop
 on:
   push:
     branches: [main]
+    # Not README.md, e2e/ or e2e.yml: the ui job's `pnpm format:check` covers them.
     paths-ignore:
-      - "**/*.md"
       - "packaging/**"
       - "tests/devices/**"
-      - "e2e/**"
       - ".github/workflows/catalog.yml"
-      - ".github/workflows/e2e.yml"
       - ".github/workflows/ui.yml"
   pull_request:
+    # Not README.md, e2e/ or e2e.yml: the ui job's `pnpm format:check` covers them.
     paths-ignore:
-      - "**/*.md"
       - "packaging/**"
       - "tests/devices/**"
-      - "e2e/**"
       - ".github/workflows/catalog.yml"
-      - ".github/workflows/e2e.yml"
       - ".github/workflows/ui.yml"
   schedule:
     - cron: "23 7 * * *"
@@ -38,7 +34,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: desktop-${{ github.ref }}
+  group: desktop-${{ github.event_name == 'schedule' && 'nightly' || github.ref }}
   cancel-in-progress: true
 
 env:

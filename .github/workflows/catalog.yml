@@ -23,7 +23,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: catalog-${{ github.ref }}
+  group: catalog-${{ github.event_name == 'schedule' && 'nightly' || github.ref }}
   cancel-in-progress: true
 
 env:
@@ -69,9 +69,22 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt
-      - run: cargo fmt --check
-      - run: cargo clippy --all-targets -- -D warnings
-      - run: cargo test
+      # Nightly, desktop.yml already lints and tests the whole workspace on
+      # macOS and Windows, so here only the real scan below is new.
+      - if: github.event_name != 'schedule'
+        run: cargo fmt --check
+      - if: github.event_name != 'schedule'
+        run: cargo clippy --all-targets -- -D warnings
+      - if: github.event_name != 'schedule'
+        run: cargo test
+      # PRs build on Linux only, so at least type-check the macOS and Windows
+      # scanners (cfg-gated code) before merge.
+      - name: Check macOS and Windows code
+        if: runner.os == 'Linux'
+        run: |
+          rustup target add x86_64-pc-windows-msvc aarch64-apple-darwin
+          cargo check --all-targets --locked --target x86_64-pc-windows-msvc
+          cargo check --all-targets --locked --target aarch64-apple-darwin
       # Real scan of the runner, to catch what sample data can't. Prints counts only.
       - run: cargo run --release --example scan -- --summary
 
