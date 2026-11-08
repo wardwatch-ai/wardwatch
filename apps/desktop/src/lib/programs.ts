@@ -171,20 +171,25 @@ export function listNames(programs: Program[]): string {
   return `${names.slice(0, -1).join(", ")} and ${names.at(-1) ?? ""}`;
 }
 
+/** The icon beside a System / Browsers / Apps line. */
+export type KindMarkState = "urgent" | "current" | "waiting" | "unchecked";
+
 /** One line of "On this device" (Home) and the tray checklist. */
-export function kindLine(
-  status: DeviceStatus,
-  kind: Kind,
-): { mark: "urgent" | "current" | "none"; text: string } {
+export function kindLine(status: DeviceStatus, kind: Kind): { mark: KindMarkState; text: string } {
   const k = status.byKind[kind];
-  if (!status.checked) return { mark: "none", text: `${String(k.total)} found` };
+  if (!status.checked) return { mark: "unchecked", text: `${String(k.total)} found` };
   if (k.urgent[0]) return { mark: "urgent", text: `${k.urgent[0].name} needs you` };
   if (k.current === k.total) return { mark: "current", text: "Current" };
+  // Something has an update waiting for its plan slot (or is held); otherwise the
+  // rest are programs the feed doesn't cover, so we make no claim about them.
+  const mark = k.programs.some((p) => p.state === "update" || p.state === "held")
+    ? "waiting"
+    : "unchecked";
   if (k.total === 1) {
     const only = k.programs[0];
     const text =
       only?.state === "held" ? "Held" : only?.state === "update" ? "Update waiting" : "Not checked";
-    return { mark: "none", text };
+    return { mark, text };
   }
-  return { mark: "none", text: `${String(k.current)} of ${String(k.total)} current` };
+  return { mark, text: `${String(k.current)} of ${String(k.total)} current` };
 }

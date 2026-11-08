@@ -2,7 +2,7 @@ export { Button, type ButtonProps } from "./components/Button";
 export { SeverityMeter, severityLabel, type Severity } from "./components/SeverityMeter";
 export { Card, Eyebrow, type CardTone } from "./components/Card";
 export { StatusPill } from "./components/StatusPill";
-export { ActGlyph, OkGlyph, CheckGlyph, PhoneGlyph } from "./components/Glyphs";
+export { ActGlyph, OkGlyph, CheckGlyph, WaitGlyph, UncheckedGlyph, PhoneGlyph } from "./components/Glyphs";
 export { Lighthouse } from "./components/Lighthouse";
 export { TopBar, NavTab, AccountPill } from "./components/TopBar";
 export { BandBar, SubscoreBar, bandFor, bands, type BandName } from "./components/Score";

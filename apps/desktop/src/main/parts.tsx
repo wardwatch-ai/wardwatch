@@ -1,8 +1,8 @@
 // Small pieces several screens share.
-import { ActGlyph, Button, CheckGlyph } from "@wardwatch/ui";
+import { ActGlyph, Button, CheckGlyph, UncheckedGlyph, WaitGlyph } from "@wardwatch/ui";
 import type { ReactNode } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
-import { type Program, fixPath } from "../lib/programs";
+import { type KindMarkState, type Program, fixPath } from "../lib/programs";
 import { tabs } from "./routes";
 import { type From, useOpen } from "./useOpen";
 
@@ -73,10 +73,11 @@ export function Failed({ error }: { error: Error }) {
 }
 
 /** Status mark for a System / Browsers / Apps line. Shape, not only color, shows the state. */
-export function KindMark({ mark }: { mark: "urgent" | "current" | "none" }) {
+export function KindMark({ mark }: { mark: KindMarkState }) {
   if (mark === "urgent") return <ActGlyph size={16} />;
   if (mark === "current") return <CheckGlyph />;
-  return <span className="w-4 flex-none" />;
+  if (mark === "waiting") return <WaitGlyph />;
+  return <UncheckedGlyph />;
 }
 
 /**

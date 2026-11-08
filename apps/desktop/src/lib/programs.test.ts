@@ -133,7 +133,7 @@ describe("kindLine", () => {
     severity: null,
     vulns: [],
   });
-  const line = (findings: ReturnType<typeof finding>[], held = false) =>
+  const full = (findings: ReturnType<typeof finding>[], held = false) =>
     kindLine(
       summarize(
         buildPrograms(
@@ -144,12 +144,20 @@ describe("kindLine", () => {
         true,
       ),
       "system",
-    ).text;
+    );
+  const line = (findings: ReturnType<typeof finding>[], held = false) => full(findings, held).text;
 
   it("never calls an unchecked or held program up to date", () => {
     expect(line([])).toBe("Not checked");
     expect(line([finding(true)])).toBe("Update waiting");
     expect(line([finding(true)], true)).toBe("Held");
     expect(line([finding(false)])).toBe("Current");
+  });
+
+  it("gives every line an icon that matches its words", () => {
+    expect(full([]).mark).toBe("unchecked");
+    expect(full([finding(true)]).mark).toBe("waiting");
+    expect(full([finding(true)], true).mark).toBe("waiting");
+    expect(full([finding(false)]).mark).toBe("current");
   });
 });
