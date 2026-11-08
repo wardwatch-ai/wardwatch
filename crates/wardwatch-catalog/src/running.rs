@@ -47,12 +47,7 @@ pub(crate) fn mark_running(software: &mut [Software], exes: &[PathBuf]) {
         s.running = match (&s.location, s.source) {
             (Some(loc), _) => {
                 let dir = normalize(loc);
-                let dir = dir.trim_end_matches('/');
-                exe_paths.iter().any(|exe| {
-                    exe.len() > dir.len()
-                        && exe.starts_with(dir)
-                        && exe.as_bytes()[dir.len()] == b'/'
-                })
+                exe_paths.iter().any(|exe| inside(&dir, exe))
             }
             // Distro packages have no single install folder, so match by name.
             (None, Source::Dpkg | Source::Rpm) => {
@@ -69,9 +64,15 @@ pub(crate) fn mark_running(software: &mut [Software], exes: &[PathBuf]) {
     }
 }
 
+/// Whether normalized `path` is strictly inside normalized folder `dir`.
+pub(crate) fn inside(dir: &str, path: &str) -> bool {
+    let dir = dir.trim_end_matches('/');
+    path.len() > dir.len() && path.starts_with(dir) && path.as_bytes()[dir.len()] == b'/'
+}
+
 /// A path as a comparable string: `/` separators, and lowercase on Windows,
 /// whose paths are case-insensitive.
-fn normalize(p: &Path) -> String {
+pub(crate) fn normalize(p: &Path) -> String {
     let s = p.to_string_lossy();
     if cfg!(windows) {
         s.replace('\\', "/").to_lowercase()
