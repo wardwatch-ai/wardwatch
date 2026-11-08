@@ -142,12 +142,8 @@ pub fn load_plan<R: Runtime>(app: &AppHandle<R>) -> Result<UpdatePlan, String> {
 }
 
 #[tauri::command]
-pub fn get_plan<R: Runtime>(
-    app: AppHandle<R>,
-    lock: State<'_, PlanLock>,
-) -> Result<UpdatePlan, String> {
-    let _guard = lock.0.lock().map_err(|e| e.to_string())?;
-    Ok(plan::load(&plan_path(&app)?))
+pub fn get_plan<R: Runtime>(app: AppHandle<R>) -> Result<UpdatePlan, String> {
+    load_plan(&app)
 }
 
 #[tauri::command]

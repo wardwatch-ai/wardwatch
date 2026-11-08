@@ -1,13 +1,14 @@
 //! Runs the nudge engine (crates/wardwatch-nudge): read-only for Home and the
 //! tray, and a background loop that sends the plan's system notifications.
 //!
-//! The loop wakes at the plan's `next_check` (at most an hour away, so a
-//! laptop that slept catches up), or as soon as the Update plan is saved.
+//! The loop re-plans at the plan's `next_check`, or shortly after the Update
+//! plan is saved. It checks the clock at least hourly, so a laptop that slept
+//! catches up within the hour after waking (tokio's timer pauses during sleep).
 //! Quiet hours, the Sunday Tune-Up at 10:00 and holds are all the engine's;
 //! this module only sends what it says and remembers that it did.
 
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
+use std::sync::{Mutex, MutexGuard, PoisonError};
 use std::time::Duration;
 
 use jiff::{Timestamp, Zoned};
@@ -15,7 +16,9 @@ use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager, Runtime};
 use tauri_plugin_notification::NotificationExt;
 use tokio::sync::Notify;
-use wardwatch_nudge::{ApprovedAlerts, Finding, History, Notification, NudgePlan};
+use wardwatch_nudge::{
+    ApprovedAlerts, Finding, History, Notification, NotificationKind, NudgePlan,
+};
 
 use crate::plan::UpdatePlan;
 use crate::{commands, fix, store};
@@ -23,6 +26,8 @@ use crate::{commands, fix, store};
 const HISTORY_VERSION: u64 = 1;
 const MIN_WAIT: Duration = Duration::from_secs(60);
 const MAX_WAIT: Duration = Duration::from_secs(60 * 60);
+/// After the plan is saved, wait this long so a run of toggles re-plans once.
+const SETTLE: Duration = Duration::from_secs(5);
 
 /// The loop's wake-up call and the lock on the history file.
 #[derive(Default)]
@@ -32,6 +37,11 @@ pub struct NudgeState {
 }
 
 impl NudgeState {
+    /// The guard protects no data, so a panic elsewhere mustn't lock it for good.
+    fn lock_history(&self) -> MutexGuard<'_, ()> {
+        self.history.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+
     /// Re-plans now, for example after the Update plan changed.
     pub fn wake(&self) {
         self.wake.notify_one();
@@ -61,21 +71,40 @@ pub fn plan_for(
     ))
 }
 
-/// One pass: plan, send each notification, record what went out. Returns
-/// when to look again.
+/// One pass: plan, send each notification, record what went out. A
+/// notification that fails to show isn't recorded, so the next pass retries
+/// it. Returns when to look again.
 pub fn step(
     findings: &[Finding],
     stored: &UpdatePlan,
     history: &mut History,
     now: &Zoned,
-    mut send: impl FnMut(&Notification),
+    mut send: impl FnMut(&Notification) -> Result<(), String>,
 ) -> Result<Timestamp, String> {
-    let plan = plan_for(findings, stored, history, now)?;
-    for n in &plan.notify {
-        send(n);
+    let mut plan = plan_for(findings, stored, history, now)?;
+    if !plan.install.is_empty() {
+        // Installing by itself isn't built yet; Auto cells only show in the app.
+        eprintln!("wardwatch: not auto-installing yet: {:?}", plan.install);
     }
+    let before = history.tune_up;
+    let mut failed = Vec::new();
+    plan.notify.retain(|n| match send(n) {
+        Ok(()) => true,
+        Err(e) => {
+            eprintln!("wardwatch: could not show a notification: {e}");
+            failed.push(n.kind);
+            false
+        }
+    });
     history.record(&plan, now.timestamp());
-    Ok(plan.next_check)
+    if failed.contains(&NotificationKind::TuneUp) {
+        history.tune_up = before;
+    }
+    if failed.is_empty() {
+        Ok(plan.next_check)
+    } else {
+        Err(format!("{} notification(s) failed", failed.len()))
+    }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -92,14 +121,27 @@ fn history_path<R: Runtime>(app: &AppHandle<R>) -> Result<PathBuf, String> {
         .map_err(|e| format!("no config folder: {e}"))
 }
 
-/// A missing or unreadable file means nothing was sent yet.
-fn load_history(path: &Path) -> History {
-    std::fs::read(path)
+/// A missing or unreadable file means nothing was sent yet. A file from a
+/// newer Wardwatch is an error: it can't be read or overwritten, and treating
+/// it as empty would re-send everything on every pass.
+fn load_history(path: &Path) -> Result<History, String> {
+    let Ok(bytes) = std::fs::read(path) else {
+        return Ok(History::default());
+    };
+    match serde_json::from_slice::<serde_json::Value>(&bytes)
         .ok()
-        .and_then(|bytes| serde_json::from_slice::<StoredHistory>(&bytes).ok())
-        .filter(|s| s.v == HISTORY_VERSION)
-        .map(|s| s.history)
-        .unwrap_or_default()
+        .and_then(|v| v.get("v").and_then(serde_json::Value::as_u64))
+    {
+        Some(v) if v > HISTORY_VERSION => {
+            Err("the nudge history was saved by a newer version of Wardwatch".into())
+        }
+        _ => Ok(serde_json::from_slice::<StoredHistory>(&bytes)
+            .map(|s| s.history)
+            .unwrap_or_else(|_| {
+                eprintln!("wardwatch: starting a fresh nudge history");
+                History::default()
+            })),
+    }
 }
 
 fn save_history(path: &Path, history: History) -> Result<(), String> {
@@ -116,8 +158,8 @@ pub fn current<R: Runtime>(app: &AppHandle<R>) -> Result<NudgePlan, String> {
     let findings = fix::list_findings(app)?;
     let history = {
         let state = app.state::<NudgeState>();
-        let _guard = state.history.lock().map_err(|e| e.to_string())?;
-        load_history(&history_path(app)?)
+        let _guard = state.lock_history();
+        load_history(&history_path(app)?)?
     };
     plan_for(&findings, &stored, &history, &Zoned::now())
 }
@@ -126,22 +168,27 @@ fn run_once<R: Runtime>(app: &AppHandle<R>) -> Result<Timestamp, String> {
     let stored = commands::load_plan(app)?;
     let findings = fix::list_findings(app)?;
     let state = app.state::<NudgeState>();
-    let _guard = state.history.lock().map_err(|e| e.to_string())?;
     let path = history_path(app)?;
-    let mut history = load_history(&path);
-    let next = step(&findings, &stored, &mut history, &Zoned::now(), |n| {
-        if let Err(e) = app
-            .notification()
+    let mut history = {
+        let _guard = state.lock_history();
+        let history = load_history(&path)?;
+        // Make sure what we send can be recorded; otherwise every pass would
+        // send it again.
+        save_history(&path, history.clone())?;
+        history
+    };
+    // Only this loop writes the history, so sending needs no lock.
+    let result = step(&findings, &stored, &mut history, &Zoned::now(), |n| {
+        app.notification()
             .builder()
             .title(&n.title)
             .body(&n.body)
             .show()
-        {
-            eprintln!("wardwatch: could not show a notification: {e}");
-        }
-    })?;
+            .map_err(|e| e.to_string())
+    });
+    let _guard = state.lock_history();
     save_history(&path, history)?;
-    Ok(next)
+    result
 }
 
 fn wait_until(next: Timestamp) -> Duration {
@@ -155,21 +202,28 @@ pub fn spawn<R: Runtime>(app: AppHandle<R>) {
     tauri::async_runtime::spawn(async move {
         loop {
             let handle = app.clone();
-            let wait = match tauri::async_runtime::spawn_blocking(move || run_once(&handle)).await {
-                Ok(Ok(next)) => wait_until(next),
+            let next = match tauri::async_runtime::spawn_blocking(move || run_once(&handle)).await {
+                Ok(Ok(next)) => next,
                 Ok(Err(e)) => {
                     eprintln!("wardwatch: nudges not checked: {e}");
-                    MAX_WAIT
+                    Timestamp::now() + jiff::SignedDuration::from_hours(1)
                 }
                 Err(e) => {
                     eprintln!("wardwatch: nudge check stopped: {e}");
-                    MAX_WAIT
+                    Timestamp::now() + jiff::SignedDuration::from_hours(1)
                 }
             };
+            // Sleep until `next`, checking the clock at least hourly; a saved
+            // plan cuts it short.
             let state = app.state::<NudgeState>();
-            tokio::select! {
-                () = tokio::time::sleep(wait) => {}
-                () = state.wake.notified() => {}
+            while Timestamp::now() < next {
+                tokio::select! {
+                    () = tokio::time::sleep(wait_until(next)) => {}
+                    () = state.wake.notified() => {
+                        tokio::time::sleep(SETTLE).await;
+                        break;
+                    }
+                }
             }
         }
     });
@@ -229,6 +283,7 @@ mod tests {
             &at("2026-11-10T14:00"),
             |n| {
                 sent.push(n.title.clone());
+                Ok(())
             },
         )
         .unwrap();
@@ -240,6 +295,7 @@ mod tests {
             &at("2026-11-10T14:05"),
             |n| {
                 sent.push(n.title.clone());
+                Ok(())
             },
         )
         .unwrap();
@@ -256,7 +312,10 @@ mod tests {
             &UpdatePlan::default(),
             &mut history,
             &at("2026-11-10T23:30"),
-            |_| sent += 1,
+            |_| {
+                sent += 1;
+                Ok(())
+            },
         )
         .unwrap();
         let mut held = UpdatePlan::default();
@@ -272,6 +331,7 @@ mod tests {
             &at("2026-11-10T14:00"),
             |_| {
                 sent += 1;
+                Ok(())
             },
         )
         .unwrap();
@@ -279,18 +339,49 @@ mod tests {
     }
 
     #[test]
+    fn a_failed_notification_is_retried_next_pass() {
+        let findings = [exploited_app()];
+        let plan = UpdatePlan::default();
+        let mut history = History::default();
+        let now = at("2026-11-10T14:00");
+        assert!(
+            step(&findings, &plan, &mut history, &now, |_| Err(
+                "no daemon".into()
+            ))
+            .is_err()
+        );
+        assert!(history.notified.is_empty());
+        let mut sent = 0;
+        step(
+            &findings,
+            &plan,
+            &mut history,
+            &at("2026-11-10T14:05"),
+            |_| {
+                sent += 1;
+                Ok(())
+            },
+        )
+        .unwrap();
+        assert_eq!(sent, 1);
+    }
+
+    #[test]
     fn history_round_trips_and_bad_files_start_fresh() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("nudge-history.json");
-        assert_eq!(load_history(&path), History::default());
+        assert_eq!(load_history(&path).unwrap(), History::default());
         let mut history = History::default();
         history
             .notified
             .insert("zoom".into(), "2026-11-10T19:00:00Z".parse().unwrap());
         save_history(&path, history.clone()).unwrap();
-        assert_eq!(load_history(&path), history);
+        assert_eq!(load_history(&path).unwrap(), history);
         std::fs::write(&path, b"not json").unwrap();
-        assert_eq!(load_history(&path), History::default());
+        assert_eq!(load_history(&path).unwrap(), History::default());
+        // A newer file can't be read or replaced, so nothing gets sent.
+        std::fs::write(&path, br#"{"v":2}"#).unwrap();
+        assert!(load_history(&path).is_err());
     }
 
     #[test]
