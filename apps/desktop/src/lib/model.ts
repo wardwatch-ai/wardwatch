@@ -243,3 +243,15 @@ export interface NudgePlan {
   tune_up_due: boolean;
   next_check: string;
 }
+
+export interface AutoInstall {
+  /** RFC 3339 */
+  at: string;
+  key: string;
+  name: string;
+  from: string;
+  to: string | null;
+  /** installed: done and checked; skipped: waits for you (`why` says why); failed. */
+  result: "installed" | "skipped" | "failed";
+  why: string;
+}

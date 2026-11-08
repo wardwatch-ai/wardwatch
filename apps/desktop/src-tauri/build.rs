@@ -13,6 +13,7 @@ fn main() {
         "get_nudges",
         "get_settings",
         "set_settings",
+        "list_auto_installs",
     ]);
     stamp_build();
 

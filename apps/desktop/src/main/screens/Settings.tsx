@@ -1,10 +1,11 @@
-// Settings: this copy's version, and which release channel updates come from.
+// Settings: this copy's version, which release channel updates come from, and
+// what the Update plan's Auto cells installed by themselves.
 // Opened from the account menu; the five tabs stay as designed.
 import { Button, Card, Eyebrow } from "@wardwatch/ui";
 import { useId, useState } from "react";
-import { useSaveSettings, useSettings } from "../../lib/data";
+import { useAutoInstalls, useSaveSettings, useSettings } from "../../lib/data";
 import { buildDate, releaseLabel } from "../../lib/format";
-import type { AppInfo, ReleaseChannel } from "../../lib/ipc";
+import type { AppInfo, AutoInstall, ReleaseChannel } from "../../lib/ipc";
 import { useAppInfo } from "../../lib/useAppInfo";
 import { Failed, Loading } from "../parts";
 
@@ -52,6 +53,49 @@ function ThisApp({ info, linux }: { info: AppInfo; linux: boolean }) {
           ? "On Linux, Wardwatch updates through your package manager (apt or dnf), like your other software."
           : "Wardwatch will update itself, asking you first, from its first signed release. This copy doesn't update itself yet."}
       </p>
+    </Card>
+  );
+}
+
+const resultLabel: Record<AutoInstall["result"], string> = {
+  installed: "Installed",
+  skipped: "Waiting for you",
+  failed: "Didn't work",
+};
+
+/** Every automatic install, so nothing happens out of sight. */
+function AutoInstalls() {
+  const { data: entries, error } = useAutoInstalls();
+  return (
+    <Card className="flex flex-col gap-2">
+      <Eyebrow>Installed by itself</Eyebrow>
+      {error ? (
+        <Failed error={error} />
+      ) : !entries ? (
+        <Loading />
+      ) : entries.length === 0 ? (
+        <p className="m-0 text-text-muted">
+          Nothing yet. Updates set to “Install by itself” in your Update plan show up here.
+        </p>
+      ) : (
+        <ul className="m-0 flex list-none flex-col gap-2 p-0">
+          {entries.map((e) => (
+            <li key={`${e.at}-${e.key}`} className="flex flex-col">
+              <span>
+                <span className="font-semibold">{e.name}</span>{" "}
+                <span className="ww-mono text-text-muted">
+                  {e.from}
+                  {e.to && ` → ${e.to}`}
+                </span>
+              </span>
+              <span className="text-sm text-text-muted">
+                {resultLabel[e.result]}
+                {e.why && `: ${e.why}`} · {new Date(e.at).toLocaleString()}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
     </Card>
   );
 }
@@ -143,6 +187,7 @@ export function Settings() {
           {save.isError && <p role="alert">Couldn't save your choice: {save.error.message}</p>}
         </Card>
       )}
+      <AutoInstalls />
     </div>
   );
 }

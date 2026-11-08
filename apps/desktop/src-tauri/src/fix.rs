@@ -123,22 +123,53 @@ pub fn run_fix<R: Runtime>(
     shown: &Method,
     progress: impl Fn(Progress),
 ) -> Result<FixResult, String> {
+    // Only run what the person was shown. Comparing is all `shown` is used for.
+    let accept = |_: &Finding, plan: &Plan| {
+        if &plan.method == shown {
+            Ok(())
+        } else {
+            Err("The update plan changed since this page opened. Have another look.".into())
+        }
+    };
+    run_checked(app, source, id, accept, progress).map_err(|r| match r {
+        Refused::Busy => "Another update is already running.".into(),
+        Refused::NotAccepted(why) | Refused::Error(why) => why,
+    })
+}
+
+/// Why [`run_checked`] didn't run an update.
+#[derive(Debug, PartialEq, Eq)]
+pub enum Refused {
+    /// Another update is running.
+    Busy,
+    /// `accept` turned down the fresh plan; says why.
+    NotAccepted(String),
+    Error(String),
+}
+
+/// Scans, plans, and runs the plan only if `accept` takes the program and
+/// plan exactly as just found; then rescans to check. One update at a time.
+pub fn run_checked<R: Runtime>(
+    app: &AppHandle<R>,
+    source: &str,
+    id: &str,
+    accept: impl FnOnce(&Finding, &Plan) -> Result<(), String>,
+    progress: impl Fn(Progress),
+) -> Result<FixResult, Refused> {
     let state = app.state::<FixState>();
     if state.busy.swap(true, Ordering::SeqCst) {
-        return Err("Another update is already running.".into());
+        return Err(Refused::Busy);
     }
     let _busy = Busy(&state.busy);
 
-    let catalog = load_catalog(app)?;
+    let catalog = load_catalog(app).map_err(Refused::Error)?;
     let (inventory, findings) = scan_and_match(&catalog);
-    let finding = find(findings, source, id)
-        .ok_or("Wardwatch has no update information for this program.")?;
+    let finding = find(findings, source, id).ok_or_else(|| {
+        Refused::Error("Wardwatch has no update information for this program.".into())
+    })?;
     let plan = wardwatch_update::plan(&finding, inventory.os.family, &Tools::detect())
-        .map_err(|e| e.to_string())?;
-    // Only run what the person was shown. Comparing is all `shown` is used for.
-    if &plan.method != shown {
-        return Err("The update plan changed since this page opened. Have another look.".into());
-    }
+        .map_err(|e| Refused::Error(e.to_string()))?;
+    accept(&finding, &plan).map_err(Refused::NotAccepted)?;
 
     let outcome = wardwatch_update::run(&plan, &progress);
     if outcome != Outcome::Installed {

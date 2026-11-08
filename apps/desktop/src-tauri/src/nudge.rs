@@ -21,7 +21,7 @@ use wardwatch_nudge::{
 };
 
 use crate::plan::UpdatePlan;
-use crate::{commands, fix, store};
+use crate::{auto, commands, fix, store};
 
 const HISTORY_VERSION: u64 = 1;
 const MIN_WAIT: Duration = Duration::from_secs(60);
@@ -72,20 +72,16 @@ pub fn plan_for(
 }
 
 /// One pass: plan, send each notification, record what went out. A
-/// notification that fails to show isn't recorded, so the next pass retries
-/// it. Returns when to look again.
+/// notification that fails to show isn't recorded, so a pass within the hour
+/// retries it. Returns the plan, whose `next_check` says when to look again.
 pub fn step(
     findings: &[Finding],
     stored: &UpdatePlan,
     history: &mut History,
     now: &Zoned,
     mut send: impl FnMut(&Notification) -> Result<(), String>,
-) -> Result<Timestamp, String> {
+) -> Result<NudgePlan, String> {
     let mut plan = plan_for(findings, stored, history, now)?;
-    if !plan.install.is_empty() {
-        // Installing by itself isn't built yet; Auto cells only show in the app.
-        eprintln!("wardwatch: not auto-installing yet: {:?}", plan.install);
-    }
     let before = history.tune_up;
     let mut failed = Vec::new();
     plan.notify.retain(|n| match send(n) {
@@ -100,11 +96,14 @@ pub fn step(
     if failed.contains(&NotificationKind::TuneUp) {
         history.tune_up = before;
     }
-    if failed.is_empty() {
-        Ok(plan.next_check)
-    } else {
-        Err(format!("{} notification(s) failed", failed.len()))
+    if !failed.is_empty() {
+        // Try the failed ones again within the hour. The plan still goes
+        // back, so Auto doesn't depend on notifications being allowed.
+        plan.next_check = plan
+            .next_check
+            .min(now.timestamp() + jiff::SignedDuration::from_hours(1));
     }
+    Ok(plan)
 }
 
 #[derive(Serialize, Deserialize)]
@@ -180,17 +179,40 @@ fn run_once<R: Runtime>(app: &AppHandle<R>) -> Result<Timestamp, String> {
     // Only this loop writes the history, so sending needs no lock.
     let result = step(&findings, &stored, &mut history, &Zoned::now(), |n| {
         let (what, value) = click_target(n);
-        app.notification()
-            .builder()
-            .title(&n.title)
-            .body(&n.body)
-            .extra(what, value)
-            .show()
-            .map_err(|e| e.to_string())
+        show(app, &n.title, &n.body, what, &value)
     });
-    let _guard = state.lock_history();
-    save_history(&path, history)?;
-    result
+    {
+        let _guard = state.lock_history();
+        save_history(&path, history)?;
+    }
+    let plan = result?;
+    // Auto: what the Update plan installs by itself (outside quiet hours,
+    // never held), under the fix screen's rules. See `auto`.
+    let retry = auto::run(app, &plan.install, &findings, |title, body, key| {
+        if let Err(e) = show(app, title, body, KEY, key) {
+            eprintln!("wardwatch: could not show a notification: {e}");
+        }
+    })?;
+    // The engine doesn't wake for Auto programs, so come back for any that
+    // didn't install.
+    Ok(retry.map_or(plan.next_check, |at| at.min(plan.next_check)))
+}
+
+/// Shows a system notification; `what` = `value` says what a click opens.
+fn show<R: Runtime>(
+    app: &AppHandle<R>,
+    title: &str,
+    body: &str,
+    what: &str,
+    value: &str,
+) -> Result<(), String> {
+    app.notification()
+        .builder()
+        .title(title)
+        .body(body)
+        .extra(what, value)
+        .show()
+        .map_err(|e| e.to_string())
 }
 
 /// The `extra` keys that say what a notification is about: one program's
@@ -426,13 +448,12 @@ mod tests {
         let plan = UpdatePlan::default();
         let mut history = History::default();
         let now = at("2026-11-10T14:00");
-        assert!(
-            step(&findings, &plan, &mut history, &now, |_| Err(
-                "no daemon".into()
-            ))
-            .is_err()
-        );
+        let first = step(&findings, &plan, &mut history, &now, |_| {
+            Err("no daemon".into())
+        })
+        .unwrap();
         assert!(history.notified.is_empty());
+        assert!(first.next_check <= now.timestamp() + jiff::SignedDuration::from_hours(1));
         let mut sent = 0;
         step(
             &findings,
