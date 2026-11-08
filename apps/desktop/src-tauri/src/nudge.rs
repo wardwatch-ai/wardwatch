@@ -179,13 +179,7 @@ fn run_once<R: Runtime>(app: &AppHandle<R>) -> Result<Timestamp, String> {
     // Only this loop writes the history, so sending needs no lock.
     let result = step(&findings, &stored, &mut history, &Zoned::now(), |n| {
         let (what, value) = click_target(n);
-        app.notification()
-            .builder()
-            .title(&n.title)
-            .body(&n.body)
-            .extra(what, value)
-            .show()
-            .map_err(|e| e.to_string())
+        show(app, &n.title, &n.body, what, &value)
     });
     {
         let _guard = state.lock_history();
@@ -194,19 +188,31 @@ fn run_once<R: Runtime>(app: &AppHandle<R>) -> Result<Timestamp, String> {
     let plan = result?;
     // Auto: what the Update plan installs by itself (outside quiet hours,
     // never held), under the fix screen's rules. See `auto`.
-    auto::run(app, &plan.install, &findings, |title, body, key| {
-        if let Err(e) = app
-            .notification()
-            .builder()
-            .title(title)
-            .body(body)
-            .extra(KEY, key)
-            .show()
-        {
+    let retry = auto::run(app, &plan.install, &findings, |title, body, key| {
+        if let Err(e) = show(app, title, body, KEY, key) {
             eprintln!("wardwatch: could not show a notification: {e}");
         }
     })?;
-    Ok(plan.next_check)
+    // The engine doesn't wake for Auto programs, so come back for any that
+    // didn't install.
+    Ok(retry.map_or(plan.next_check, |at| at.min(plan.next_check)))
+}
+
+/// Shows a system notification; `what` = `value` says what a click opens.
+fn show<R: Runtime>(
+    app: &AppHandle<R>,
+    title: &str,
+    body: &str,
+    what: &str,
+    value: &str,
+) -> Result<(), String> {
+    app.notification()
+        .builder()
+        .title(title)
+        .body(body)
+        .extra(what, value)
+        .show()
+        .map_err(|e| e.to_string())
 }
 
 /// The `extra` keys that say what a notification is about: one program's

@@ -4,14 +4,16 @@
 //!
 //! The rules, on top of the engine's (outside quiet hours, never for a held
 //! program):
-//! - Only one-click package-manager updates that need no password. Anything
-//!   that would show an OS permission prompt, open an app or the OS's update
-//!   screen, or touch a program that's open, waits for the person instead,
-//!   with a notification that says why.
-//! - It runs through `fix::run_fix`, which rescans, replans, and refuses if
-//!   the plan differs from the one decided here; the updater never removes
-//!   packages; and only a rescan that finds the hole closed counts as fixed.
-//! - A program that failed or was skipped isn't tried again for a day.
+//! - Only one-click package-manager updates that need no password, while
+//!   the device is plugged in. Anything that would show an OS permission
+//!   prompt, open an app or the OS's update screen, or touch a program that's
+//!   open, waits for the person instead, with a notification that says why.
+//! - It runs through `fix::run_checked`, the fix screen's runner: those rules
+//!   are judged on the plan and program from the scan that runs it, the
+//!   updater never removes packages, and only a rescan that finds the hole
+//!   closed counts as fixed.
+//! - A program that failed or was skipped isn't tried again for a day; one
+//!   that waited on another update is tried again in a few minutes.
 
 use std::path::{Path, PathBuf};
 
@@ -19,7 +21,7 @@ use jiff::{SignedDuration, Timestamp};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager, Runtime};
 use wardwatch_feed::Finding;
-use wardwatch_update::{Admin, Check, Method, NoPlan, Outcome, Plan};
+use wardwatch_update::{Admin, Check, Method, Outcome, Plan};
 
 use crate::{fix, store};
 
@@ -68,12 +70,21 @@ fn load(path: &Path) -> Result<Vec<Entry>, String> {
     let Ok(bytes) = std::fs::read(path) else {
         return Ok(Vec::new());
     };
-    let log: Log = serde_json::from_slice(&bytes)
-        .map_err(|e| format!("the automatic install log is unreadable: {e}"))?;
-    if log.v > LOG_VERSION {
-        return Err("the automatic install log was saved by a newer version of Wardwatch".into());
+    match serde_json::from_slice::<serde_json::Value>(&bytes)
+        .ok()
+        .and_then(|v| v.get("v").and_then(serde_json::Value::as_u64))
+    {
+        Some(v) if v > LOG_VERSION => {
+            Err("the automatic install log was saved by a newer version of Wardwatch".into())
+        }
+        // A damaged log starts again rather than stopping Auto for good.
+        _ => Ok(serde_json::from_slice::<Log>(&bytes)
+            .map(|log| log.entries)
+            .unwrap_or_else(|_| {
+                eprintln!("wardwatch: starting a fresh automatic install log");
+                Vec::new()
+            })),
     }
-    Ok(log.entries)
 }
 
 fn save(path: &Path, mut entries: Vec<Entry>) -> Result<(), String> {
@@ -94,8 +105,8 @@ pub fn entries<R: Runtime>(app: &AppHandle<R>) -> Result<Vec<Entry>, String> {
 }
 
 /// Whether this plan may run without the person: one click, no password
-/// prompt, nothing to open, and the program isn't in use. `Err` says what the
-/// person needs to do instead.
+/// prompt, nothing to open, and the program isn't in use. `Err` says what the person needs to do instead. Checked on the
+/// plan and program exactly as the scan that runs it found them.
 pub fn allowed(finding: &Finding, plan: &Plan) -> Result<(), String> {
     if !matches!(plan.method, Method::Command { .. }) || !plan.one_click {
         return Err(format!("{} updates it, and you finish it there", plan.by));
@@ -109,13 +120,55 @@ pub fn allowed(finding: &Finding, plan: &Plan) -> Result<(), String> {
     Ok(())
 }
 
-/// Whether `key` was tried (and didn't install) within [`RETRY_AFTER`].
-fn waiting(entries: &[Entry], key: &str, now: Timestamp) -> bool {
-    entries
-        .iter()
-        .rev()
-        .find(|e| e.key == key)
-        .is_some_and(|e| e.result != Status::Installed && now.duration_since(e.at) < RETRY_AFTER)
+/// [`allowed`], and the device is plugged in.
+fn allowed_now(finding: &Finding, plan: &Plan) -> Result<(), String> {
+    allowed(finding, plan)?;
+    if on_battery() {
+        return Err("it waits until your device is plugged in".into());
+    }
+    Ok(())
+}
+
+/// Whether the device is running on battery. Where we can't tell, it counts
+/// as on battery, so Auto waits for the person.
+fn on_battery() -> bool {
+    if cfg!(target_os = "macos") {
+        // First line: "Now drawing from 'AC Power'" or "'Battery Power'".
+        return std::process::Command::new("/usr/bin/pmset")
+            .args(["-g", "batt"])
+            .output()
+            .map_or(true, |o| {
+                !String::from_utf8_lossy(&o.stdout).contains("'AC Power'")
+            });
+    }
+    if cfg!(target_os = "linux") {
+        return linux_on_battery(Path::new("/sys/class/power_supply"));
+    }
+    true
+}
+
+/// On battery when there's a battery and no mains supply online. A desktop
+/// with no battery is plugged in.
+fn linux_on_battery(dir: &Path) -> bool {
+    let read = |p: PathBuf| std::fs::read_to_string(p).unwrap_or_default();
+    let mut battery = false;
+    for supply in std::fs::read_dir(dir).into_iter().flatten().flatten() {
+        let path = supply.path();
+        match read(path.join("type")).trim() {
+            "Mains" if read(path.join("online")).trim() == "1" => return false,
+            "Battery" => battery = true,
+            _ => {}
+        }
+    }
+    battery
+}
+
+/// When `key` may be tried again, if its last try (that didn't install) was
+/// within [`RETRY_AFTER`]. A time in the future (the clock moved back) doesn't count.
+fn retry_at(entries: &[Entry], key: &str, now: Timestamp) -> Option<Timestamp> {
+    let last = entries.iter().rev().find(|e| e.key == key)?;
+    let at = last.at + RETRY_AFTER;
+    (last.result != Status::Installed && last.at <= now && now < at).then_some(at)
 }
 
 /// What the person is told about one automatic install.
@@ -151,9 +204,13 @@ fn describe(result: &fix::FixResult) -> (Status, String) {
         (Outcome::Installed, Some(Check::Closed | Check::OnlyUnfixedLeft)) => {
             (Status::Installed, String::new())
         }
-        (Outcome::Installed, _) => (
+        (Outcome::Installed, Some(Check::StillOpen)) => (
             Status::Failed,
             "it installed, but the hole still shows as open".into(),
+        ),
+        (Outcome::Installed, _) => (
+            Status::Failed,
+            "it installed, but Wardwatch couldn't find it again to check".into(),
         ),
         (Outcome::NeedsMoreChanges { .. }, _) => (
             Status::Skipped,
@@ -168,60 +225,67 @@ fn describe(result: &fix::FixResult) -> (Status, String) {
     }
 }
 
+/// How soon to look again after another update was running.
+const BUSY_RETRY: SignedDuration = SignedDuration::from_mins(5);
+
 /// Installs each of `keys` that's allowed, logs every attempt or skip, and
 /// tells the person through `notify` (title, body, the program's key).
+/// Returns when a program that didn't install should be tried again.
 pub fn run<R: Runtime>(
     app: &AppHandle<R>,
     keys: &[String],
     findings: &[Finding],
     mut notify: impl FnMut(&str, &str, &str),
-) -> Result<(), String> {
+) -> Result<Option<Timestamp>, String> {
     if keys.is_empty() {
-        return Ok(());
+        return Ok(None);
     }
     let path = log_path(app)?;
     let mut entries = load(&path)?;
     // Make sure attempts can be logged before making any.
     save(&path, entries.clone())?;
+    let mut next: Option<Timestamp> = None;
+    let mut retry = |at: Timestamp| next = Some(next.map_or(at, |n| n.min(at)));
     for key in keys {
         let now = Timestamp::now();
         let Some(finding) = findings.iter().find(|f| &f.key == key) else {
             continue;
         };
-        if waiting(&entries, key, now) || fix::is_busy(app) {
+        if let Some(at) = retry_at(&entries, key, now) {
+            retry(at);
             continue;
         }
-        let view = fix::get_fix(app, &finding.source, &finding.software_id)?;
-        let mut entry = Entry {
+        // `allowed_now` judges the plan and program from run_checked's own scan,
+        // so what it approves is exactly what runs.
+        let ran = fix::run_checked(
+            app,
+            &finding.source,
+            &finding.software_id,
+            allowed_now,
+            |_| {},
+        );
+        let (result, why) = match ran {
+            Ok(result) => describe(&result),
+            Err(fix::Refused::Busy) => {
+                // The fix screen is updating something; not a failure.
+                retry(now + BUSY_RETRY);
+                continue;
+            }
+            Err(fix::Refused::NotAccepted(why)) => (Status::Skipped, why),
+            Err(fix::Refused::Error(why)) => (Status::Failed, why),
+        };
+        if result != Status::Installed {
+            retry(now + RETRY_AFTER);
+        }
+        let entry = Entry {
             at: now,
             key: key.clone(),
-            name: view.finding.app_name.clone(),
-            from: view.finding.installed.clone(),
-            to: view
-                .finding
-                .fixed_version
-                .clone()
-                .or(view.finding.latest.clone()),
-            result: Status::Skipped,
-            why: String::new(),
+            name: finding.app_name.clone(),
+            from: finding.installed.clone(),
+            to: finding.fixed_version.clone().or(finding.latest.clone()),
+            result,
+            why,
         };
-        let decision = match (&view.plan, &view.no_plan) {
-            (Some(plan), _) => allowed(&view.finding, plan).map(|()| plan.method.clone()),
-            (None, no_plan) => Err(no_plan.as_ref().map_or_else(
-                || "there's no way to update it here".into(),
-                NoPlan::to_string,
-            )),
-        };
-        match decision {
-            Err(why) => entry.why = why,
-            // run_fix replans from a fresh scan and refuses if `method` differs.
-            Ok(method) => {
-                match fix::run_fix(app, &finding.source, &finding.software_id, &method, |_| {}) {
-                    Ok(result) => (entry.result, entry.why) = describe(&result),
-                    Err(e) => (entry.result, entry.why) = (Status::Failed, e),
-                }
-            }
-        }
         eprintln!(
             "wardwatch: automatic install of {key}: {:?} {}",
             entry.result, entry.why
@@ -231,7 +295,7 @@ pub fn run<R: Runtime>(
         entries.push(entry);
         save(&path, entries.clone())?;
     }
-    Ok(())
+    Ok(next)
 }
 
 #[cfg(test)]
@@ -315,12 +379,37 @@ mod tests {
     fn failed_or_skipped_programs_wait_a_day() {
         let now: Timestamp = "2026-11-10T12:00:00Z".parse().unwrap();
         let log = [entry("zoom", Status::Skipped, "2026-11-10T08:00:00Z")];
-        assert!(waiting(&log, "zoom", now));
-        assert!(!waiting(&log, "vlc", now));
+        assert_eq!(
+            retry_at(&log, "zoom", now),
+            Some("2026-11-11T08:00:00Z".parse().unwrap())
+        );
+        assert_eq!(retry_at(&log, "vlc", now), None);
         let old = [entry("zoom", Status::Failed, "2026-11-09T08:00:00Z")];
-        assert!(!waiting(&old, "zoom", now));
+        assert_eq!(retry_at(&old, "zoom", now), None);
         let done = [entry("zoom", Status::Installed, "2026-11-10T08:00:00Z")];
-        assert!(!waiting(&done, "zoom", now));
+        assert_eq!(retry_at(&done, "zoom", now), None);
+        // Logged while the clock was ahead: don't wait on a future time.
+        let ahead = [entry("zoom", Status::Failed, "2026-12-01T08:00:00Z")];
+        assert_eq!(retry_at(&ahead, "zoom", now), None);
+    }
+
+    #[test]
+    fn linux_counts_battery_only_without_mains() {
+        let dir = tempfile::tempdir().unwrap();
+        let supply = |name: &str, kind: &str, online: Option<&str>| {
+            let p = dir.path().join(name);
+            std::fs::create_dir(&p).unwrap();
+            std::fs::write(p.join("type"), kind).unwrap();
+            if let Some(o) = online {
+                std::fs::write(p.join("online"), o).unwrap();
+            }
+        };
+        assert!(!linux_on_battery(dir.path()), "a desktop has no battery");
+        supply("BAT0", "Battery\n", None);
+        supply("AC", "Mains\n", Some("0\n"));
+        assert!(linux_on_battery(dir.path()));
+        std::fs::write(dir.path().join("AC/online"), "1\n").unwrap();
+        assert!(!linux_on_battery(dir.path()));
     }
 
     #[test]
@@ -339,6 +428,11 @@ mod tests {
         let back = load(&path).unwrap();
         assert_eq!(back.len(), LOG_LIMIT);
         assert_eq!(back[0].from, "5");
+        std::fs::write(&path, b"{not json").unwrap();
+        assert!(
+            load(&path).unwrap().is_empty(),
+            "a damaged log starts again"
+        );
         std::fs::write(&path, br#"{"v":2,"entries":[]}"#).unwrap();
         assert!(load(&path).is_err());
     }

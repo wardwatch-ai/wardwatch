@@ -65,11 +65,15 @@ const resultLabel: Record<AutoInstall["result"], string> = {
 
 /** Every automatic install, so nothing happens out of sight. */
 function AutoInstalls() {
-  const { data: entries } = useAutoInstalls();
+  const { data: entries, error } = useAutoInstalls();
   return (
     <Card className="flex flex-col gap-2">
       <Eyebrow>Installed by itself</Eyebrow>
-      {!entries || entries.length === 0 ? (
+      {error ? (
+        <Failed error={error} />
+      ) : !entries ? (
+        <Loading />
+      ) : entries.length === 0 ? (
         <p className="m-0 text-text-muted">
           Nothing yet. Updates set to “Install by itself” in your Update plan show up here.
         </p>
