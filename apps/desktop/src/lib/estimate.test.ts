@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { daysToSunday, pointsForFixingNow } from "./estimate";
+import { daysToSunday, pendingFix, pointsForFixingNow } from "./estimate";
+import type { Program } from "./programs";
 
 const sums = { total: 40, in_time: 36, speed: 31.2 }; // 90 up to date, 78 fix speed: 84
 const chrome = { exploited: true, severity: "high" as const, popular: true };
@@ -33,5 +34,31 @@ describe("daysToSunday", () => {
     expect(daysToSunday(new Date(2026, 10, 8))).toBe(0); // Sunday
     expect(daysToSunday(new Date(2026, 10, 9))).toBe(6); // Monday
     expect(daysToSunday(new Date(2026, 10, 14))).toBe(1); // Saturday
+  });
+});
+
+describe("pendingFix", () => {
+  const program = (vulns: Program["vulns"], state: Program["state"] = "update") =>
+    ({ kind: "apps", state, vulns }) as Program;
+  const vuln = (severity: Program["vulns"][number]["severity"]) => ({
+    id: "CVE-1",
+    summary: "",
+    severity,
+    exploited: false,
+  });
+
+  it("skips updates that fix no known hole", () => {
+    expect(pendingFix(program([]))).toBeNull();
+  });
+
+  it("takes the worst hole, and treats unrated holes as moderate", () => {
+    expect(pendingFix(program([vuln("low"), vuln("high")]))?.severity).toBe("high");
+    const unrated = pendingFix(program([vuln(null)]));
+    expect(unrated?.severity).toBe("unknown");
+    // Scored like a moderate fix: same as a medium one.
+    const medium = pendingFix(program([vuln("medium")]));
+    expect(unrated && medium && pointsForFixingNow(sums, 1, [unrated], 10)).toBe(
+      medium && pointsForFixingNow(sums, 1, [medium], 10),
+    );
   });
 });

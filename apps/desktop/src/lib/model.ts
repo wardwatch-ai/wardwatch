@@ -106,7 +106,7 @@ export type BandName = "At risk" | "Fair" | "Good" | "Excellent";
 
 /** GET /v1/score */
 export type ScoreResponse =
-  | { score: null; patches_scored: 0; algorithm: number }
+  | { score: null; patches_scored: 0; sums?: ScoreSums; algorithm: number }
   | {
       score: number;
       band: BandName;

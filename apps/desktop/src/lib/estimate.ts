@@ -25,8 +25,10 @@ export interface PendingFix {
 function scoreSeverity(p: PendingFix): Severity {
   if (p.exploited) return "exploited";
   if (p.severity === "critical" || p.severity === "high") return "serious";
-  if (p.severity === "medium") return "moderate";
-  return "minor";
+  if (p.severity === "low") return "minor";
+  // Medium, unknown or unrated: moderate, as the nudge engine treats unknown
+  // severity (crates/wardwatch-nudge), never assumed minor.
+  return "moderate";
 }
 
 function score(w: ScoreSums): number {
@@ -69,12 +71,21 @@ export function daysToSunday(now: Date): number {
   return (7 - now.getDay()) % 7;
 }
 
-const levelSeverity = { 3: "high", 2: "medium", 1: "low" } as const;
+const rank: Record<FeedSeverity, number> = { critical: 4, high: 3, medium: 2, unknown: 1, low: 0 };
 
-export function pendingFix(p: Program): PendingFix {
-  return {
-    exploited: p.state === "urgent",
-    severity: levelSeverity[p.severity],
-    popular: p.kind !== "apps",
-  };
+/**
+ * The pending update as the scorer would see it, or null when it fixes no known
+ * hole (scores only count security fixes). Severity is its worst hole's.
+ */
+export function pendingFix(p: Program): PendingFix | null {
+  if (p.vulns.length === 0) return null;
+  const worst = p.vulns
+    .map((v) => v.severity ?? "unknown")
+    .reduce((a, b) => (rank[b] > rank[a] ? b : a));
+  return { exploited: p.state === "urgent", severity: worst, popular: p.kind !== "apps" };
+}
+
+/** pendingFix for each program that has one. */
+export function pendingFixes(programs: Program[]): PendingFix[] {
+  return programs.flatMap((p) => pendingFix(p) ?? []);
 }

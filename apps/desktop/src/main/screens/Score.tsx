@@ -1,7 +1,7 @@
 // Score (Score 6): score card, "Raise your score" under it, devices on the right.
 import { ActGlyph, BandBar, Button, Card, Eyebrow, OkGlyph, SubscoreBar } from "@wardwatch/ui";
 import { useDevice, useDevices, useScore } from "../../lib/data";
-import { daysToSunday, pendingFix, pointsForFixingNow } from "../../lib/estimate";
+import { daysToSunday, pendingFixes, pointsForFixingNow } from "../../lib/estimate";
 import { type Program, listNames } from "../../lib/programs";
 import { worstSeverity } from "../../lib/format";
 import { Failed, Loading, UpdateButton } from "../parts";
@@ -93,8 +93,8 @@ function RaiseYourScore() {
   const { status, inventory } = useDevice();
   const score = useScore().data;
   const estimate = (programs: Program[], laterDays: number) =>
-    score && score.score !== null
-      ? pointsForFixingNow(score.sums, score.algorithm, programs.map(pendingFix), laterDays)
+    score
+      ? pointsForFixingNow(score.sums, score.algorithm, pendingFixes(programs), laterDays)
       : null;
   const devices = useDevices().data ?? [];
   const remote = devices.filter((d) => !d.current && d.remote_fix);
@@ -118,6 +118,8 @@ function RaiseYourScore() {
           <Card key="tune-up" className="flex h-full flex-col gap-2.5">
             <MoveTitle
               title="Do the tune-up early"
+              // Counts everything waiting as due Sunday; monthly and automatic
+              // slots would gain more. TODO: use each program's plan slot.
               points={estimate(status.waiting, daysToSunday(new Date()))}
             />
             <div className="text-sm">

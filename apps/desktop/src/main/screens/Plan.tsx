@@ -17,8 +17,9 @@ import {
 } from "../../lib/plan";
 import { Failed, Loading } from "../parts";
 
-// As in the design (Plan 4): each timing has its own tint and icon, so the grid
-// reads at a glance; the label carries the meaning.
+// As in the approved design (Plan 4): each timing has its own tint and icon, so the
+// grid reads at a glance; the label carries the meaning. Same day uses the amber
+// tint there, though amber otherwise means "exploited now" (brand rule 6).
 const cellTone: Record<Timing, string> = {
   same_day: "bg-act-tint",
   sunday_tuneup: "bg-sel",

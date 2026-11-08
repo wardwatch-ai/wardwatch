@@ -195,7 +195,7 @@ function Podium({ rows }: { rows: LeaderboardRow[] }) {
   // its label colour is picked for its own fill: band-3 is light in dark mode too.
   const steps = [
     "h-[76px] bg-band-2 text-text",
-    "h-[96px] bg-band-3 text-[#23211F]",
+    "h-[96px] bg-band-3 text-on-act",
     "h-[62px] bg-band-1 text-text",
   ];
   return (
