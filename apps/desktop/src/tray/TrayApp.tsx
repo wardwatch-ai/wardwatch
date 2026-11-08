@@ -42,7 +42,7 @@ function minutesAgo(at: number) {
 }
 
 function TopCard({ status }: { status: DeviceStatus }) {
-  const urgent = status.urgent[0];
+  const urgent = status.attack[0];
   if (urgent) {
     return (
       <Card tone="urgent" className="mx-3 flex flex-col gap-2.5 p-3.5">
@@ -66,18 +66,18 @@ function TopCard({ status }: { status: DeviceStatus }) {
       </Card>
     );
   }
-  if (status.waiting.length > 0) {
+  if (status.tuneUp.length > 0) {
     return (
       <Card tone="inset" className="mx-3 flex flex-col gap-2.5 p-3.5">
         <Eyebrow>Sunday tune-up</Eyebrow>
-        <div className="text-[15px] font-semibold">{listNames(status.waiting)}</div>
+        <div className="text-[15px] font-semibold">{listNames(status.tuneUp)}</div>
         <div className="text-[13px] text-text-muted">
           Routine updates, no rush. We'll remind you Sunday morning.
         </div>
         <div className="flex gap-2">
           <Button
             variant="quiet"
-            severity={worstSeverity(status.waiting)}
+            severity={worstSeverity(status.tuneUp)}
             className="flex-1 bg-surface"
             onClick={open("/fix/tune-up")}
           >
@@ -146,20 +146,22 @@ export function TrayApp() {
   const { status, error, checkedAt } = useDevice();
   const headline = !status
     ? "Wardwatch"
-    : status.urgent.length > 0
-      ? status.urgent.length === 1
+    : status.attack.length > 0
+      ? status.attack.length === 1
         ? "One thing needs you"
-        : `${String(status.urgent.length)} things need you`
-      : status.checked
-        ? "All clear"
-        : "Not checked yet";
+        : `${String(status.attack.length)} things need you`
+      : status.quietAttack.length > 0
+        ? "Worth doing soon"
+        : status.checked
+          ? "All clear"
+          : "Not checked yet";
   const item =
     "flex min-h-11 w-full cursor-pointer items-center rounded-lg border-0 bg-transparent px-3 text-left text-sm text-text hover:bg-sel";
 
   return (
     <div className="flex min-h-screen flex-col bg-surface">
       <div className="flex items-center gap-3 px-4 pb-3 pt-4">
-        <Lighthouse beams={(status?.urgent.length ?? 0) > 0} size={40} />
+        <Lighthouse beams={(status?.attack.length ?? 0) > 0} size={40} />
         <div className="flex-1">
           <h1 className="text-lg">{headline}</h1>
           <div className="text-xs text-text-muted">

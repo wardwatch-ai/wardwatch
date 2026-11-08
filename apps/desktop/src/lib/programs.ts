@@ -1,6 +1,6 @@
 // Turns the inventory, findings and holds into what the screens show for each program.
 import type { Severity } from "@wardwatch/ui";
-import type { FeedSeverity, Finding, Hold, Inventory, Kind, Source, Vuln } from "./model";
+import type { FeedSeverity, Finding, Hold, Inventory, Kind, Source, TopCard, Vuln } from "./model";
 
 /**
  * What a program's detail corner shows (design spec, Apps):
@@ -14,6 +14,8 @@ export type ProgramState = "urgent" | "update" | "held" | "current" | "unknown";
 
 export interface Program {
   key: string;
+  /** The matching finding's key (catalog app id), which the nudge plan uses. */
+  finding: string | null;
   /** For /fix/:source/:id and holds. The OS uses source "os". */
   source: Source | "os";
   id: string;
@@ -100,6 +102,7 @@ export function buildPrograms(
       const state = stateOf(f, since !== null);
       return {
         ...e,
+        finding: f?.key ?? null,
         state,
         latest: f?.latest ?? null,
         severity: f && f.vulns.length > 0 ? meterLevel(f.severity) : 1,
@@ -116,12 +119,26 @@ export interface DeviceStatus {
   /** Waiting for the Sunday tune-up (or a later slot). */
   waiting: Program[];
   held: Program[];
+  /** What leads Home and the tray: being exploited, and not held back by the nudge engine. */
+  attack: Program[];
+  /** Being exploited, but not leading (its broad alert awaits approval, or it's held). */
+  quietAttack: Program[];
+  /** Everything the tune-up covers: quiet exploited ones (unless held), then the waiting ones. */
+  tuneUp: Program[];
   total: number;
   current: number;
   byKind: Record<Kind, { total: number; current: number; urgent: Program[]; programs: Program[] }>;
 }
 
-export function summarize(programs: Program[], checked: boolean): DeviceStatus {
+/**
+ * `top` is the nudge engine's top card. Without one (nothing to plan from), every
+ * exploited program leads.
+ */
+export function summarize(
+  programs: Program[],
+  checked: boolean,
+  top: TopCard | null = null,
+): DeviceStatus {
   const byKind: DeviceStatus["byKind"] = {
     system: { total: 0, current: 0, urgent: [], programs: [] },
     browsers: { total: 0, current: 0, urgent: [], programs: [] },
@@ -134,11 +151,27 @@ export function summarize(programs: Program[], checked: boolean): DeviceStatus {
     if (p.state === "current") k.current += 1;
     if (p.state === "urgent") k.urgent.push(p);
   }
+  const urgent = programs.filter((p) => p.state === "urgent");
+  const waiting = programs.filter((p) => p.state === "update");
+  const leads = top?.kind === "under_attack" ? new Set(top.keys) : new Set<string>();
+  // One program per finding, so several installs of one app lead once.
+  const seen = new Set<string>();
+  const attack = top
+    ? urgent.filter((p) => {
+        if (p.finding === null || !leads.has(p.finding) || seen.has(p.finding)) return false;
+        seen.add(p.finding);
+        return true;
+      })
+    : urgent;
+  const quietAttack = urgent.filter((p) => !attack.includes(p));
   return {
     checked,
-    urgent: programs.filter((p) => p.state === "urgent"),
-    waiting: programs.filter((p) => p.state === "update"),
+    urgent,
+    waiting,
     held: programs.filter((p) => p.state === "held"),
+    attack,
+    quietAttack,
+    tuneUp: [...quietAttack.filter((p) => p.heldSince === null), ...waiting],
     total: programs.length,
     current: programs.filter((p) => p.state === "current").length,
     byKind,

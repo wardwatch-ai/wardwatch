@@ -3,13 +3,14 @@ import { ActGlyph, BandBar, Button, Card, Eyebrow, Lighthouse, OkGlyph } from "@
 import { Link, useNavigate } from "react-router";
 import { useDevice, useDevices, useGroupGlance, useScore } from "../../lib/data";
 import type { Kind } from "../../lib/model";
-import { type DeviceStatus, type Program, fixPath, kindLine } from "../../lib/programs";
+import { type DeviceStatus, type Program, fixPath, kindLine, listNames } from "../../lib/programs";
 import { ordinal, versionStep, worstSeverity } from "../../lib/format";
 import { Failed, KindMark, Loading, UpdateButton } from "../parts";
 
 function StatusCard({ status }: { status: DeviceStatus }) {
   const navigate = useNavigate();
-  const top = status.urgent[0];
+  const top = status.attack[0];
+  const quiet = status.quietAttack;
   return (
     <Card
       tone={top ? "urgent" : "default"}
@@ -34,12 +35,21 @@ function StatusCard({ status }: { status: DeviceStatus }) {
                 What's going on?
               </Button>
             </div>
-            {status.urgent.length > 1 && (
+            {status.attack.length > 1 && (
               <p className="m-0 text-sm text-text-muted">
-                {status.urgent.length - 1} more {status.urgent.length === 2 ? "needs" : "need"} you
+                {status.attack.length - 1} more {status.attack.length === 2 ? "needs" : "need"} you
                 too. See <Link to="/apps">Apps</Link>.
               </p>
             )}
+          </>
+        ) : quiet.length > 0 ? (
+          <>
+            <Eyebrow>Worth doing soon</Eyebrow>
+            <h1 className="text-[32px] leading-tight">Update {listNames(quiet)} soon.</h1>
+            <p className="m-0 text-text-muted">
+              Attackers are using a hole in {quiet.length === 1 ? "it" : "them"}. Update from{" "}
+              <Link to="/apps">Apps</Link> when you can.
+            </p>
           </>
         ) : status.checked ? (
           <>
@@ -206,7 +216,7 @@ export function Home() {
         <StatusCard status={status} />
         <ScoreCard />
       </div>
-      {status.waiting.length > 0 && <TuneUp waiting={status.waiting} />}
+      {status.tuneUp.length > 0 && <TuneUp waiting={status.tuneUp} />}
       <div className="flex flex-wrap gap-6">
         <ThisDevice status={status} />
         <OtherDevices />

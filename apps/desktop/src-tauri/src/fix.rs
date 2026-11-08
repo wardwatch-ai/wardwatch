@@ -43,7 +43,7 @@ pub struct FixResult {
 /// Reads the local catalog. Catalogs are unsigned until Wardwatch's keys
 /// exist, and only development builds may trust an unsigned one, so release
 /// builds refuse to load any catalog for now.
-fn load_catalog<R: Runtime>(app: &AppHandle<R>) -> Result<Catalog, String> {
+pub fn load_catalog<R: Runtime>(app: &AppHandle<R>) -> Result<Catalog, String> {
     if !cfg!(debug_assertions) {
         return Err("Wardwatch hasn't received a signed vulnerability catalog yet.".into());
     }

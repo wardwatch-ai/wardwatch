@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   getAppInfo,
   getFix,
+  getNudges,
   getPlan,
   listFindings,
   runFix,
@@ -43,6 +44,7 @@ describe("ipc", () => {
     await showMainWindow("/score");
     await expect(scanInventory()).resolves.toMatchObject({ os: { name: "macOS" } });
     await expect(listFindings()).resolves.not.toBeNull();
+    await expect(getNudges()).resolves.toMatchObject({ top_card: { kind: "under_attack" } });
     await setPlan({ ...samplePlan, holds: [] });
     await expect(getPlan()).resolves.toMatchObject({ holds: [] });
     expect(core.invoke).not.toHaveBeenCalled();
@@ -73,6 +75,8 @@ describe("ipc", () => {
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
     core.invoke.mockRejectedValue("Wardwatch hasn't received a signed vulnerability catalog yet.");
     await expect(listFindings()).resolves.toBeNull();
+    await expect(getNudges()).resolves.toBeNull();
+    expect(core.invoke).toHaveBeenLastCalledWith("get_nudges");
   });
 
   it("names a program to the fix commands and streams progress over a channel", async () => {

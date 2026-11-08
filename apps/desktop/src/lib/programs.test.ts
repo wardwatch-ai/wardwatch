@@ -153,3 +153,30 @@ describe("kindLine", () => {
     expect(line([finding(false)])).toBe("Current");
   });
 });
+
+describe("summarize with the nudge plan", () => {
+  const tuneUp = {
+    kind: "tune_up" as const,
+    keys: ["google-chrome", "zoom"],
+    bars: 3,
+    at: "2026-11-15T10:00:00Z",
+  };
+
+  it("lets the engine's top card decide what leads", () => {
+    const s = summarize(programs(), true, { kind: "under_attack", keys: ["google-chrome"] });
+    expect(s.attack.map((p) => p.name)).toEqual(["Google Chrome"]);
+    expect(s.quietAttack).toEqual([]);
+  });
+
+  it("keeps an exploited program awaiting approval out of the lead, first in the tune-up", () => {
+    const s = summarize(programs(), true, tuneUp);
+    expect(s.attack).toEqual([]);
+    expect(s.quietAttack.map((p) => p.name)).toEqual(["Google Chrome"]);
+    expect(s.tuneUp[0]?.name).toBe("Google Chrome");
+    expect(s.tuneUp).toHaveLength(s.waiting.length + 1);
+  });
+
+  it("falls back to every exploited program without a plan", () => {
+    expect(summarize(programs(), true).attack.map((p) => p.name)).toEqual(["Google Chrome"]);
+  });
+});

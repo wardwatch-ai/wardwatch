@@ -6,6 +6,7 @@
 
 mod commands;
 mod fix;
+mod nudge;
 mod plan;
 mod tray;
 mod windows;
@@ -31,7 +32,8 @@ pub fn run() {
             commands::set_plan,
             commands::list_findings,
             commands::get_fix,
-            commands::run_fix
+            commands::run_fix,
+            commands::get_nudges
         ])
         .setup(|app| {
             tray::create(app.handle())?;
