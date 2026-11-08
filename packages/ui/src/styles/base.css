@@ -1,0 +1,21 @@
+body {
+  margin: 0;
+  background: var(--ww-bg);
+  color: var(--ww-text);
+  font-family: var(--ww-font-body);
+  font-size: 15px;
+  line-height: 1.5;
+}
+h1, h2, h3, .ww-display {
+  font-family: var(--ww-font-display);
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+a { color: var(--ww-link); }
+a:hover { color: var(--ww-text); }
+code, kbd, .ww-mono { font-family: var(--ww-font-mono); font-size: 13px; }
+:focus-visible {
+  outline: 3px solid var(--ww-text);
+  outline-offset: 2px;
+}

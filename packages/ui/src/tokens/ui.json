@@ -1,0 +1,29 @@
+{
+  "$comment": "App-only tokens used by the final design canvas, layered on the brand kit (brand.json, a copy of /brand/tokens.json). Every pair is checked in test/contrast.test.ts. sel is lightened from the canvas (#EADFCB) so muted text on a selected row passes 4.5:1. edge outlines quiet controls at 3:1 or better against every surface (the canvas used line, which is 1.2:1).",
+  "color": {
+    "light": {
+      "link": "#A23B2C",
+      "ok-tint": "#E4EFEA",
+      "sel": "#ECE2CF",
+      "tower": "#23211F",
+      "code": "#EFE7D8",
+      "band-1": "#D9CDB8",
+      "band-2": "#C9D9CF",
+      "band-3": "#86B3A4",
+      "band-4": "#2F6F62",
+      "edge": "#857B6D"
+    },
+    "dark": {
+      "link": "#F0A08C",
+      "ok-tint": "#24352F",
+      "sel": "#3A3632",
+      "tower": "#F3EDE2",
+      "code": "#1B1A18",
+      "band-1": "#4A443D",
+      "band-2": "#3E544B",
+      "band-3": "#5C9583",
+      "band-4": "#7FCFA8",
+      "edge": "#8A8072"
+    }
+  }
+}
