@@ -1,7 +1,7 @@
 // The fix screen's words, built only from what the catalog says, so nothing
 // claims more than we know. Kept apart from the components so it's easy to test.
 import type { Severity as Meter } from "@wardwatch/ui";
-import type { Finding, Plan, Severity } from "../../lib/ipc";
+import type { Finding, Plan, Severity, VulnHit } from "../../lib/ipc";
 
 const crumbs: Record<Finding["kind"], string> = { app: "Apps", os: "System", package: "System" };
 
@@ -111,4 +111,15 @@ export function shellLine(argv: string[]): string {
 
 export function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+const rank: Record<Severity, number> = { critical: 4, high: 3, medium: 2, low: 1, unknown: 0 };
+
+/** The hole to describe first: exploited before not, then by severity. Vulns arrive newest first. */
+export function worstVuln(f: Finding): VulnHit | undefined {
+  return f.vulns.reduce<VulnHit | undefined>((best, v) => {
+    if (!best) return v;
+    const key = (x: VulnHit) => (x.exploited ? 10 : 0) + rank[x.severity];
+    return key(v) > key(best) ? v : best;
+  }, undefined);
 }

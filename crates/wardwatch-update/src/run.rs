@@ -43,6 +43,10 @@ pub enum Outcome {
     NothingNewer {
         tail: Vec<String>,
     },
+    /// The upgrade needs other packages removed, which we never do. Nothing changed.
+    NeedsMoreChanges {
+        tail: Vec<String>,
+    },
     Failed {
         message: String,
         tail: Vec<String>,
@@ -94,7 +98,7 @@ fn run_command(tool: Tool, argv: &[String], progress: &mut impl FnMut(Progress))
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
-        // Plain, untranslated output so progress matching works.
+        // Plain, untranslated output so the messages we look for match.
         .env("LC_ALL", "C")
         .env("HOMEBREW_NO_ENV_HINTS", "1")
         .env("HOMEBREW_NO_EMOJI", "1");
@@ -129,41 +133,27 @@ fn run_command(tool: Tool, argv: &[String], progress: &mut impl FnMut(Progress))
     .collect();
     drop(tx);
 
-    progress(Progress::Step {
-        step: 0,
-        state: StepState::Working,
-    });
-    let mut at = 0;
+    // The updaters don't report their phases reliably (some print "Upgrading"
+    // before downloading), so the three steps they cover run together and
+    // only finish when the updater says it succeeded.
+    for step in 0..3 {
+        progress(Progress::Step {
+            step,
+            state: StepState::Working,
+        });
+    }
     let mut tail: Vec<String> = Vec::new();
     let deadline = Instant::now() + TIMEOUT;
-    let mut timed_out = false;
     loop {
         match rx.recv_timeout(deadline.saturating_duration_since(Instant::now())) {
             Ok(line) => {
-                if let Some(step) = step_for(tool, &line).filter(|&s| s > at) {
-                    for done in at..step {
-                        progress(Progress::Step {
-                            step: done,
-                            state: StepState::Done,
-                        });
-                    }
-                    at = step;
-                    progress(Progress::Step {
-                        step,
-                        state: StepState::Working,
-                    });
-                }
                 if tail.len() == TAIL_LINES {
                     tail.remove(0);
                 }
                 tail.push(line);
             }
             Err(mpsc::RecvTimeoutError::Disconnected) => break,
-            Err(mpsc::RecvTimeoutError::Timeout) => {
-                timed_out = true;
-                let _ = child.kill();
-                break;
-            }
+            Err(mpsc::RecvTimeoutError::Timeout) => return timed_out(tool, &mut child, tail),
         }
     }
     for r in readers {
@@ -173,17 +163,12 @@ fn run_command(tool: Tool, argv: &[String], progress: &mut impl FnMut(Progress))
         Ok(s) => s,
         Err(e) => return failed(format!("lost track of {}: {e}", tool.label()), tail),
     };
-    if timed_out {
-        return failed(
-            format!(
-                "{} took longer than 30 minutes, so we stopped it",
-                tool.label()
-            ),
-            tail,
-        );
-    }
     if status.success() {
-        for step in at..3 {
+        // apt exits 0 when its package lists don't know the new version yet.
+        if tool == Tool::Apt && says(&tail, &["is already the newest version"]) {
+            return Outcome::NothingNewer { tail };
+        }
+        for step in 0..3 {
             progress(Progress::Step {
                 step,
                 state: StepState::Done,
@@ -195,9 +180,22 @@ fn run_command(tool: Tool, argv: &[String], progress: &mut impl FnMut(Progress))
         // pkexec: 126 = the person dismissed the prompt, 127 = not authorized.
         (Tool::Apt | Tool::Dnf, Some(126)) => Outcome::Cancelled,
         (Tool::Apt | Tool::Dnf, Some(127)) => failed(
-            "your system didn't allow the update. You may need an administrator.".into(),
+            "your system didn't allow the update. You may need an administrator".into(),
             tail,
         ),
+        // `--no-remove`: the upgrade would have removed other packages.
+        (Tool::Apt, _) if says(&tail, &["remove is disabled"]) => {
+            Outcome::NeedsMoreChanges { tail }
+        }
+        // snapd and the Flatpak system helper ask through polkit themselves.
+        (Tool::Snap | Tool::Flatpak, _)
+            if says(
+                &tail,
+                &["access denied", "not authorized", "authorization failed"],
+            ) =>
+        {
+            Outcome::Cancelled
+        }
         // APPINSTALLER_CLI_ERROR_UPDATE_NOT_APPLICABLE: winget has nothing newer yet.
         (Tool::Winget, Some(-1_978_335_189)) => Outcome::NothingNewer { tail },
         (_, code) => failed(
@@ -209,6 +207,35 @@ fn run_command(tool: Tool, argv: &[String], progress: &mut impl FnMut(Progress))
             tail,
         ),
     }
+}
+
+/// After [`TIMEOUT`]: stop waiting, and say honestly what happened. An
+/// updater running as root (through pkexec) can't be stopped by us, and an
+/// updater's own child processes may outlive it, so the reader threads are
+/// left to finish on their own rather than joined.
+fn timed_out(tool: Tool, child: &mut std::process::Child, tail: Vec<String>) -> Outcome {
+    let message = match tool {
+        Tool::Apt | Tool::Dnf => format!(
+            "{} is still running after 30 minutes. We stopped waiting; it will finish on its own",
+            tool.label()
+        ),
+        _ => {
+            let _ = child.kill();
+            format!(
+                "{} took longer than 30 minutes, so we asked it to stop",
+                tool.label()
+            )
+        }
+    };
+    let _ = child.try_wait();
+    failed(message, tail)
+}
+
+fn says(tail: &[String], phrases: &[&str]) -> bool {
+    tail.iter().any(|l| {
+        let l = l.to_ascii_lowercase();
+        phrases.iter().any(|p| l.contains(p))
+    })
 }
 
 fn failed(message: String, tail: Vec<String>) -> Outcome {
@@ -235,78 +262,9 @@ fn read_lines(stream: impl Read, tx: &mpsc::Sender<String>) {
     }
 }
 
-/// Which plan step an output line shows the updater has reached:
-/// 0 = downloading, 1 = checking, 2 = installing.
-fn step_for(tool: Tool, line: &str) -> Option<usize> {
-    let l = line.to_ascii_lowercase();
-    let has = |words: &[&str]| words.iter().any(|w| l.contains(w));
-    let (check, install): (&[&str], &[&str]) = match tool {
-        Tool::Homebrew => (
-            &["verifying", "sha256"],
-            &[
-                "==> upgrading",
-                "==> installing",
-                "==> moving",
-                "==> purging",
-            ],
-        ),
-        Tool::Winget => (
-            &["successfully verified installer hash"],
-            &["starting package install"],
-        ),
-        Tool::Apt => (&["preparing to unpack"], &["unpacking", "setting up"]),
-        Tool::Dnf => (
-            &["running transaction check", "verifying"],
-            &["upgrading", "installing", "running transaction"],
-        ),
-        Tool::Snap => (
-            &["check snap", "verify snap"],
-            &["mount snap", "copy snap", "refreshed"],
-        ),
-        Tool::Flatpak => (
-            &["verifying"],
-            &["installing", "updating", "changes complete"],
-        ),
-    };
-    if has(install) {
-        Some(2)
-    } else if has(check) {
-        Some(1)
-    } else {
-        None
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn output_lines_advance_steps() {
-        assert_eq!(
-            step_for(Tool::Winget, "Successfully verified installer hash"),
-            Some(1)
-        );
-        assert_eq!(
-            step_for(Tool::Winget, "Starting package install..."),
-            Some(2)
-        );
-        assert_eq!(
-            step_for(Tool::Homebrew, "==> Upgrading 1 outdated package:"),
-            Some(2)
-        );
-        assert_eq!(
-            step_for(
-                Tool::Apt,
-                "Unpacking openssl (3.0.22-1) over (3.0.20-1) ..."
-            ),
-            Some(2)
-        );
-        assert_eq!(
-            step_for(Tool::Apt, "Get:1 http://deb.debian.org openssl"),
-            None
-        );
-    }
 
     #[cfg(unix)]
     fn plan_running(script: &str) -> Plan {
@@ -342,10 +300,10 @@ mod tests {
             steps,
             [
                 (0, Working),
-                (0, Done),
                 (1, Working),
-                (1, Done),
                 (2, Working),
+                (0, Done),
+                (1, Done),
                 (2, Done)
             ]
         );
@@ -365,6 +323,21 @@ mod tests {
             }
             other => panic!("{other:?}"),
         }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn apt_messages_map_to_honest_outcomes() {
+        let stale =
+            plan_running("echo 'openssl is already the newest version (3.0.13-0ubuntu3.4).'");
+        assert!(matches!(run(&stale, |_| {}), Outcome::NothingNewer { .. }));
+        let removes = plan_running(
+            "echo 'E: Packages need to be removed but remove is disabled.' >&2; exit 100",
+        );
+        assert!(matches!(
+            run(&removes, |_| {}),
+            Outcome::NeedsMoreChanges { .. }
+        ));
     }
 
     #[test]

@@ -20,7 +20,7 @@
 
 use std::path::{Path, PathBuf};
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use wardwatch_catalog::OsFamily;
 use wardwatch_feed::{AppKind, Finding};
 
@@ -55,7 +55,9 @@ impl Tools {
         // winget is an app execution alias in the user's WindowsApps folder.
         let winget = std::env::var_os("LOCALAPPDATA")
             .map(|d| PathBuf::from(d).join(r"Microsoft\WindowsApps\winget.exe"))
-            .filter(|p| p.is_file());
+            // An app execution alias is a reparse point that `is_file()` can't
+            // follow, so only check that it exists.
+            .filter(|p| std::fs::symlink_metadata(p).is_ok());
         Tools {
             brew,
             winget,
@@ -68,8 +70,9 @@ impl Tools {
     }
 }
 
-/// How the update happens.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+/// How the update happens. The UI sends back the method it showed, and
+/// `run_fix` refuses to run a plan that no longer matches it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Method {
     /// Wardwatch runs the package manager; one click does it all.
@@ -80,7 +83,7 @@ pub enum Method {
     AppUpdater { open_bundle: Option<String> },
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Tool {
     Homebrew,
@@ -140,7 +143,8 @@ pub struct Plan {
     pub restart_note: Option<String>,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(tag = "kind", content = "why", rename_all = "snake_case")]
 pub enum NoPlan {
     UpToDate,
     /// We can't update this here; the string says what to do instead.
@@ -254,7 +258,7 @@ pub fn plan(finding: &Finding, os: OsFamily, tools: &Tools) -> Result<Plan, NoPl
         } else if let (Some(id), Some(bin)) = (one("flatpak"), path(&tools.flatpak)) {
             Some((
                 Tool::Flatpak,
-                argv(&[&bin, "update", "-y", "--noninteractive"], &[id])?,
+                argv(&[&bin, "update", "--noninteractive"], &[id])?,
                 Admin::MayAsk,
             ))
         } else if let (false, Some(pkexec), Some(apt)) = (
@@ -267,6 +271,8 @@ pub fn plan(finding: &Finding, os: OsFamily, tools: &Tools) -> Result<Plan, NoPl
                 apt.as_str(),
                 "install",
                 "--only-upgrade",
+                // Never remove other packages to make the upgrade fit; stop instead.
+                "--no-remove",
                 "-y",
                 // Keep the person's edited config files rather than stopping to ask.
                 "-o",
@@ -415,6 +421,31 @@ pub fn plan(finding: &Finding, os: OsFamily, tools: &Tools) -> Result<Plan, NoPl
     })
 }
 
+/// What the rescan after an update found.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Check {
+    /// No known hole affects the new version.
+    Closed,
+    /// Every hole with a fix is closed; some have no fix from the maker yet.
+    OnlyUnfixedLeft,
+    /// A hole with a fix still affects the installed version.
+    StillOpen,
+    /// The rescan didn't find the program (moved, or its version can't be read),
+    /// so we can't say it's fixed.
+    NotFound,
+}
+
+/// Judges the rescan of the same catalog app after an update.
+pub fn check(after: Option<&Finding>) -> Check {
+    match after {
+        None => Check::NotFound,
+        Some(f) if f.vulns.is_empty() => Check::Closed,
+        Some(f) if f.vulns.iter().all(|v| v.fixed.is_none()) => Check::OnlyUnfixedLeft,
+        Some(_) => Check::StillOpen,
+    }
+}
+
 fn step(label: &str, detail: &str) -> Step {
     Step {
         label: label.into(),
@@ -433,11 +464,15 @@ fn argv(base: &[&str], names: &[&str]) -> Result<Vec<String>, NoPlan> {
 }
 
 /// Package names, cask tokens, snap names, Flatpak and winget ids, bundle ids:
-/// letters, digits and `._+-@`, not starting with `-` (so never an option).
+/// letters, digits and `._+-@`, not starting with `-` (so never an option)
+/// and not ending in `-` or `+`.
 fn safe_arg(s: &str) -> bool {
     !s.is_empty()
         && s.len() <= 200
         && !s.starts_with('-')
+        // apt reads `name-` as remove and `name+` as install.
+        && !s.ends_with('-')
+        && !s.ends_with('+')
         && s.bytes()
             .all(|c| c.is_ascii_alphanumeric() || matches!(c, b'.' | b'_' | b'+' | b'-' | b'@'))
 }

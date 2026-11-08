@@ -56,12 +56,10 @@ fn main() {
     println!("outcome: {outcome:?}");
     if outcome == wardwatch_update::Outcome::Installed {
         let after = find().1;
-        let closed = after
-            .as_ref()
-            .is_none_or(|f| f.vulns.iter().all(|v| v.fixed.is_none()));
         println!(
-            "after: {:?}, hole closed: {closed}",
-            after.map(|f| f.installed)
+            "after: {:?}, check: {:?}",
+            after.as_ref().map(|f| &f.installed),
+            wardwatch_update::check(after.as_ref())
         );
     }
 }

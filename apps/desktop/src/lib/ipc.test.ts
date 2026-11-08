@@ -51,11 +51,17 @@ describe("ipc", () => {
     core.invoke.mockImplementation(
       (_cmd: string, args: { onProgress: { onmessage: (m: unknown) => void } }) => {
         args.onProgress.onmessage({ event: "step", step: 0, state: "working" });
-        return Promise.resolve({ outcome: { status: "installed" }, closed: true, finding: null });
+        return Promise.resolve({
+          outcome: { status: "installed" },
+          check: "closed",
+          finding: null,
+        });
       },
     );
-    await expect(runFix("dpkg", "openssl", (p) => seen.push(p))).resolves.toMatchObject({
-      closed: true,
+    await expect(
+      runFix("dpkg", "openssl", { kind: "app_updater", open_bundle: null }, (p) => seen.push(p)),
+    ).resolves.toMatchObject({
+      check: "closed",
     });
     expect(core.invoke).toHaveBeenLastCalledWith(
       "run_fix",

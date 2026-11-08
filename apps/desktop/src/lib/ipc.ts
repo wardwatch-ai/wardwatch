@@ -91,7 +91,7 @@ export interface Plan {
 export interface FixView {
   finding: Finding;
   plan: Plan | null;
-  no_plan: string | null;
+  no_plan: { kind: "up_to_date" } | { kind: "unsupported"; why: string } | null;
 }
 
 export type FixProgress = { event: "step"; step: number; state: "working" | "done" };
@@ -101,11 +101,13 @@ export type Outcome =
   | { status: "opened" }
   | { status: "cancelled" }
   | { status: "nothing_newer"; tail: string[] }
+  | { status: "needs_more_changes"; tail: string[] }
   | { status: "failed"; message: string; tail: string[] };
 
 export interface FixResult {
   outcome: Outcome;
-  closed: boolean | null;
+  /** After an install, what the rescan found. */
+  check: "closed" | "only_unfixed_left" | "still_open" | "not_found" | null;
   finding: Finding | null;
 }
 
@@ -119,16 +121,21 @@ export async function getFix(source: string, id: string): Promise<FixView> {
   return invoke<FixView>("get_fix", { source, id });
 }
 
-/** Runs the update. The core replans from its own scan; it never runs anything the UI sends. */
+/**
+ * Runs the update. The core replans from its own scan and never runs anything
+ * the UI sends; `shown` is the method the screen showed, and the core refuses
+ * to run if its fresh plan differs.
+ */
 export async function runFix(
   source: string,
   id: string,
+  shown: Method,
   onProgress: (p: FixProgress) => void,
 ): Promise<FixResult> {
   if (!isTauri()) return simulateFix(onProgress);
   const channel = new Channel<FixProgress>();
   channel.onmessage = onProgress;
-  return invoke<FixResult>("run_fix", { source, id, onProgress: channel });
+  return invoke<FixResult>("run_fix", { source, id, shown, onProgress: channel });
 }
 
 // The design spec's sample scenario, so `pnpm dev` shows the fix screen in a browser.
@@ -212,10 +219,12 @@ const sample: FixView = {
 };
 
 async function simulateFix(onProgress: (p: FixProgress) => void): Promise<FixResult> {
-  for (let step = 0; step < 4; step++) {
-    onProgress({ event: "step", step, state: "working" });
-    await new Promise((r) => setTimeout(r, 700));
-    onProgress({ event: "step", step, state: "done" });
-  }
-  return { outcome: { status: "installed" }, closed: true, finding: null };
+  const wait = () => new Promise((r) => setTimeout(r, 1200));
+  for (const step of [0, 1, 2]) onProgress({ event: "step", step, state: "working" });
+  await wait();
+  for (const step of [0, 1, 2]) onProgress({ event: "step", step, state: "done" });
+  onProgress({ event: "step", step: 3, state: "working" });
+  await wait();
+  onProgress({ event: "step", step: 3, state: "done" });
+  return { outcome: { status: "installed" }, check: "closed", finding: null };
 }

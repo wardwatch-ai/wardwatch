@@ -27,6 +27,7 @@ import {
   meter,
   risk,
   shellLine,
+  worstVuln,
 } from "./fixCopy";
 
 type StepState = "idle" | "working" | "done";
@@ -41,7 +42,8 @@ export function Fix() {
   const run = useMutation({
     mutationFn: () => {
       setSteps([]);
-      return runFix(source, id, (p: FixProgress) => {
+      if (!fix.data?.plan) throw new Error("There's no update plan to run.");
+      return runFix(source, id, fix.data.plan.method, (p: FixProgress) => {
         setSteps((prev) => {
           const next = [...prev];
           next[p.step] = p.state;
@@ -64,7 +66,11 @@ export function Fix() {
 
   const { finding, plan, no_plan } = fix.data;
   const result = run.data;
-  const done = result?.outcome.status === "installed" && result.closed === true;
+  const done =
+    result?.outcome.status === "installed" &&
+    (result.check === "closed" || result.check === "only_unfixed_left");
+  // A step that was working when the run stopped is no longer working.
+  const shownSteps = run.isPending ? steps : steps.map((s) => (s === "working" ? "idle" : s));
   const urgent = finding.exploited && !done;
 
   return (
@@ -105,11 +111,13 @@ export function Fix() {
           )}
 
           {plan ? (
-            <PlanCard plan={plan} steps={steps} />
+            <PlanCard plan={plan} steps={shownSteps} />
           ) : (
             <Card>
               <p className="m-0">
-                {no_plan === "already up to date" ? `${finding.app_name} is up to date.` : no_plan}
+                {no_plan?.kind === "unsupported"
+                  ? no_plan.why
+                  : `${finding.app_name} is up to date.`}
               </p>
             </Card>
           )}
@@ -119,7 +127,12 @@ export function Fix() {
               finding={finding}
               plan={plan}
               urgent={urgent}
-              retry={result !== undefined}
+              retry={
+                result !== undefined &&
+                ["failed", "cancelled", "nothing_newer", "needs_more_changes"].includes(
+                  result.outcome.status,
+                )
+              }
               onRun={() => {
                 run.mutate();
               }}
@@ -290,9 +303,10 @@ function ResultCard(props: {
   const { finding, plan, result, onCheck } = props;
   const name = finding.app_name;
   const o = result.outcome;
+  const done = (r: FixResult) => r.check === "closed" || r.check === "only_unfixed_left";
   switch (o.status) {
     case "installed":
-      return result.closed ? (
+      return done(result) ? (
         <Card tone="ok" className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <div className="font-semibold text-ok">
@@ -307,9 +321,16 @@ function ResultCard(props: {
           </Button>
         </Card>
       ) : (
-        <Problem title="The update ran, but the hole is still open.">
-          The fixed version ({finding.fixed_version}) may not be out for your system yet. We'll keep
-          checking and let you know.
+        <Problem
+          title={
+            result.check === "not_found"
+              ? `The update ran, but we couldn't find ${name} again to check it.`
+              : "The update ran, but the hole is still open."
+          }
+        >
+          {result.check === "not_found"
+            ? "Open it once, then come back here and we'll check again."
+            : `The fixed version (${finding.fixed_version ?? "newer"}) may not be out for your system yet. We'll keep checking and let you know.`}
         </Problem>
       );
     case "opened":
@@ -336,6 +357,13 @@ function ResultCard(props: {
           tail={o.tail}
         >
           It usually arrives within a day. You can also use {name}'s own updater.
+        </Problem>
+      );
+    case "needs_more_changes":
+      return (
+        <Problem title="This update needs bigger changes than Wardwatch makes." tail={o.tail}>
+          It would remove other packages, so we stopped. Nothing changed. Use your system's Software
+          Updater, which shows every change before making it.
         </Problem>
       );
     case "failed":
@@ -373,7 +401,7 @@ function Problem({
 }
 
 function Curious({ finding }: { finding: Finding }) {
-  const worst = finding.vulns[0];
+  const worst = worstVuln(finding);
   const rows: [string, React.ReactNode][] = [
     ["Your version", <Mono key="v">{finding.installed}</Mono>],
     ...(finding.fixed_version

@@ -414,6 +414,9 @@ pub fn source_name(source: Source) -> &'static str {
         Source::Rpm => "rpm",
         Source::Snap => "snap",
         Source::Flatpak => "flatpak",
+        Source::MsStore => "ms_store",
+        Source::Chocolatey => "chocolatey",
+        Source::Scoop => "scoop",
     }
 }
 

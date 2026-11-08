@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { FixProgress, FixResult, FixView } from "../../lib/ipc";
 import { createQueryClient } from "../../lib/query";
 import { Fix } from "./Fix";
-import { meter, shellLine } from "./fixCopy";
+import { meter, shellLine, worstVuln } from "./fixCopy";
 
 const ipc = vi.hoisted(() => ({ getFix: vi.fn(), runFix: vi.fn() }));
 vi.mock("../../lib/ipc", () => ipc);
@@ -107,7 +107,7 @@ describe("Fix screen", () => {
     ipc.getFix.mockResolvedValue(chrome());
     let finish: (r: FixResult) => void = () => undefined;
     ipc.runFix.mockImplementation(
-      (_s: string, _i: string, onProgress: (p: FixProgress) => void) => {
+      (_s: string, _i: string, _shown: unknown, onProgress: (p: FixProgress) => void) => {
         onProgress({ event: "step", step: 0, state: "done" });
         onProgress({ event: "step", step: 1, state: "working" });
         return new Promise<FixResult>((resolve) => (finish = resolve));
@@ -115,17 +115,26 @@ describe("Fix screen", () => {
     );
     renderFix();
     await userEvent.click(await screen.findByRole("button", { name: "Update Google Chrome now" }));
-    expect(ipc.runFix).toHaveBeenCalledWith("mac_app", "com.google.Chrome", expect.any(Function));
+    expect(ipc.runFix).toHaveBeenCalledWith(
+      "mac_app",
+      "com.google.Chrome",
+      {
+        kind: "command",
+        tool: "homebrew",
+        argv: ["/opt/homebrew/bin/brew", "upgrade", "--cask", "google-chrome"],
+      },
+      expect.any(Function),
+    );
     expect(await screen.findByRole("status")).toHaveTextContent("Working.");
     expect(screen.getByText("Working…")).toBeInTheDocument();
-    finish({ outcome: { status: "installed" }, closed: true, finding: null });
+    finish({ outcome: { status: "installed" }, check: "closed", finding: null });
     expect(await screen.findByText("Google Chrome is safe again.")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Done" })).toHaveClass("ww-btn-brand");
   });
 
   it("says nothing changed when the password prompt is dismissed", async () => {
     ipc.getFix.mockResolvedValue(chrome());
-    ipc.runFix.mockResolvedValue({ outcome: { status: "cancelled" }, closed: null, finding: null });
+    ipc.runFix.mockResolvedValue({ outcome: { status: "cancelled" }, check: null, finding: null });
     renderFix();
     await userEvent.click(await screen.findByRole("button", { name: "Update Google Chrome now" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Nothing changed.");
@@ -160,7 +169,7 @@ describe("Fix screen", () => {
       manual: "Wardwatch opens Google Chrome. Open its menu and let it update.",
     };
     ipc.getFix.mockResolvedValue(view);
-    ipc.runFix.mockResolvedValue({ outcome: { status: "opened" }, closed: null, finding: null });
+    ipc.runFix.mockResolvedValue({ outcome: { status: "opened" }, check: null, finding: null });
     renderFix();
     expect(await screen.findByRole("heading", { name: "What to do" })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Open Google Chrome" }));
@@ -196,4 +205,33 @@ describe("fix copy", () => {
       ]),
     ).toBe("/usr/bin/pkexec apt-get -o Dpkg::Options::=--force-confold 'it'\\''s here'");
   });
+
+  it("describes the exploited or most severe hole first", () => {
+    const f = chrome().finding;
+    const newest = {
+      id: "CVE-NEW",
+      aliases: [],
+      published: "2026-11-07",
+      severity: "medium" as const,
+      cvss: 5.3,
+      exploited: false,
+      kev: null,
+      summary: "",
+      fixed: null,
+    };
+    expect(worstVuln({ ...f, vulns: [newest, ...f.vulns] })?.id).toBe("CVE-2026-13224");
+  });
+});
+
+it("says the hole is still open when the recheck can't find the program", async () => {
+  ipc.getFix.mockResolvedValue(chrome());
+  ipc.runFix.mockResolvedValue({
+    outcome: { status: "installed" },
+    check: "not_found",
+    finding: null,
+  });
+  renderFix();
+  await userEvent.click(await screen.findByRole("button", { name: "Update Google Chrome now" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("couldn't find Google Chrome again");
+  expect(screen.queryByText("Google Chrome is safe again.")).not.toBeInTheDocument();
 });

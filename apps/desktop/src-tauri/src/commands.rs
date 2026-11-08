@@ -6,7 +6,7 @@ use tauri::{AppHandle, Runtime};
 
 use tauri::ipc::Channel;
 use wardwatch_feed::Finding;
-use wardwatch_update::Progress;
+use wardwatch_update::{Method, Progress};
 
 use crate::fix::{self, FixResult, FixView};
 use crate::windows;
@@ -60,15 +60,17 @@ pub async fn get_fix<R: Runtime>(
 }
 
 /// Runs the update for one program, streaming step progress to `on_progress`.
+/// `shown` is the plan method the screen showed; a different plan won't run.
 #[tauri::command]
 pub async fn run_fix<R: Runtime>(
     app: AppHandle<R>,
     source: String,
     id: String,
+    shown: Method,
     on_progress: Channel<Progress>,
 ) -> Result<FixResult, String> {
     blocking(move || {
-        fix::run_fix(&app, &source, &id, |p| {
+        fix::run_fix(&app, &source, &id, &shown, |p| {
             // The window may have closed; the update carries on regardless.
             let _ = on_progress.send(p);
         })

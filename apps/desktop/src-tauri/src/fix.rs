@@ -11,7 +11,7 @@ use serde::Serialize;
 use tauri::{AppHandle, Manager, Runtime};
 use wardwatch_catalog::Inventory;
 use wardwatch_feed::{Catalog, Finding};
-use wardwatch_update::{Outcome, Plan, Progress, StepState, Tools};
+use wardwatch_update::{Check, Method, NoPlan, Outcome, Plan, Progress, StepState, Tools};
 
 /// Largest catalog we'll read; the real one is about 3 MB.
 const MAX_CATALOG_BYTES: u64 = 64 << 20;
@@ -28,14 +28,14 @@ pub struct FixView {
     pub finding: Finding,
     /// `None` when there's nothing to do here; `no_plan` says why.
     pub plan: Option<Plan>,
-    pub no_plan: Option<String>,
+    pub no_plan: Option<NoPlan>,
 }
 
 #[derive(Debug, Serialize)]
 pub struct FixResult {
     pub outcome: Outcome,
-    /// After an install: whether every hole with a fix is now closed.
-    pub closed: Option<bool>,
+    /// After an install: what the rescan found.
+    pub check: Option<Check>,
     /// The program as the rescan found it afterwards.
     pub finding: Option<Finding>,
 }
@@ -98,7 +98,7 @@ pub fn get_fix<R: Runtime>(app: &AppHandle<R>, source: &str, id: &str) -> Result
     let (plan, no_plan) =
         match wardwatch_update::plan(&finding, inventory.os.family, &Tools::detect()) {
             Ok(plan) => (Some(plan), None),
-            Err(why) => (None, Some(why.to_string())),
+            Err(why) => (None, Some(why)),
         };
     Ok(FixView {
         finding,
@@ -120,6 +120,7 @@ pub fn run_fix<R: Runtime>(
     app: &AppHandle<R>,
     source: &str,
     id: &str,
+    shown: &Method,
     progress: impl Fn(Progress),
 ) -> Result<FixResult, String> {
     let state = app.state::<FixState>();
@@ -134,38 +135,40 @@ pub fn run_fix<R: Runtime>(
         .ok_or("Wardwatch has no update information for this program.")?;
     let plan = wardwatch_update::plan(&finding, inventory.os.family, &Tools::detect())
         .map_err(|e| e.to_string())?;
+    // Only run what the person was shown. Comparing is all `shown` is used for.
+    if &plan.method != shown {
+        return Err("The update plan changed since this page opened. Have another look.".into());
+    }
 
     let outcome = wardwatch_update::run(&plan, &progress);
     if outcome != Outcome::Installed {
         return Ok(FixResult {
             outcome,
-            closed: None,
+            check: None,
             finding: None,
         });
     }
 
-    // Step 4: rescan and check that every hole with a fix is closed.
-    let check = 3;
+    // Step 4: rescan and check the hole is closed.
+    const CHECK_STEP: usize = 3;
     progress(Progress::Step {
-        step: check,
+        step: CHECK_STEP,
         state: StepState::Working,
     });
     let after = scan_and_match(&catalog)
         .1
         .into_iter()
         .find(|f| f.app_id == finding.app_id);
-    let closed = after
-        .as_ref()
-        .is_none_or(|f| f.vulns.iter().all(|v| v.fixed.is_none()));
-    if closed {
+    let check = wardwatch_update::check(after.as_ref());
+    if matches!(check, Check::Closed | Check::OnlyUnfixedLeft) {
         progress(Progress::Step {
-            step: check,
+            step: CHECK_STEP,
             state: StepState::Done,
         });
     }
     Ok(FixResult {
         outcome,
-        closed: Some(closed),
+        check: Some(check),
         finding: after,
     })
 }
@@ -201,7 +204,8 @@ mod tests {
         app.manage(FixState::default());
         let state = app.state::<FixState>();
         state.busy.store(true, Ordering::SeqCst);
-        let err = run_fix(app.handle(), "mac_app", "x", |_| {}).unwrap_err();
+        let shown = Method::AppUpdater { open_bundle: None };
+        let err = run_fix(app.handle(), "mac_app", "x", &shown, |_| {}).unwrap_err();
         assert_eq!(err, "Another update is already running.");
         assert!(
             state.busy.load(Ordering::SeqCst),

@@ -140,12 +140,13 @@ fn debian_packages_go_through_pkexec_apt_together() {
     let p = plan(&f, OsFamily::Linux, &all_tools()).unwrap();
     let argv = argv_of(&p);
     assert_eq!(
-        &argv[..4],
+        &argv[..5],
         [
             "/usr/bin/pkexec",
             "/usr/bin/apt-get",
             "install",
-            "--only-upgrade"
+            "--only-upgrade",
+            "--no-remove"
         ]
     );
     assert_eq!(&argv[argv.len() - 2..], ["libssl3", "openssl"]);
@@ -216,7 +217,6 @@ fn snap_and_flatpak() {
         [
             "/usr/bin/flatpak",
             "update",
-            "-y",
             "--noninteractive",
             "org.videolan.VLC"
         ]
@@ -275,7 +275,16 @@ fn system_updates_open_the_os_update_screen() {
 
 #[test]
 fn unsafe_names_never_reach_a_command() {
-    for bad in ["--config=/tmp/x", "a b", "a;rm", "", "$(x)", "a/b"] {
+    for bad in [
+        "--config=/tmp/x",
+        "a b",
+        "a;rm",
+        "",
+        "$(x)",
+        "a/b",
+        "openssl-",
+        "openssl+",
+    ] {
         let f = finding(
             "vlc",
             "VLC",
@@ -308,4 +317,33 @@ fn plans_serialize_for_the_ui() {
         json["steps"][3]["label"],
         "Check again that the hole is closed"
     );
+}
+
+#[test]
+fn the_recheck_only_says_closed_on_evidence() {
+    use wardwatch_feed::VulnHit;
+    let vuln = |fixed: Option<&str>| VulnHit {
+        id: "CVE-1".into(),
+        aliases: vec![],
+        published: "2026-11-01".into(),
+        severity: Severity::High,
+        cvss: None,
+        exploited: false,
+        kev: None,
+        summary: String::new(),
+        fixed: fixed.map(Into::into),
+    };
+    let mut f = finding(
+        "vlc",
+        "VLC",
+        AppKind::App,
+        vec![install("homebrew_cask", "vlc")],
+    );
+    assert_eq!(check(None), Check::NotFound);
+    f.vulns = vec![];
+    assert_eq!(check(Some(&f)), Check::Closed);
+    f.vulns = vec![vuln(None)];
+    assert_eq!(check(Some(&f)), Check::OnlyUnfixedLeft);
+    f.vulns = vec![vuln(None), vuln(Some("2.0"))];
+    assert_eq!(check(Some(&f)), Check::StillOpen);
 }
