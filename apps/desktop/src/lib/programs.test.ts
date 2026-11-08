@@ -180,7 +180,11 @@ describe("summarize with the nudge plan", () => {
     const list = programs();
     const chrome = list.find((p) => p.finding === "google-chrome");
     if (!chrome) throw new Error("no Chrome");
-    const twin = { ...chrome, key: "homebrew_cask:google-chrome", source: "homebrew_cask" as const };
+    const twin = {
+      ...chrome,
+      key: "homebrew_cask:google-chrome",
+      source: "homebrew_cask" as const,
+    };
     const s = summarize([...list, twin], true, { kind: "under_attack", keys: ["google-chrome"] });
     expect(s.attack).toHaveLength(1);
     expect(s.quietAttack).toEqual([]);
