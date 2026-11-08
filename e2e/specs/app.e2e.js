@@ -47,10 +47,10 @@ describe("Wardwatch desktop app", () => {
 
   it("opens every tab", async () => {
     for (const label of tabs) {
-      const link = $("nav").$(`a=${label}`);
+      const link = $("nav[aria-label=Main]").$(`a=${label}`);
       await link.click();
       await expect(link).toHaveAttribute("aria-current", "page");
-      await expect($$("nav a[aria-current=page]")).toBeElementsArrayOfSize(1);
+      await expect($$("nav[aria-label=Main] a[aria-current=page]")).toBeElementsArrayOfSize(1);
       await expect($("main")).toBeDisplayed();
     }
   });
