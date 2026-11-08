@@ -35,3 +35,5 @@ pnpm --filter @wardwatch/desktop tauri build  # unsigned local bundles in target
 ```
 
 CI runs the same checks and builds unsigned bundles on macOS, Windows and Linux. It never signs, uploads or publishes builds.
+
+End-to-end, CI also drives the real app with WebdriverIO and tauri-driver on Linux ([`e2e/`](e2e/README.md)), and runs the scanner, matcher, nudge engine and 1-click updater inside throwaway, offline distro containers with a planted vulnerable package ([`tests/devices/`](tests/devices/README.md)).

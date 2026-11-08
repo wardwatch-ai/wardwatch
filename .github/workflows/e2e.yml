@@ -1,0 +1,71 @@
+name: End-to-end
+
+# Two end-to-end suites, both throwaway and unsigned:
+# - devices: the real scanner, matcher, nudge engine and 1-click updater
+#   inside fresh, offline distro containers with a planted vulnerable package.
+# - app: the real desktop app (debug build) driven through tauri-driver, on
+#   Linux. Windows is left out: WebView2 133+ no longer opens a WebDriver
+#   session (MicrosoftEdge/WebView2Feedback#5415, actions/runner-images#14738).
+#   macOS has no WebDriver for its webview.
+# Nothing here signs, uploads or publishes anything.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  devices:
+    name: Fixture devices
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install Rust
+        run: rustup toolchain install stable --profile minimal --target x86_64-unknown-linux-musl && rustup default stable
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      - name: Install packaging tools
+        run: sudo apt-get update && sudo apt-get install -y apt-utils rpm createrepo-c
+      # Static, so the same binaries run on every distro image.
+      - run: cargo build --release --locked --target x86_64-unknown-linux-musl -p wardwatch-feed --example check -p wardwatch-update --example fix -p wardwatch-nudge --example nudge
+      - run: tests/devices/run.sh
+
+  app:
+    name: App (Linux)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install Linux system libraries and WebKitWebDriver
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev webkit2gtk-driver xvfb
+      - name: Install Rust
+        run: rustup toolchain install stable --profile minimal && rustup default stable
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      - run: cargo install tauri-driver --version 2.1.0 --locked
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build the app (debug, no bundles)
+        working-directory: apps/desktop
+        run: pnpm tauri build --debug --no-bundle --ci
+      - name: Run end-to-end tests
+        run: xvfb-run -a pnpm --filter @wardwatch/e2e e2e
