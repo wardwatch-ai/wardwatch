@@ -4,6 +4,9 @@ fn main() {
     let manifest = tauri_build::AppManifest::new().commands(&[
         "app_info",
         "show_main_window",
+        "scan_inventory",
+        "get_plan",
+        "set_plan",
         "list_findings",
         "get_fix",
         "run_fix",

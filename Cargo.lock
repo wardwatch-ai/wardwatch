@@ -4119,10 +4119,12 @@ name = "wardwatch-desktop"
 version = "0.1.0"
 dependencies = [
  "serde",
+ "serde_json",
  "tauri",
  "tauri-build",
  "tauri-plugin-positioner",
  "tauri-plugin-single-instance",
+ "tempfile",
  "wardwatch-catalog",
  "wardwatch-feed",
  "wardwatch-update",

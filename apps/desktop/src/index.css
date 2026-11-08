@@ -1,3 +1,4 @@
 @import "tailwindcss";
-@import "@wardwatch/ui/styles.css";
+/* In the components layer, so Tailwind utilities on a component (p-0 on a Card) win. */
+@import "@wardwatch/ui/styles.css" layer(components);
 @import "@wardwatch/ui/tailwind.css";
