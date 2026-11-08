@@ -35,6 +35,8 @@ for _ in $(seq 50); do
   curl -fs -o /dev/null "http://127.0.0.1:$port/" && break
   sleep 0.1
 done
+# If the port was taken, the server exited: fail rather than test something else.
+kill -0 "$server_pid" 2>/dev/null || { echo "could not serve on port $port" >&2; exit 1; }
 url="http://host.docker.internal:$port"
 
 # Behind a TLS-intercepting proxy, pass its CA bundle so the distro's own
@@ -75,8 +77,8 @@ rpm -q wardwatch
 $verify" ;;
     *opensuse*)
       script="set -e
-zypper --non-interactive --quiet addrepo --no-gpgcheck $url/rpm/x86_64 wardwatch
-zypper --non-interactive --quiet --gpg-auto-import-keys refresh
+zypper --non-interactive --quiet addrepo --no-gpgcheck $url/rpm/\$(uname -m) wardwatch
+zypper --non-interactive --quiet refresh
 zypper --non-interactive --quiet install --allow-unsigned-rpm wardwatch
 rpm -q wardwatch
 $verify" ;;

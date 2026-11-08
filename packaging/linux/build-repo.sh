@@ -31,7 +31,8 @@ if (( ${#debs[@]} == 0 && ${#rpms[@]} == 0 )); then
   exit 1
 fi
 
-rm -rf "$out"
+# Only ever replace the trees this script writes, never the whole directory.
+rm -rf "$out/apt" "$out/rpm"
 mkdir -p "$out"
 
 # --- apt ---------------------------------------------------------------------
@@ -80,6 +81,7 @@ for rpm_file in "${rpms[@]}"; do
   cp "$rpm_file" "$out/rpm/$arch/$file"
 done
 for dir in "$out"/rpm/*/; do
+  # gzip rather than zstd metadata, which older zypper and dnf can't read.
   createrepo_c --quiet --general-compress-type=gz "$dir"
 done
 

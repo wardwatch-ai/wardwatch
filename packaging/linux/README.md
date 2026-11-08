@@ -19,7 +19,7 @@ packaging/linux/build-repo.sh target/linux-bundle      # -> target/linux-repo/{a
 packaging/linux/test-install.sh target/linux-repo
 ```
 
-Behind a TLS-intercepting proxy, set `WARDWATCH_BUILD_CA_BUNDLE` (step 1) and `WARDWATCH_TEST_CA_BUNDLE` (step 3) to its CA file.
+Behind a TLS-intercepting proxy, set `WARDWATCH_BUILD_CA_BUNDLE` (step 1; also used for Node, rustup and cargo) and `WARDWATCH_TEST_CA_BUNDLE` (step 3) to its CA file.
 
 `build-repo.sh` needs `dpkg-deb`, `apt-ftparchive` (apt-utils), `rpm` and `createrepo_c`. On Ubuntu: `sudo apt-get install apt-utils rpm createrepo-c`. Steps 1 and 3 need Docker.
 

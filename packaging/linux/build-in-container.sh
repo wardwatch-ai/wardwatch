@@ -24,7 +24,8 @@ mkdir -p "$out"
 out=$(cd "$out" && pwd)
 
 image=${WARDWATCH_BUILD_IMAGE:-mirror.gcr.io/library/ubuntu:22.04}
-node_version=$(cat "$root/.nvmrc" 2>/dev/null || echo 22)
+# Node major version, matching desktop.yml.
+node_version=22
 
 args=(--rm -v "$root:/src:ro" -v "$out:/out" -e "NODE_MAJOR=$node_version")
 if [[ -n "${WARDWATCH_BUILD_CA_BUNDLE:-}" ]]; then
@@ -39,20 +40,30 @@ apt-get install -y -qq --no-install-recommends ca-certificates curl xz-utils bui
 update-ca-certificates >/dev/null 2>&1 || true
 export NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt
 
-# Node (official build, latest of the major in .nvmrc) and pnpm via corepack.
-v=$(curl -fsSL "https://nodejs.org/dist/latest-v${NODE_MAJOR%%.*}.x/SHASUMS256.txt" | grep -o "node-v[0-9.]*-linux-x64.tar.xz" | head -1)
-curl -fsSLO "https://nodejs.org/dist/latest-v${NODE_MAJOR%%.*}.x/$v"
-curl -fsSL "https://nodejs.org/dist/latest-v${NODE_MAJOR%%.*}.x/SHASUMS256.txt" | grep " $v\$" | sha256sum -c - >/dev/null
+export SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt CARGO_HTTP_CAINFO=/etc/ssl/certs/ca-certificates.crt
+
+# Node (official build, latest of the major) and pnpm via corepack. The
+# checksum file is fetched once, so a release landing mid-build cannot
+# mismatch. It checks integrity over TLS; it is not a signature check.
+node_dist="https://nodejs.org/dist/latest-v${NODE_MAJOR}.x"
+curl -fsSL "$node_dist/SHASUMS256.txt" -o node-shasums.txt
+v=$(grep -o "node-v[0-9.]*-linux-x64.tar.xz" node-shasums.txt | head -1)
+curl -fsSLO "$node_dist/$v"
+grep " $v\$" node-shasums.txt | sha256sum -c - >/dev/null
 tar -xJf "$v" -C /usr/local --strip-components=1
 corepack enable
 
-# Rust: latest stable, as in CI (desktop.yml).
-curl -fsSL https://sh.rustup.rs | sh -s -- -y -q --profile minimal --default-toolchain stable >/dev/null
+# Rust: latest stable, as in CI (desktop.yml), via the checksummed rustup-init.
+rustup_url=https://static.rust-lang.org/rustup/dist/x86_64-unknown-linux-gnu/rustup-init
+curl -fsSL "$rustup_url" -o rustup-init
+echo "$(curl -fsSL "$rustup_url.sha256" | cut -d" " -f1)  rustup-init" | sha256sum -c - >/dev/null
+chmod +x rustup-init
+./rustup-init -y -q --profile minimal --default-toolchain stable >/dev/null
 . "$HOME/.cargo/env"
 
 mkdir /build
-tar -C /src --exclude=./node_modules --exclude="./*/node_modules" --exclude="./*/*/node_modules" \
-  --exclude=./target -cf - . | tar -C /build -xf -
+# GNU tar excludes match at any depth: this drops every node_modules.
+tar -C /src --exclude=node_modules --exclude=./target --exclude=./.git -cf - . | tar -C /build -xf -
 cd /build
 COREPACK_ENABLE_DOWNLOAD_PROMPT=0 pnpm install --frozen-lockfile >/dev/null
 pnpm --filter @wardwatch/desktop tauri build --bundles deb,rpm
