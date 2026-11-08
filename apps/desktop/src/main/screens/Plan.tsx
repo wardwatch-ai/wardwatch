@@ -2,7 +2,7 @@
 import { ActGlyph, Card, Chip, Eyebrow, SeverityMeter } from "@wardwatch/ui";
 import { Link } from "react-router";
 import { usePlan, useSavePlan } from "../../lib/data";
-import type { Timing, UpdatePlan } from "../../lib/model";
+import type { Kind, Timing, UpdatePlan } from "../../lib/model";
 import {
   hourLabel,
   hourOptions,
@@ -17,17 +17,107 @@ import {
 } from "../../lib/plan";
 import { Failed, Loading } from "../parts";
 
-// Each timing has its own tint so the grid reads at a glance; the label carries the
-// meaning. No amber here: amber is only for a hole being exploited right now.
+// As in the design (Plan 4): each timing has its own tint and icon, so the grid
+// reads at a glance; the label carries the meaning.
 const cellTone: Record<Timing, string> = {
-  same_day: "bg-surface",
-  sunday_tuneup: "bg-ok-tint",
-  monthly: "bg-sel",
-  auto: "bg-bg",
+  same_day: "bg-act-tint",
+  sunday_tuneup: "bg-sel",
+  monthly: "bg-bg",
+  auto: "bg-ok-tint",
+};
+
+const svg = { width: 18, height: 18, viewBox: "0 0 24 24", "aria-hidden": true } as const;
+
+function TimingIcon({ timing }: { timing: Timing }) {
+  switch (timing) {
+    case "same_day":
+      return (
+        <svg {...svg} className="text-act-ink">
+          <path d="M13 2 L4 14 H11 L10 22 L20 9 H13 Z" fill="currentColor" />
+        </svg>
+      );
+    case "sunday_tuneup":
+      return (
+        <svg {...svg}>
+          <circle cx="12" cy="12" r="4.5" fill="currentColor" />
+          <path
+            d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+          />
+        </svg>
+      );
+    case "monthly":
+      return (
+        <svg {...svg} className="text-text-muted">
+          <rect
+            x="3"
+            y="5"
+            width="18"
+            height="16"
+            rx="2"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          />
+          <path d="M3 10h18M8 3v4M16 3v4" stroke="currentColor" strokeWidth="2" />
+        </svg>
+      );
+    case "auto":
+      return (
+        <svg {...svg} className="text-ok">
+          <path
+            d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.4"
+            strokeLinecap="round"
+          />
+        </svg>
+      );
+  }
+}
+
+const kindIcon: Record<Kind, React.ReactNode> = {
+  system: (
+    <svg {...svg}>
+      <rect
+        x="3"
+        y="4"
+        width="18"
+        height="12"
+        rx="2"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+      />
+      <path d="M8 20h8M12 16v4" stroke="currentColor" strokeWidth="2" />
+    </svg>
+  ),
+  browsers: (
+    <svg {...svg}>
+      <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeWidth="2" />
+      <path
+        d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+      />
+    </svg>
+  ),
+  apps: (
+    <svg {...svg}>
+      <rect x="4" y="4" width="7" height="7" rx="2" fill="currentColor" />
+      <rect x="13" y="4" width="7" height="7" rx="2" fill="currentColor" />
+      <rect x="4" y="13" width="7" height="7" rx="2" fill="currentColor" />
+      <rect x="13" y="13" width="7" height="7" rx="2" fill="currentColor" />
+    </svg>
+  ),
 };
 
 const select =
-  "min-h-11 cursor-pointer rounded-[10px] border border-edge px-2.5 font-semibold text-text";
+  "min-h-10 cursor-pointer rounded-[8px] border border-edge bg-surface px-2 text-sm text-text";
 
 function Grid({ plan, save }: { plan: UpdatePlan; save: (p: UpdatePlan) => void }) {
   const th = "border-b border-line p-3 text-left align-bottom";
@@ -43,9 +133,16 @@ function Grid({ plan, save }: { plan: UpdatePlan; save: (p: UpdatePlan) => void 
               How serious
             </th>
             {kinds.map((k) => (
-              <th key={k.id} scope="col" className={th}>
-                <span className="block font-semibold">{k.label}</span>
-                <span className="block text-xs font-normal text-text-muted">{k.examples}</span>
+              <th
+                key={k.id}
+                scope="col"
+                className={`${th} text-xs font-semibold uppercase tracking-[0.04em] text-text-muted`}
+              >
+                <span className="flex items-center gap-2">
+                  {kindIcon[k.id]}
+                  {k.label}
+                  <span className="font-normal normal-case tracking-normal">{k.examples}</span>
+                </span>
               </th>
             ))}
           </tr>
@@ -63,7 +160,16 @@ function Grid({ plan, save }: { plan: UpdatePlan; save: (p: UpdatePlan) => void 
             </th>
             {kinds.map((k) => (
               <td key={k.id} className="border-b border-line p-2">
-                <div className="flex min-h-11 items-center rounded-[10px] bg-act-tint px-3 font-semibold text-act-ink">
+                <div className="flex min-h-10 items-center gap-2 rounded-lg bg-act-tint px-2.5 text-[13px] font-semibold text-act-ink">
+                  <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">
+                    <rect x="5" y="11" width="14" height="10" rx="2" fill="currentColor" />
+                    <path
+                      d="M8 11V8a4 4 0 0 1 8 0v3"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    />
+                  </svg>
                   Same day
                 </div>
               </td>
@@ -84,20 +190,27 @@ function Grid({ plan, save }: { plan: UpdatePlan; save: (p: UpdatePlan) => void 
                 const value = plan.rules[t.id][k.id];
                 return (
                   <td key={k.id} className="border-b border-line p-2">
-                    <select
-                      aria-label={`${t.label}, ${k.label}`}
-                      value={value}
-                      onChange={(e) => {
-                        save(withRule(plan, t.id, k.id, e.target.value as Timing));
-                      }}
-                      className={`${select} w-full ${cellTone[value]}`}
+                    <div
+                      className={`flex items-center gap-2 rounded-[10px] px-2 py-1.5 ${cellTone[value]}`}
                     >
-                      {timings.map((o) => (
-                        <option key={o.id} value={o.id}>
-                          {o.label}
-                        </option>
-                      ))}
-                    </select>
+                      <span className="flex size-[22px] flex-none items-center justify-center">
+                        <TimingIcon timing={value} />
+                      </span>
+                      <select
+                        aria-label={`${t.label}, ${k.label}`}
+                        value={value}
+                        onChange={(e) => {
+                          save(withRule(plan, t.id, k.id, e.target.value as Timing));
+                        }}
+                        className={`${select} w-full`}
+                      >
+                        {timings.map((o) => (
+                          <option key={o.id} value={o.id}>
+                            {o.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   </td>
                 );
               })}
@@ -162,7 +275,7 @@ export function Plan() {
             onChange={(e) => {
               setHours("start", e.target.value);
             }}
-            className={`${select} bg-surface`}
+            className={select}
           >
             {hourOptions(plan.quiet_hours.start).map((h) => (
               <option key={h} value={h}>
@@ -177,7 +290,7 @@ export function Plan() {
             onChange={(e) => {
               setHours("end", e.target.value);
             }}
-            className={`${select} bg-surface`}
+            className={select}
           >
             {hourOptions(plan.quiet_hours.end).map((h) => (
               <option key={h} value={h}>

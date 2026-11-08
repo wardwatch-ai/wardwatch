@@ -1,8 +1,7 @@
 // The Sunday tune-up: everything waiting for its plan slot, each with its own
 // fix screen. Doing them all in one go comes with the nudge engine.
-import { Link } from "react-router";
 import { useDevice } from "../../lib/data";
-import { Failed, Loading, UpdateButton } from "../parts";
+import { BackBar, Failed, Loading, UpdateButton } from "../parts";
 
 export function TuneUp() {
   const { status, error } = useDevice();
@@ -11,6 +10,7 @@ export function TuneUp() {
   const waiting = [...status.urgent, ...status.waiting];
   return (
     <section aria-labelledby="tune-up-title" className="flex flex-col gap-3">
+      <BackBar />
       <h1 id="tune-up-title" className="text-3xl">
         Sunday tune-up
       </h1>
@@ -30,7 +30,6 @@ export function TuneUp() {
           ))}
         </ul>
       )}
-      <Link to="/">Back to Home</Link>
     </section>
   );
 }

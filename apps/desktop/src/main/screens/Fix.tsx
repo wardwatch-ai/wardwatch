@@ -4,7 +4,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ActGlyph, Button, Card, CheckGlyph, Eyebrow, OkGlyph } from "@wardwatch/ui";
 import { useState } from "react";
-import { Link, useParams } from "react-router";
+import { useParams } from "react-router";
 import {
   type Finding,
   type FixProgress,
@@ -29,6 +29,7 @@ import {
   shellLine,
   worstVuln,
 } from "./fixCopy";
+import { BackBar } from "../parts";
 
 type StepState = "idle" | "working" | "done";
 
@@ -172,11 +173,10 @@ export function Fix() {
 function Shell({ crumb, children }: { crumb: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col">
-      <div className="flex items-center gap-3 border-b border-line px-8 py-4">
-        <Link to="/" className="ww-btn ww-btn-quiet">
-          Home
-        </Link>
-        <span className="text-sm text-text-muted">{crumb}</span>
+      <div className="border-b border-line px-8 py-4">
+        <BackBar>
+          <span className="text-sm text-text-muted">{crumb}</span>
+        </BackBar>
       </div>
       <section
         aria-live="polite"

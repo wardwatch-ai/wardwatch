@@ -116,8 +116,16 @@ export type ScoreResponse =
       fix_speed: number;
       percentile: number | null;
       patches_scored: number;
+      /** Sums behind the subscores, for on-device estimates (backend#3). */
+      sums?: ScoreSums;
       algorithm: number;
     };
+
+export interface ScoreSums {
+  total: number;
+  in_time: number;
+  speed: number;
+}
 
 /** GET /v1/groups */
 export interface GroupSummary {

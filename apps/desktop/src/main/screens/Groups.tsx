@@ -191,7 +191,13 @@ function Podium({ rows }: { rows: LeaderboardRow[] }) {
   if (ranked.length < 2) return null;
   // Second, first, third, like a real podium.
   const order = [ranked[1], ranked[0], ranked[2]];
-  const heights = ["h-[76px] bg-band-2", "h-[96px] bg-band-3", "h-[62px] bg-sel"];
+  // Each step has an edge so it stands out from the card (3:1 in both themes), and
+  // its label colour is picked for its own fill: band-3 is light in dark mode too.
+  const steps = [
+    "h-[76px] bg-band-2 text-text",
+    "h-[96px] bg-band-3 text-[#23211F]",
+    "h-[62px] bg-band-1 text-text",
+  ];
   return (
     <ol
       aria-label="Top three"
@@ -201,7 +207,7 @@ function Podium({ rows }: { rows: LeaderboardRow[] }) {
         r ? (
           <li
             key={r.user_id}
-            className={`flex flex-col items-center justify-end gap-0.5 rounded-t-[10px] px-1 py-2 ${heights[i] ?? ""}`}
+            className={`flex flex-col items-center justify-end gap-0.5 rounded-t-[10px] border border-b-0 border-edge px-1 py-2 ${steps[i] ?? ""}`}
           >
             <span
               aria-hidden="true"
@@ -210,7 +216,7 @@ function Podium({ rows }: { rows: LeaderboardRow[] }) {
             >
               {r.name.charAt(0).toUpperCase()}
             </span>
-            <span className="text-xs font-semibold text-[#23211F]">
+            <span className="text-xs font-semibold">
               {r.rank} · {r.you ? "You" : r.name}
             </span>
           </li>

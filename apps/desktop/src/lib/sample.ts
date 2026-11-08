@@ -202,6 +202,8 @@ export const sampleScore: ScoreResponse = {
   fix_speed: 78,
   percentile: 71,
   patches_scored: 42,
+  // Consistent with 90 up to date and 78 fix speed.
+  sums: { total: 40, in_time: 36, speed: 31.2 },
   algorithm: 1,
 };
 
