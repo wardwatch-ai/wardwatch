@@ -1,0 +1,18 @@
+[package]
+name = "wardwatch-nudge"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Decides how hard and when Wardwatch nudges for each update: severity, the Update plan, quiet hours and the Sunday Tune-Up."
+publish = false
+
+[dependencies]
+jiff = { version = "0.2", features = ["serde"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+wardwatch-feed = { path = "../wardwatch-feed" }
+
+[lints]
+workspace = true

@@ -4140,6 +4140,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "wardwatch-nudge"
+version = "0.1.0"
+dependencies = [
+ "jiff",
+ "serde",
+ "serde_json",
+ "wardwatch-feed",
+]
+
+[[package]]
 name = "wardwatch-update"
 version = "0.1.0"
 dependencies = [
