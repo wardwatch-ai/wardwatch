@@ -14,7 +14,7 @@ export interface VisualCase {
    * design canvas) has none: Matt reviews the app render itself, and the first
    * render he approves becomes its design.
    */
-  mock?: string;
+  mock: string | null;
   /** App page and hash route to open. */
   url: string;
   viewport: { width: number; height: number };
@@ -53,7 +53,7 @@ export const cases: VisualCase[] = [
   { id: "groups", title: "Groups", mock: "Groups4.dc.html", url: "/#/groups", viewport: main },
   { id: "apps", title: "Apps", mock: "Apps3.dc.html", url: "/#/apps", viewport: main },
   { id: "plan", title: "Update plan", mock: "Plan4.dc.html", url: "/#/plan", viewport: main },
-  { id: "settings", title: "Settings", url: "/#/settings", viewport: main },
+  { id: "settings", title: "Settings", mock: null, url: "/#/settings", viewport: main },
 ];
 
 export const themes = ["light", "dark"] as const;
@@ -62,9 +62,15 @@ export type Theme = (typeof themes)[number];
 export const dir = import.meta.dirname;
 export const mockPng = (id: string, theme: Theme) => join(dir, "mocks", `${id}-${theme}.png`);
 
+/** A case's mock render, or null when the screen has no mock. */
+export const mockBytes = (c: VisualCase, theme: Theme) =>
+  c.mock ? readFileSync(mockPng(c.id, theme)) : null;
+
 /** sha256 of a case's mock render, or null when the screen has no mock. */
-export const mockHash = (c: VisualCase, theme: Theme) =>
-  c.mock ? sha256(readFileSync(mockPng(c.id, theme))) : null;
+export function mockHash(c: VisualCase, theme: Theme): string | null {
+  const bytes = mockBytes(c, theme);
+  return bytes ? sha256(bytes) : null;
+}
 export const outDir = join(dir, "out");
 export const approvalsFile = join(dir, "approvals.json");
 

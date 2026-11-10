@@ -1,9 +1,9 @@
-// Builds the review set in out/: for each screen and theme, the app, plus the mock
-// and a diff of the two when the screen has a mock, and <id>.json saying whether the app changed since its last verdict.
+// Builds the review set in out/: for each screen and theme, the app (plus the
+// mock and a diff of the two when the screen has a mock), and <id>.json saying whether the app changed since its last verdict.
 // Matt marks each one "ok" or "fix"; approve.ts then records his verdicts.
 import { test } from "@playwright/test";
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import pixelmatch from "pixelmatch";
 import { PNG } from "pngjs";
@@ -11,7 +11,7 @@ import {
   captureApp,
   cases,
   dir,
-  mockPng,
+  mockBytes,
   outDir,
   readApprovals,
   sameImage,
@@ -36,6 +36,8 @@ const commit =
   execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
 
 test.beforeAll(() => {
+  // Start clean, so no file from an earlier run sits beside this one's.
+  rmSync(outDir, { recursive: true, force: true });
   mkdirSync(outDir, { recursive: true });
 });
 
@@ -47,7 +49,7 @@ for (const c of cases) {
       const a = PNG.sync.read(app);
       writeFileSync(join(outDir, `${id}.app.png`), app);
       // With a mock: the mock and a diff against it. Without one, Matt reviews the app alone.
-      const mock = c.mock ? readFileSync(mockPng(c.id, theme)) : null;
+      const mock = mockBytes(c, theme);
       let mismatch: number | null = null;
       let mockSize: number[] | null = null;
       if (mock) {

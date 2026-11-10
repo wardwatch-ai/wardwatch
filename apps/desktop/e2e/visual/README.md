@@ -15,14 +15,15 @@ the gate compares are always CI renders (`ubuntu-24.04`, Playwright's
 Chromium). Local runs are for building and checking the review flow.
 
 1. **Review.** When the gate fails, CI runs `pnpm visual:review` and uploads
-   `out/` as the `visual-review` artifact: for each screen the mock, the
-   app, a pixel diff and `<id>.json` (how much differs, the commit, and whether the
+   `out/` as the `visual-review` artifact: for each screen the app (plus the
+   mock and a pixel diff when the screen has a mock) and `<id>.json` (how much differs, the commit, and whether the
    screen changed since its last verdict). Claude turns that into a review page where
    Matt marks each screen "Looks right" or "Needs fixing", with a note.
 2. **Record.** `pnpm visual:approve verdicts.json` checks that the review was rendered from
    the current commit, then copies the screens Matt saw
    into `approved/` and records each verdict in `approvals.json` (verdict, note,
-   who, when, and the sha256 of the mock and app images). A "Needs fixing"
+   who, when, and the sha256 of the app image and of the mock, or null for a
+   screen without one). A "Needs fixing"
    screen is recorded too; its note is the work to do, and the fix comes back
    for review as a changed screen.
 3. **Gate.** `pnpm visual` (CI, job "Screens match Matt's reviewed designs")
@@ -49,6 +50,6 @@ Add a case to `cases.ts` with its artboard and route and render its mock. Push:
 the gate fails on the new screen, and its CI render goes to Matt for review.
 
 A screen built after the design canvas (Settings, for one) has no artboard:
-leave out `mock`. Matt then reviews the app render on its own, and the first
+set `mock: null`. Matt then reviews the app render on its own, and the first
 render he approves becomes its design; from then on the gate holds it to that
 render like any other screen.

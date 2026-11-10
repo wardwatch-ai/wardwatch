@@ -14,10 +14,17 @@ for (const c of cases) {
     test(id, async ({ page }) => {
       const approval = approvals[id];
       expect(approval, `${id} has not been reviewed yet; run pnpm visual:review`).toBeDefined();
+      const mock = mockHash(c, theme);
+      const why =
+        approval?.mock === null
+          ? "now has a mock"
+          : mock === null
+            ? "no longer has a mock"
+            : "mock changed";
       expect(
         approval?.mock,
-        `the ${c.title} mock changed since it was reviewed; run pnpm visual:review`,
-      ).toBe(mockHash(c, theme));
+        `${c.title} ${why} since it was reviewed; run pnpm visual:review`,
+      ).toBe(mock);
 
       expect(
         sha256(readFileSync(join(dir, "approved", `${id}.png`))),
