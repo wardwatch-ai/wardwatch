@@ -46,6 +46,10 @@ then worst severity, then name). Serialized with serde:
   `DisplayName` prefix, or the Uninstall key name when a rule gives an `id`. `dpkg` and `rpm` match the **source** package, so all
   binary packages built from it (`openssl`, `libssl3t64`) become installs of
   one finding. `os` matches the device's `os.id` and uses `os.version`.
+  Every other source matches its `id` exactly: `macports` by port name (the
+  version's `_revision` is ignored under `dotted`), `appimage` by the
+  lowercased, hyphenated app name, and `winget` by the package id of a winget
+  portable.
 - An app installed more than once (a cask and its app bundle, say) is one
   finding, judged by its oldest install.
 - Range `scope`s apply when they name this device's OS family (`os:macos`) or

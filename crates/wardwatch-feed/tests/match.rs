@@ -313,3 +313,114 @@ fn registry_rules_may_name_the_uninstall_key() {
     let inv = inventory(os(OsFamily::Windows, "windows", "10.0.1"), vec![chrome]);
     assert_eq!(match_inventory(&inv, &catalog).len(), 1);
 }
+
+/// A catalog naming curl and GIMP the way `wardwatch-ai/backend`
+/// `catalog/data/apps.json` does for MacPorts, AppImage and winget installs.
+fn new_sources_catalog() -> Catalog {
+    let json = r#"{
+      "schema_version": 1,
+      "generated_at": "2026-11-08T00:00:00Z",
+      "expires_at": "2026-11-15T00:00:00Z",
+      "sources": {},
+      "apps": [
+        {
+          "id": "curl", "name": "curl", "kind": "package", "version_scheme": "dotted",
+          "match": [
+            {"source": "homebrew_formula", "id": "curl"},
+            {"source": "macports", "id": "curl"},
+            {"source": "winget", "id": "cURL.cURL"}
+          ],
+          "vulns": [{
+            "id": "CVE-2099-1000", "published": "2026-11-01T00:00:00Z",
+            "severity": "high", "exploited": false,
+            "ranges": [{"introduced": "8.0.0", "fixed": "8.11.1"}],
+            "summary": "test"
+          }]
+        },
+        {
+          "id": "gimp", "name": "GIMP", "kind": "app", "version_scheme": "dotted",
+          "match": [
+            {"source": "appimage", "id": "gimp"},
+            {"source": "appimage", "id": "gnu-image-manipulation-program"}
+          ],
+          "vulns": [{
+            "id": "CVE-2099-2000", "published": "2026-11-01T00:00:00Z",
+            "severity": "medium", "exploited": false,
+            "ranges": [{"introduced": "0", "fixed": "3.2.8"}],
+            "summary": "test"
+          }]
+        }
+      ]
+    }"#;
+    Catalog::from_json(json.as_bytes(), now()).unwrap()
+}
+
+#[test]
+fn macports_versions_read_without_their_revision() {
+    // The scanner's own parser, so the id and version are what a Mac reports.
+    let ports = wardwatch_catalog::macports::parse_installed(
+        "  curl @8.11.0_0+ssl (active)\n  zlib @1.3.1_0 (active)\n",
+    );
+    assert_eq!(ports[0].version.as_deref(), Some("8.11.0_0"));
+    let inv = inventory(os(OsFamily::Macos, "macos", "16.1.1"), ports);
+    let found = match_inventory(&inv, &new_sources_catalog());
+    assert_eq!(found.len(), 1);
+    let f = &found[0];
+    assert_eq!((f.key.as_str(), f.source.as_str()), ("curl", "macports"));
+    assert_eq!(f.installed, "8.11.0_0");
+    assert_eq!(f.fixed_version.as_deref(), Some("8.11.1"));
+    assert!(f.update_available);
+
+    let fixed = vec![sw(Source::Macports, "curl", "curl", "8.11.1_2")];
+    let inv = inventory(os(OsFamily::Macos, "macos", "16.1.1"), fixed);
+    let found = match_inventory(&inv, &new_sources_catalog());
+    assert!(found[0].vulns.is_empty() && !found[0].update_available);
+}
+
+#[test]
+fn winget_portables_match_by_package_id_only() {
+    let portable = sw(Source::Winget, "cURL.cURL", "curl", "8.10.1");
+    let inv = inventory(os(OsFamily::Windows, "windows", "10.0.1"), vec![portable]);
+    let found = match_inventory(&inv, &new_sources_catalog());
+    assert_eq!(found.len(), 1);
+    assert_eq!(
+        (found[0].source.as_str(), found[0].software_id.as_str()),
+        ("winget", "cURL.cURL")
+    );
+    assert_eq!(ids(&found[0]), ["CVE-2099-1000"]);
+
+    // The same id under another source, or another casing, isn't this rule.
+    let others = vec![
+        sw(Source::WindowsRegistry, "cURL.cURL", "curl", "8.10.1"),
+        sw(Source::Winget, "curl.curl", "curl", "8.10.1"),
+    ];
+    let inv = inventory(os(OsFamily::Windows, "windows", "10.0.1"), others);
+    assert!(match_inventory(&inv, &new_sources_catalog()).is_empty());
+}
+
+#[test]
+fn appimages_match_by_file_or_menu_name() {
+    use wardwatch_catalog::appimage::parse_file_name;
+    // How the scanner names an AppImage: lowercased, spaces as hyphens.
+    let (name, version) = parse_file_name("GIMP-3.2.6-x86_64.AppImage").unwrap();
+    assert_eq!((name.as_str(), version.as_deref()), ("GIMP", Some("3.2.6")));
+    let software = vec![
+        sw(Source::Appimage, &name.to_lowercase(), &name, "3.2.6"),
+        // AppImageLauncher's menu entry carries the long name.
+        sw(
+            Source::Appimage,
+            "gnu-image-manipulation-program",
+            "GNU Image Manipulation Program",
+            "3.2.4",
+        ),
+    ];
+    let inv = inventory(os(OsFamily::Linux, "fedora", "41"), software);
+    let found = match_inventory(&inv, &new_sources_catalog());
+    assert_eq!(found.len(), 1);
+    let f = &found[0];
+    assert_eq!((f.key.as_str(), f.source.as_str()), ("gimp", "appimage"));
+    // The older copy decides, and both are listed.
+    assert_eq!(f.installed, "3.2.4");
+    assert_eq!(f.installs.len(), 2);
+    assert_eq!(f.fixed_version.as_deref(), Some("3.2.8"));
+}
