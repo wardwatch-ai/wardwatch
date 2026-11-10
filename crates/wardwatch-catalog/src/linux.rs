@@ -6,9 +6,8 @@
 use std::collections::{BTreeMap, HashSet};
 use std::fs;
 use std::path::Path;
-use std::process::Command;
 
-use crate::{OsFamily, OsInfo, Software, Source};
+use crate::{OsFamily, OsInfo, Software, Source, run};
 
 /// Parses an `os-release` file (`KEY=value`, values optionally quoted).
 pub fn parse_os_release(text: &str) -> Result<OsInfo, String> {
@@ -165,6 +164,34 @@ pub fn parse_flatpak_output(text: &str) -> Vec<Software> {
     out
 }
 
+/// Parses `flatpak ps --columns=application`: the IDs of running apps.
+pub fn parse_flatpak_ps(text: &str) -> HashSet<String> {
+    text.lines()
+        .map(str::trim)
+        .filter(|l| !l.is_empty() && *l != "Application")
+        .map(String::from)
+        .collect()
+}
+
+/// Marks Flatpak apps that have a running instance. Sandboxed processes'
+/// executables are paths inside the sandbox (`/app/bin/...`), so they can't
+/// be matched by path; `flatpak ps` names the app instead. Runtimes aren't
+/// marked: `flatpak ps` doesn't say which branch an instance uses.
+pub fn mark_running_flatpaks(software: &mut [Software], warnings: &mut Vec<String>) {
+    if !software.iter().any(|s| s.source == Source::Flatpak) {
+        return;
+    }
+    match run("/usr/bin/flatpak", &["ps", "--columns=application"]) {
+        Ok(text) => {
+            let running = parse_flatpak_ps(&text);
+            for s in software.iter_mut().filter(|s| s.source == Source::Flatpak) {
+                s.running |= running.contains(&s.id);
+            }
+        }
+        Err(e) => warnings.push(format!("flatpak ps: {e}")),
+    }
+}
+
 /// Reads the `version:` line of a snap's `meta/snap.yaml`.
 pub fn parse_snap_version(yaml: &str) -> Option<String> {
     yaml.lines()
@@ -196,19 +223,6 @@ pub fn scan_snaps(snap_dir: &Path) -> Vec<Software> {
         .collect();
     out.sort_by(|a, b| a.id.cmp(&b.id));
     out
-}
-
-/// Runs a package tool by absolute path with a fixed locale and returns stdout.
-fn run(tool: &str, args: &[&str]) -> Result<String, String> {
-    let out = Command::new(tool)
-        .args(args)
-        .env("LC_ALL", "C")
-        .output()
-        .map_err(|e| format!("could not run ({})", e.kind()))?;
-    if !out.status.success() {
-        return Err(format!("exited with {}", out.status));
-    }
-    Ok(String::from_utf8_lossy(&out.stdout).into_owned())
 }
 
 /// Scans every native package source present on this machine.
@@ -362,6 +376,15 @@ mod tests {
                 ("org.example.Nothing", None),
             ]
         );
+    }
+
+    #[test]
+    fn parses_flatpak_ps() {
+        let running = parse_flatpak_ps(
+            "Application\norg.mozilla.firefox\norg.mozilla.firefox\ncom.slack.Slack\n",
+        );
+        assert_eq!(running.len(), 2);
+        assert!(running.contains("org.mozilla.firefox") && running.contains("com.slack.Slack"));
     }
 
     #[test]

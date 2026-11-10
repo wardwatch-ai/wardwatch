@@ -45,10 +45,21 @@ pub(crate) fn mark_running(software: &mut [Software], exes: &[PathBuf]) {
     let exe_paths: Vec<String> = exes.iter().map(|p| normalize(p)).collect();
     for s in software.iter_mut() {
         s.running = match (&s.location, s.source) {
+            // An AppImage's location is the file itself, which its runtime runs from.
+            (Some(loc), Source::Appimage) => {
+                let file = normalize(loc);
+                exe_paths.contains(&file)
+            }
             (Some(loc), _) => {
                 let dir = normalize(loc);
                 exe_paths.iter().any(|exe| inside(&dir, exe))
             }
+            // Ports share one prefix, so match by name inside it (not Apple's
+            // own /usr/bin/curl).
+            (None, Source::Macports) => exe_paths.iter().any(|exe| {
+                exe.strip_prefix(crate::macports::PREFIX)
+                    .is_some_and(|rest| rest.rsplit('/').next() == Some(s.id.as_str()))
+            }),
             // Distro packages have no single install folder, so match by name.
             (None, Source::Dpkg | Source::Rpm) => {
                 let browser_exes = s
@@ -96,18 +107,43 @@ mod tests {
         firefox.browser = Some(Browser::Firefox);
         let idle = Software::new(Source::Rpm, "vim-enhanced", "vim-enhanced");
         let flatpak = Software::new(Source::Flatpak, "curl", "curl");
+        let mut appimage = Software::new(Source::Appimage, "obsidian", "Obsidian");
+        appimage.location = Some("/home/u/Applications/Obsidian-1.7.7.AppImage".into());
+        let mut idle_appimage = Software::new(Source::Appimage, "cursor", "Cursor");
+        idle_appimage.location = Some("/home/u/Applications/Cursor.AppImage".into());
+        let port = Software::new(Source::Macports, "nginx", "nginx");
+        let apple_rsync = Software::new(Source::Macports, "rsync", "rsync");
 
-        let mut list = vec![app, lookalike, curl, firefox, idle, flatpak];
+        let mut list = vec![
+            app,
+            lookalike,
+            curl,
+            firefox,
+            idle,
+            flatpak,
+            appimage,
+            idle_appimage,
+            port,
+            apple_rsync,
+        ];
         let exes: Vec<PathBuf> = [
             "/Applications/App.app/Contents/MacOS/App",
             "/usr/bin/curl",
             "/usr/lib/firefox-esr/firefox-bin",
+            "/home/u/Applications/Obsidian-1.7.7.AppImage",
+            "/opt/local/sbin/nginx",
+            "/usr/bin/rsync",
         ]
         .map(PathBuf::from)
         .to_vec();
         mark_running(&mut list, &exes);
         let running: Vec<bool> = list.iter().map(|s| s.running).collect();
-        assert_eq!(running, [true, false, true, true, false, false]);
+        assert_eq!(
+            running,
+            [
+                true, false, true, true, false, false, true, false, true, false
+            ]
+        );
     }
 
     #[test]

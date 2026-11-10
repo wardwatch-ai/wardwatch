@@ -1,4 +1,5 @@
-//! Background services: systemd units on Linux, launchd jobs on macOS, and
+//! Background services: systemd units on Linux (the machine's, and the
+//! current user's own `systemctl --user` units), launchd jobs on macOS, and
 //! Windows services. Services shipped with the OS are left out (Apple's jobs
 //! in `/System`, Windows services under the Windows folder), since OS updates
 //! cover them; on Linux every unit comes from a package, so all are listed.
@@ -17,9 +18,11 @@ use crate::running::{inside, normalize};
 use crate::{Software, Source};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
+#[serde(rename_all = "snake_case")]
 pub enum ServiceKind {
     Systemd,
+    /// A systemd unit of the current user's own service manager.
+    SystemdUser,
     Launchd,
     Windows,
 }
@@ -80,9 +83,15 @@ fn owner(
         .position(|loc| loc.as_deref().is_some_and(|loc| inside(loc, &path)))
         .map(|i| &software[i]);
     let by_name = || {
-        software
-            .iter()
-            .find(|s| matches!(s.source, Source::Dpkg | Source::Rpm) && s.id == file)
+        software.iter().find(|s| {
+            s.id == file
+                && match s.source {
+                    Source::Dpkg | Source::Rpm => true,
+                    // Only a program in MacPorts' prefix, not /usr/bin/curl.
+                    Source::Macports => path.starts_with(crate::macports::PREFIX),
+                    _ => false,
+                }
+        })
     };
     by_location.or_else(by_name).map(|s| SoftwareRef {
         source: s.source,
@@ -127,12 +136,24 @@ pub fn scan(
     #[cfg(target_os = "linux")]
     let mut found = {
         let _ = &warnings;
+        let (system_running, user_running) = systemd::running_units();
         let dirs: Vec<&Path> = systemd::UNIT_DIRS.iter().map(Path::new).collect();
-        systemd::scan_units(
+        let mut found = systemd::scan_units(
+            ServiceKind::Systemd,
             &dirs,
-            Path::new(systemd::ENABLED_ROOT),
-            &systemd::running_units(),
-        )
+            &[Path::new(systemd::ENABLED_ROOT)],
+            &system_running,
+        );
+        let (user_dirs, user_enabled) = systemd::user_dirs();
+        let user_dirs: Vec<&Path> = user_dirs.iter().map(PathBuf::as_path).collect();
+        let user_enabled: Vec<&Path> = user_enabled.iter().map(PathBuf::as_path).collect();
+        found.extend(systemd::scan_units(
+            ServiceKind::SystemdUser,
+            &user_dirs,
+            &user_enabled,
+            &user_running,
+        ));
+        found
     };
     #[cfg(target_os = "macos")]
     let mut found = {
@@ -153,19 +174,25 @@ pub fn scan(
 /// Folders whose changes mean services were added or removed.
 pub fn watch_paths() -> Vec<PathBuf> {
     #[cfg(target_os = "linux")]
-    return vec![
-        systemd::ENABLED_ROOT.into(),
-        "/usr/lib/systemd/system".into(),
-    ];
+    {
+        let mut paths = vec![
+            systemd::ENABLED_ROOT.into(),
+            "/usr/lib/systemd/system".into(),
+            "/usr/lib/systemd/user".into(),
+        ];
+        paths.extend(systemd::user_dirs().1);
+        paths
+    }
     #[cfg(target_os = "macos")]
     return launchd::dirs();
     #[cfg(not(any(target_os = "linux", target_os = "macos")))]
     Vec::new()
 }
 
-/// systemd system units, read from unit files; which are running comes from
-/// the world-readable `/proc/<pid>/cgroup`, since a user can't read the
-/// executable path of root's daemons.
+/// systemd units, read from unit files; which are running comes from the
+/// world-readable `/proc/<pid>/cgroup`, since a user can't read the
+/// executable path of root's daemons. The same code reads system units and
+/// the current user's units, from their own folders.
 pub mod systemd {
     use std::collections::{HashMap, HashSet};
     use std::fs;
@@ -185,6 +212,36 @@ pub mod systemd {
 
     /// Holds the `*.wants` and `*.requires` folders `systemctl enable` links into.
     pub const ENABLED_ROOT: &str = "/etc/systemd/system";
+
+    /// User unit folders, highest precedence first, with `~` for the home
+    /// folder. `systemctl --user enable` links into `~/.config/systemd/user`,
+    /// and `systemctl --global enable` into `/etc/systemd/user`.
+    pub const USER_UNIT_DIRS: &[&str] = &[
+        "~/.config/systemd/user",
+        "/etc/systemd/user",
+        "/run/systemd/user",
+        "~/.local/share/systemd/user",
+        "/usr/local/lib/systemd/user",
+        "/usr/lib/systemd/user",
+    ];
+
+    /// The current user's unit folders and the folders their enabled links are in.
+    pub fn user_dirs() -> (Vec<PathBuf>, Vec<PathBuf>) {
+        let home = crate::home_dir();
+        let dirs: Vec<PathBuf> = USER_UNIT_DIRS
+            .iter()
+            .filter_map(|d| match d.strip_prefix("~/") {
+                Some(rest) => Some(home.as_ref()?.join(rest)),
+                None => Some(PathBuf::from(d)),
+            })
+            .collect();
+        let mut enabled: Vec<PathBuf> = home
+            .iter()
+            .map(|h| h.join(".config/systemd/user"))
+            .collect();
+        enabled.push("/etc/systemd/user".into());
+        (dirs, enabled)
+    }
 
     /// The `Description` and the program of the first `ExecStart` of a unit file.
     pub fn parse_unit(text: &str) -> (Option<String>, Option<PathBuf>) {
@@ -222,35 +279,64 @@ pub mod systemd {
     /// The system service a process belongs to, from its `/proc/<pid>/cgroup`
     /// text. Processes of users' own units (under `user.slice`) don't count.
     pub fn parse_cgroup(text: &str) -> Option<String> {
+        service_under(text, "/system.slice/")
+    }
+
+    /// The unit of user `uid`'s own service manager that a process belongs
+    /// to (`/user.slice/user-1000.slice/user@1000.service/app.slice/x.service`).
+    pub fn parse_user_cgroup(text: &str, uid: u32) -> Option<String> {
+        service_under(
+            text,
+            &format!("/user.slice/user-{uid}.slice/user@{uid}.service/"),
+        )
+    }
+
+    fn service_under(text: &str, prefix: &str) -> Option<String> {
         text.lines()
-            .filter_map(|l| l.rsplit(':').next()?.strip_prefix("/system.slice/"))
+            .filter_map(|l| l.rsplit(':').next()?.strip_prefix(prefix))
             .flat_map(|path| path.split('/'))
             .rfind(|c| c.ends_with(".service"))
             .map(String::from)
     }
 
-    /// Services with a running process.
-    pub fn running_units() -> HashSet<String> {
+    /// System services, and the current user's units, with a running process.
+    pub fn running_units() -> (HashSet<String>, HashSet<String>) {
+        let (mut system, mut user) = (HashSet::new(), HashSet::new());
         let Ok(proc) = fs::read_dir("/proc") else {
-            return HashSet::new();
+            return (system, user);
         };
-        proc.filter_map(Result::ok)
+        // The owner of /proc/self is this process's user.
+        #[cfg(unix)]
+        let uid = {
+            use std::os::unix::fs::MetadataExt;
+            fs::metadata("/proc/self").ok().map(|m| m.uid())
+        };
+        #[cfg(not(unix))]
+        let uid: Option<u32> = None;
+        let cgroups = proc
+            .filter_map(Result::ok)
             .filter(|e| {
                 e.file_name()
                     .to_str()
                     .is_some_and(|n| n.bytes().all(|b| b.is_ascii_digit()))
             })
-            .filter_map(|e| fs::read_to_string(e.path().join("cgroup")).ok())
-            .filter_map(|t| parse_cgroup(&t))
-            .collect()
+            .filter_map(|e| fs::read_to_string(e.path().join("cgroup")).ok());
+        for text in cgroups {
+            if let Some(unit) = parse_cgroup(&text) {
+                system.insert(unit);
+            } else if let Some(unit) = uid.and_then(|uid| parse_user_cgroup(&text, uid)) {
+                user.insert(unit);
+            }
+        }
+        (system, user)
     }
 
-    /// Names linked into `*.wants`/`*.requires` folders under `root`.
-    fn enabled_units(root: &Path) -> HashSet<String> {
-        let Ok(entries) = fs::read_dir(root) else {
-            return HashSet::new();
-        };
-        entries
+    /// Names linked into `*.wants`/`*.requires` folders under `roots`.
+    fn enabled_units(roots: &[&Path]) -> HashSet<String> {
+        roots
+            .iter()
+            .filter_map(|root| fs::read_dir(root).ok())
+            .flatten()
             .filter_map(Result::ok)
             .filter(|e| {
                 e.file_name()
@@ -268,11 +354,12 @@ pub mod systemd {
     /// or the socket, timer or path unit that starts it, is enabled. Bare
     /// templates, aliases and masked units are skipped.
     pub fn scan_units(
+        kind: ServiceKind,
         dirs: &[&Path],
-        enabled_root: &Path,
+        enabled_roots: &[&Path],
         running: &HashSet<String>,
     ) -> Vec<Service> {
-        let enabled = enabled_units(enabled_root);
+        let enabled = enabled_units(enabled_roots);
         // Unit name -> file, highest-precedence folder first; None if masked.
         let mut files: HashMap<String, Option<PathBuf>> = HashMap::new();
         for dir in dirs {
@@ -333,8 +420,12 @@ pub mod systemd {
                 continue; // masked, or no unit file
             };
             let (description, program) = parse_unit(&String::from_utf8_lossy(&bytes));
-            let mut svc = Service::new(ServiceKind::Systemd, name.clone());
-            svc.display_name = description;
+            let mut svc = Service::new(kind, name.clone());
+            // A user's own unit descriptions are free text they wrote, which
+            // can name their folders; only the machine's are kept.
+            if kind == ServiceKind::Systemd {
+                svc.display_name = description;
+            }
             svc.starts_automatically = on;
             svc.running = up;
             svc.program = program;
@@ -581,6 +672,79 @@ mod tests {
         );
     }
 
+    #[test]
+    fn parses_user_cgroups() {
+        let syncthing =
+            "0::/user.slice/user-1000.slice/user@1000.service/app.slice/syncthing.service\n";
+        assert_eq!(
+            systemd::parse_user_cgroup(syncthing, 1000).as_deref(),
+            Some("syncthing.service")
+        );
+        assert_eq!(systemd::parse_user_cgroup(syncthing, 1001), None);
+        // Apps started from the desktop run in scopes, not services.
+        assert_eq!(
+            systemd::parse_user_cgroup(
+                "0::/user.slice/user-1000.slice/user@1000.service/app.slice/app-firefox-123.scope\n",
+                1000
+            ),
+            None
+        );
+        assert_eq!(
+            systemd::parse_user_cgroup("0::/system.slice/ssh.service\n", 1000),
+            None
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn scans_user_units() {
+        use std::collections::HashSet;
+        use std::fs;
+
+        let tmp = tempfile::tempdir().unwrap();
+        let config = tmp.path().join("config");
+        let global = tmp.path().join("etc-user");
+        let lib = tmp.path().join("lib-user");
+        fs::create_dir_all(config.join("default.target.wants")).unwrap();
+        fs::create_dir_all(global.join("sockets.target.wants")).unwrap();
+        fs::create_dir_all(&lib).unwrap();
+        let unit = |exe: &str| format!("[Service]\nExecStart={exe}\n");
+        fs::write(config.join("syncthing.service"), unit("/usr/bin/syncthing")).unwrap();
+        fs::write(lib.join("pipewire.service"), unit("/usr/bin/pipewire")).unwrap();
+        fs::write(lib.join("idle.service"), unit("/usr/bin/idle")).unwrap();
+        std::os::unix::fs::symlink(
+            config.join("syncthing.service"),
+            config.join("default.target.wants/syncthing.service"),
+        )
+        .unwrap();
+        // Enabled for every user through its socket.
+        std::os::unix::fs::symlink(&lib, global.join("sockets.target.wants/pipewire.socket"))
+            .unwrap();
+
+        let running: HashSet<String> = ["syncthing.service".to_string()].into();
+        let found = systemd::scan_units(
+            ServiceKind::SystemdUser,
+            &[config.as_path(), global.as_path(), lib.as_path()],
+            &[config.as_path(), global.as_path()],
+            &running,
+        );
+        let summary: Vec<(ServiceKind, &str, bool, bool)> = found
+            .iter()
+            .map(|s| (s.kind, s.name.as_str(), s.starts_automatically, s.running))
+            .collect();
+        assert_eq!(
+            summary,
+            [
+                (ServiceKind::SystemdUser, "pipewire.service", true, false),
+                (ServiceKind::SystemdUser, "syncthing.service", true, true),
+            ]
+        );
+        assert_eq!(
+            serde_json::to_value(ServiceKind::SystemdUser).unwrap(),
+            "systemd_user"
+        );
+    }
+
     #[cfg(unix)]
     #[test]
     fn scans_systemd_units() {
@@ -620,7 +784,12 @@ mod tests {
         std::os::unix::fs::symlink("/dev/null", etc.join("masked.service")).unwrap();
 
         let running: HashSet<String> = ["cups.service", "masked.service"].map(String::from).into();
-        let found = systemd::scan_units(&[etc.as_path(), lib.as_path()], &etc, &running);
+        let found = systemd::scan_units(
+            ServiceKind::Systemd,
+            &[etc.as_path(), lib.as_path()],
+            &[etc.as_path()],
+            &running,
+        );
         let summary: Vec<(&str, bool, bool)> = found
             .iter()
             .map(|s| (s.name.as_str(), s.starts_automatically, s.running))

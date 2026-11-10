@@ -1,6 +1,9 @@
 //! Windows: the OS version and installed programs, both from the registry.
 //! Installed programs are the Uninstall keys that "Apps > Installed apps"
 //! lists, for the machine (64- and 32-bit views) and for the current user.
+//! Programs winget installed without an installer of their own (portable
+//! packages) have an Uninstall key that winget writes, tagged with the
+//! winget package id; those are listed under that id as [`Source::Winget`].
 
 use std::collections::{BTreeMap, HashSet};
 
@@ -19,6 +22,8 @@ pub const UNINSTALL_VALUES: &[&str] = &[
     "SystemComponent",
     "ParentKeyName",
     "ReleaseType",
+    "WinGetPackageIdentifier",
+    "WinGetSourceIdentifier",
 ];
 
 /// Values this module reads from `HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion`.
@@ -91,7 +96,14 @@ pub fn parse_uninstall_entries<'a>(
         if !seen.insert((name.to_string(), version.clone())) {
             continue;
         }
-        let mut s = Software::new(Source::WindowsRegistry, key, name);
+        // Only packages from winget's community source, which is what
+        // `winget upgrade --source winget` updates from.
+        let from_winget = get("WinGetSourceIdentifier")
+            .is_some_and(|s| s == "winget" || s.starts_with("Microsoft.Winget.Source_"));
+        let mut s = match get("WinGetPackageIdentifier").filter(|_| from_winget) {
+            Some(id) => Software::new(Source::Winget, id, name),
+            None => Software::new(Source::WindowsRegistry, key, name),
+        };
         s.version = version;
         s.publisher = get("Publisher").map(String::from);
         s.location = install_dir(get("InstallLocation"), get("DisplayIcon"));
@@ -243,8 +255,18 @@ mod tests {
                 ("7-Zip 24.08 (x64)", Some("24.08")),
                 ("Notepad++ (64-bit x64)", Some("8.7.1")),
                 ("Zoom Workplace", None),
+                ("FFmpeg (Essentials Build)", Some("7.1")),
+                ("Contoso Tool", Some("2.0")),
             ]
         );
+        // A winget portable package is listed under its winget id.
+        assert_eq!(
+            (found[6].source, found[6].id.as_str()),
+            (Source::Winget, "Gyan.FFmpeg")
+        );
+        // From another winget source: winget can't upgrade it from the community one.
+        assert_eq!(found[7].source, Source::WindowsRegistry);
+        assert_eq!(found[0].source, Source::WindowsRegistry);
         assert_eq!(found[0].publisher.as_deref(), Some("Google LLC"));
         assert_eq!(
             found[0].location.as_deref(),

@@ -15,7 +15,13 @@ export type Source =
   | "dpkg"
   | "rpm"
   | "snap"
-  | "flatpak";
+  | "flatpak"
+  | "ms_store"
+  | "chocolatey"
+  | "scoop"
+  | "macports"
+  | "appimage"
+  | "winget";
 
 export interface Software {
   source: Source;

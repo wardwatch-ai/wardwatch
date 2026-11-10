@@ -288,13 +288,17 @@ pub fn plan(finding: &Finding, os: OsFamily, tools: &Tools) -> Result<Plan, NoPl
         ) {
             let base = [pkexec.as_str(), dnf.as_str(), "upgrade", "-y", "--refresh"];
             Some((Tool::Dnf, argv(&base, &installs("rpm"))?, Admin::Asks))
-        } else if let (Some(_), Some(winget), Some(id)) = (
-            one("windows_registry"),
+        } else if let (Some(winget), Some(id)) = (
             path(&tools.winget),
-            WINGET_IDS
-                .iter()
-                .find(|(app, _)| *app == finding.app_id)
-                .map(|(_, id)| *id),
+            // A portable package carries its winget id; programs with their
+            // own installer are looked up by catalog app.
+            one("winget").or_else(|| {
+                one("windows_registry")?;
+                WINGET_IDS
+                    .iter()
+                    .find(|(app, _)| *app == finding.app_id)
+                    .map(|(_, id)| *id)
+            }),
         ) {
             let base = [
                 winget.as_str(),

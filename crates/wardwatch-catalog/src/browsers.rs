@@ -106,6 +106,8 @@ pub(crate) fn identify(s: &Software) -> Option<Browser> {
         // Casks also install an app bundle, and Chocolatey packages run an
         // installer that registers the program; those entries carry the tag.
         Source::HomebrewCask | Source::HomebrewFormula | Source::Chocolatey => None,
+        // No supported browser ships as a port, an AppImage or a winget portable.
+        Source::Macports | Source::Appimage | Source::Winget => None,
     }
 }
 
