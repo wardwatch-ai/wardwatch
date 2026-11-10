@@ -21,7 +21,7 @@ use jiff::{SignedDuration, Timestamp};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager, Runtime};
 use wardwatch_feed::Finding;
-use wardwatch_update::{Admin, Check, Method, Outcome, Plan};
+use wardwatch_update::{Admin, Check, Method, Outcome, Plan, Tool};
 
 use crate::{fix, store};
 
@@ -113,6 +113,17 @@ pub fn allowed(finding: &Finding, plan: &Plan) -> Result<(), String> {
     }
     if plan.admin != Admin::No {
         return Err("it needs your permission to install".into());
+    }
+    // It downloads from wherever the AppImage says and replaces a file the
+    // person put there themselves, so a person starts it.
+    if matches!(
+        plan.method,
+        Method::Command {
+            tool: Tool::AppImageUpdate,
+            ..
+        }
+    ) {
+        return Err("it replaces a file you downloaded yourself".into());
     }
     if finding.running || finding.installs.iter().any(|i| i.running) {
         return Err("it's open right now".into());
@@ -351,6 +362,11 @@ mod tests {
         assert!(allowed(&zoom(false), &plan(apt(), Admin::Asks)).is_err());
         assert!(allowed(&zoom(false), &plan(apt(), Admin::MayAsk)).is_err());
         assert!(allowed(&zoom(true), &plan(apt(), Admin::No)).is_err());
+        let appimage = Method::Command {
+            tool: Tool::AppImageUpdate,
+            argv: vec!["appimageupdatetool".into()],
+        };
+        assert!(allowed(&zoom(false), &plan(appimage, Admin::No)).is_err());
         let opens = Method::AppUpdater { open_bundle: None };
         assert!(allowed(&zoom(false), &plan(opens, Admin::No)).is_err());
     }

@@ -11,6 +11,7 @@
 //! against Wardwatch's keys belongs in front of it once the keys exist.
 
 use std::cmp::Ordering;
+use std::path::PathBuf;
 use std::time::SystemTime;
 
 use serde::{Deserialize, Serialize};
@@ -186,6 +187,10 @@ pub struct Install {
     pub name: String,
     pub version: String,
     pub running: bool,
+    /// Where it is on disk, for updaters that work on a file (AppImages).
+    /// Kept in memory only, so usernames in paths never leave the device.
+    #[serde(skip)]
+    pub location: Option<PathBuf>,
 }
 
 /// One vulnerability that affects the installed version.
@@ -266,6 +271,7 @@ fn match_app(app: &CatalogApp, inventory: &Inventory) -> Option<Finding> {
                     name: os.name.clone(),
                     version: os.version.clone(),
                     running: false,
+                    location: None,
                 };
                 installs.push((install, None));
             }
@@ -288,6 +294,7 @@ fn match_app(app: &CatalogApp, inventory: &Inventory) -> Option<Finding> {
                 name: s.name.clone(),
                 version,
                 running: s.running,
+                location: s.location.clone(),
             };
             installs.push((install, s.browser));
         }

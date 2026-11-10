@@ -46,6 +46,170 @@ pub fn is_appimage(path: &Path) -> bool {
         && matches!(head[10], 1 | 2)
 }
 
+/// What a type 2 AppImage carries about its own updates, read from its ELF
+/// sections (the image is never mounted or run).
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Embedded {
+    /// The `.upd_info` section: where the maker publishes updates, such as
+    /// `gh-releases-zsync|owner|repo|latest|App-*x86_64.AppImage.zsync`.
+    pub update_info: Option<String>,
+    /// Both `.sha256_sig` and `.sig_key` are filled in: the maker signed it,
+    /// so AppImageUpdate can insist the new version is signed by the same key.
+    pub signed: bool,
+}
+
+/// Largest ELF section we read; the AppImage runtime reserves 1 KiB for
+/// update info and 1-8 KiB for signatures and keys.
+const MAX_SECTION: u64 = 64 << 10;
+
+/// Reads [`Embedded`] from a type 2 AppImage. Unreadable or type 1 images
+/// carry nothing we can use, so they read as empty.
+pub fn embedded(path: &Path) -> Embedded {
+    read_sections(path, &[".upd_info", ".sha256_sig", ".sig_key"])
+        .map(|s| {
+            let text = |b: &Option<Vec<u8>>| {
+                let b = b.as_deref()?;
+                let b = &b[..b.iter().position(|&c| c == 0).unwrap_or(b.len())];
+                std::str::from_utf8(b)
+                    .ok()
+                    .filter(|t| {
+                        !t.is_empty() && t.bytes().all(|c| c.is_ascii_graphic() || c == b' ')
+                    })
+                    .map(str::to_owned)
+            };
+            let filled = |b: &Option<Vec<u8>>| {
+                b.as_ref()
+                    .is_some_and(|b| b.first().is_some_and(|&c| c != 0))
+            };
+            Embedded {
+                update_info: text(&s[0]),
+                signed: filled(&s[1]) && filled(&s[2]),
+            }
+        })
+        .unwrap_or_default()
+}
+
+/// The contents of the named sections of a little-endian ELF AppImage of
+/// type 2, `None` for each one it lacks.
+fn read_sections(path: &Path, names: &[&str]) -> std::io::Result<Vec<Option<Vec<u8>>>> {
+    use std::io::{Error, Seek, SeekFrom};
+    let bad = || Error::other("not a readable type 2 AppImage");
+    let mut f = fs::File::open(path)?;
+    let mut h = [0u8; 64];
+    f.read_exact(&mut h[..52])?;
+    if !h.starts_with(b"\x7fELF") || &h[8..11] != b"AI\x02" || h[5] != 1 {
+        return Err(bad());
+    }
+    let wide = match h[4] {
+        1 => false,
+        2 => true,
+        _ => return Err(bad()),
+    };
+    if wide {
+        f.read_exact(&mut h[52..64])?;
+    }
+    let u16_at = |b: &[u8], o: usize| u64::from(u16::from_le_bytes([b[o], b[o + 1]]));
+    let u32_at =
+        |b: &[u8], o: usize| u64::from(u32::from_le_bytes(b[o..o + 4].try_into().unwrap()));
+    let u64_at = |b: &[u8], o: usize| u64::from_le_bytes(b[o..o + 8].try_into().unwrap());
+    // (section table offset, entry size, count, names section index)
+    let (shoff, entsize, count, strndx) = if wide {
+        (
+            u64_at(&h, 0x28),
+            u16_at(&h, 0x3a),
+            u16_at(&h, 0x3c),
+            u16_at(&h, 0x3e),
+        )
+    } else {
+        (
+            u32_at(&h, 0x20),
+            u16_at(&h, 0x2e),
+            u16_at(&h, 0x30),
+            u16_at(&h, 0x32),
+        )
+    };
+    // The ELF standard's entry sizes, so a crafted header can't make us allocate much.
+    let want_entsize = if wide { 0x40 } else { 0x28 };
+    if entsize != want_entsize || count == 0 || count > 1024 || strndx >= count {
+        return Err(bad());
+    }
+    let mut table = vec![0u8; usize::try_from(entsize * count).map_err(|_| bad())?];
+    f.seek(SeekFrom::Start(shoff))?;
+    f.read_exact(&mut table)?;
+    // (name offset, file offset, size) of each section.
+    let sections: Vec<(u64, u64, u64)> = table
+        .chunks_exact(usize::try_from(entsize).map_err(|_| bad())?)
+        .map(|e| {
+            if wide {
+                (u32_at(e, 0), u64_at(e, 0x18), u64_at(e, 0x20))
+            } else {
+                (u32_at(e, 0), u32_at(e, 0x10), u32_at(e, 0x14))
+            }
+        })
+        .collect();
+    let mut read = |offset: u64, size: u64| -> std::io::Result<Vec<u8>> {
+        if size > MAX_SECTION {
+            return Err(bad());
+        }
+        let mut buf = vec![0u8; usize::try_from(size).map_err(|_| bad())?];
+        f.seek(SeekFrom::Start(offset))?;
+        f.read_exact(&mut buf)?;
+        Ok(buf)
+    };
+    let (_, str_off, str_size) = sections[usize::try_from(strndx).map_err(|_| bad())?];
+    let strtab = read(str_off, str_size)?;
+    let name_of = |at: u64| {
+        let rest = strtab.get(usize::try_from(at).ok()?..)?;
+        Some(&rest[..rest.iter().position(|&c| c == 0)?])
+    };
+    names
+        .iter()
+        .map(|want| {
+            match sections
+                .iter()
+                .find(|(n, _, _)| name_of(*n) == Some(want.as_bytes()))
+            {
+                Some(&(_, off, size)) => read(off, size).map(Some),
+                None => Ok(None),
+            }
+        })
+        .collect()
+}
+
+/// A minimal 64-bit type 2 AppImage header with the given ELF sections, for
+/// tests here and in the updater.
+#[cfg(any(test, feature = "test-support"))]
+pub fn test_image(sections: &[(&str, &[u8])]) -> Vec<u8> {
+    let mut out = b"\x7fELF\x02\x01\x01\x00AI\x02".to_vec();
+    out.resize(64, 0);
+    let mut strtab = vec![0u8];
+    // (name offset, data offset, size), with the null section first.
+    let mut headers = vec![(0u32, 0u64, 0u64)];
+    for (name, data) in sections {
+        headers.push((strtab.len() as u32, out.len() as u64, data.len() as u64));
+        strtab.extend_from_slice(name.as_bytes());
+        strtab.push(0);
+        out.extend_from_slice(data);
+    }
+    let shstrtab_name = strtab.len() as u32;
+    strtab.extend_from_slice(b".shstrtab\0");
+    headers.push((shstrtab_name, out.len() as u64, strtab.len() as u64));
+    out.extend_from_slice(&strtab);
+    let shoff = out.len() as u64;
+    for (name, offset, size) in &headers {
+        let mut e = [0u8; 0x40];
+        e[0..4].copy_from_slice(&name.to_le_bytes());
+        e[0x18..0x20].copy_from_slice(&offset.to_le_bytes());
+        e[0x20..0x28].copy_from_slice(&size.to_le_bytes());
+        out.extend_from_slice(&e);
+    }
+    out[0x28..0x30].copy_from_slice(&shoff.to_le_bytes());
+    out[0x3a..0x3c].copy_from_slice(&0x40u16.to_le_bytes());
+    out[0x3c..0x3e].copy_from_slice(&(headers.len() as u16).to_le_bytes());
+    out[0x3e..0x40].copy_from_slice(&((headers.len() - 1) as u16).to_le_bytes());
+    out
+}
+
 fn has_appimage_extension(name: &str) -> bool {
     Path::new(name)
         .extension()
@@ -291,6 +455,69 @@ mod tests {
             parse_desktop_entry("[Desktop Entry]\nName=Files\nExec=nautilus %U\n"),
             None
         );
+    }
+
+    #[test]
+    fn reads_update_info_and_signature_sections() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("App.AppImage");
+        let mut info = b"gh-releases-zsync|maker|app|latest|App-*x86_64.AppImage.zsync".to_vec();
+        info.resize(1024, 0);
+        let mut unsigned = vec![0u8; 1024];
+        fs::write(
+            &path,
+            test_image(&[
+                (".upd_info", &info),
+                (".sha256_sig", &unsigned),
+                (".sig_key", &unsigned),
+            ]),
+        )
+        .unwrap();
+        assert!(is_appimage(&path));
+        assert_eq!(
+            embedded(&path),
+            Embedded {
+                update_info: Some(
+                    "gh-releases-zsync|maker|app|latest|App-*x86_64.AppImage.zsync".into()
+                ),
+                signed: false,
+            }
+        );
+
+        unsigned[0] = b'-';
+        let sig = unsigned.clone();
+        fs::write(
+            &path,
+            test_image(&[
+                (".upd_info", &[0; 16]),
+                (".sha256_sig", &sig),
+                (".sig_key", &sig),
+            ]),
+        )
+        .unwrap();
+        assert_eq!(
+            embedded(&path),
+            Embedded {
+                update_info: None,
+                signed: true
+            }
+        );
+
+        // A signature without its key isn't one AppImageUpdate can check.
+        fs::write(&path, test_image(&[(".sha256_sig", &sig)])).unwrap();
+        assert!(!embedded(&path).signed);
+
+        // Not an ELF, a truncated table, a type 1 image: nothing.
+        fs::write(&path, b"#!/bin/sh\n").unwrap();
+        assert_eq!(embedded(&path), Embedded::default());
+        let mut cut = test_image(&[(".sha256_sig", &sig), (".sig_key", &sig)]);
+        cut.truncate(cut.len() - 10);
+        fs::write(&path, &cut).unwrap();
+        assert_eq!(embedded(&path), Embedded::default());
+        let mut type1 = test_image(&[(".sha256_sig", &sig), (".sig_key", &sig)]);
+        type1[10] = 1;
+        fs::write(&path, &type1).unwrap();
+        assert_eq!(embedded(&path), Embedded::default());
     }
 
     #[cfg(unix)]

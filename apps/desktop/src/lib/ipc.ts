@@ -169,7 +169,8 @@ export interface Finding {
   vulns: VulnHit[];
 }
 
-export type UpdateTool = "homebrew" | "winget" | "apt" | "dnf" | "snap" | "flatpak";
+export type UpdateTool =
+  "homebrew" | "macports" | "winget" | "apt" | "dnf" | "snap" | "flatpak" | "appimageupdate";
 
 export type Method =
   | { kind: "command"; tool: UpdateTool; argv: string[] }
