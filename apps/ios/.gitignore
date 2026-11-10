@@ -1,0 +1,6 @@
+Wardwatch.xcodeproj/
+Wardwatch/Info.plist
+.build/
+.swiftpm/
+DerivedData/
+build/

@@ -10,6 +10,8 @@ This repository holds the open source Wardwatch client apps for macOS, Windows, 
 | ------------------------ | -------------------------------------------------------------------------------------------------------- |
 | `apps/desktop`           | The desktop app: React + TypeScript UI (Vite, Tailwind, React Router, TanStack Query)                    |
 | `apps/desktop/src-tauri` | The Tauri shell in Rust: main window, menu bar / tray popover, IPC commands                              |
+| `apps/android`           | The Android app: Kotlin + Jetpack Compose ([README](apps/android/README.md))                             |
+| `apps/ios`               | The iOS app: SwiftUI, with its logic in the `WardwatchKit` Swift package ([README](apps/ios/README.md))  |
 | `packages/*`             | Shared TypeScript packages, such as the design system (`@wardwatch/ui`)                                  |
 | `crates/*`               | Rust libraries with no Tauri dependency, such as the software catalog. Add each to the root `Cargo.toml` |
 | `packaging/linux`        | Build, assemble and test the `.deb`/`.rpm` and the apt/dnf repo trees, locally and unsigned              |

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.Wardwatch" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/ww_bg</item>
+        <item name="android:statusBarColor">@color/ww_bg</item>
+    </style>
+</resources>
