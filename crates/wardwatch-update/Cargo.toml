@@ -5,7 +5,7 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "Plans and runs one update with the device's own updater: Homebrew, winget, apt, dnf, snap, flatpak or the OS's settings."
+description = "Plans and runs one update with the device's own updater: Homebrew, MacPorts, winget, apt, dnf, snap, flatpak, AppImageUpdate or the OS's settings."
 publish = false
 
 [dependencies]
@@ -15,6 +15,7 @@ wardwatch-feed = { path = "../wardwatch-feed" }
 
 [dev-dependencies]
 serde_json = "1.0"
+tempfile = "3"
 
 [lints]
 workspace = true

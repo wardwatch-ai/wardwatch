@@ -1,6 +1,6 @@
 //! Plans and runs one update, using only the device's own updaters:
-//! Homebrew, winget, apt, dnf, snap and flatpak, or the OS's own settings
-//! screen for system updates. Wardwatch never downloads or installs anything
+//! Homebrew, MacPorts, winget, apt, dnf, snap, flatpak and AppImageUpdate,
+//! or the OS's own settings screen for system updates. Wardwatch never downloads or installs anything
 //! itself, so the vendor or distro's signature checks always apply.
 //!
 //! The trust rules this crate follows:
@@ -11,10 +11,19 @@
 //! - **Never escalate silently.** Commands run as the signed-in user. Where a
 //!   package manager needs admin rights (apt, dnf), the command goes through
 //!   `pkexec`, so the OS shows its own password prompt; Wardwatch never sees the
-//!   password. winget installers may show Windows' own permission prompt.
+//!   password. MacPorts goes through macOS's own administrator prompt
+//!   (`osascript ... with administrator privileges`). winget installers may
+//!   show Windows' own permission prompt.
 //! - **Nothing from the UI reaches a command line.** Commands are built here
 //!   from a [`Finding`] the core matched itself, binaries are called by
 //!   absolute path with no shell, and every package name is checked first.
+//!   The one shell is macOS's administrator prompt, which only runs a shell
+//!   command: its script is fixed, and port names reach it as arguments,
+//!   each quoted by AppleScript's `quoted form of`.
+//! - **Only signed AppImages.** An AppImage update comes from wherever the
+//!   AppImage says its maker publishes, so we only offer one when the maker
+//!   signed it: AppImageUpdate then keeps the new version only if the same
+//!   key signed it, and puts the old one back otherwise.
 //! - **Never close an open app.** If the app is running, the plan says to
 //!   restart it afterwards; we don't kill it.
 
@@ -38,6 +47,10 @@ pub struct Tools {
     pub dnf: Option<PathBuf>,
     pub snap: Option<PathBuf>,
     pub flatpak: Option<PathBuf>,
+    /// MacPorts' `port`, with `osascript` to ask macOS for admin rights.
+    pub port: Option<PathBuf>,
+    pub osascript: Option<PathBuf>,
+    pub appimageupdatetool: Option<PathBuf>,
 }
 
 impl Tools {
@@ -66,8 +79,54 @@ impl Tools {
             dnf: fixed(&["/usr/bin/dnf"]),
             snap: fixed(&["/usr/bin/snap"]),
             flatpak: fixed(&["/usr/bin/flatpak"]),
+            port: fixed(&[wardwatch_catalog::macports::PORT]),
+            osascript: fixed(&["/usr/bin/osascript"]),
+            appimageupdatetool: appimageupdatetool(),
         }
     }
+}
+
+/// AppImageUpdate's command-line tool, where its packages and its own
+/// AppImage are put. Only one that nobody else can change (not group- or
+/// world-writable, owned by root or the person) is used.
+fn appimageupdatetool() -> Option<PathBuf> {
+    let home = wardwatch_catalog::home_dir();
+    let mut candidates: Vec<PathBuf> = [
+        "/usr/bin/appimageupdatetool",
+        "/usr/local/bin/appimageupdatetool",
+    ]
+    .iter()
+    .map(PathBuf::from)
+    .collect();
+    if let Some(home) = &home {
+        candidates.push(home.join(".local/bin/appimageupdatetool"));
+        let arch = std::env::consts::ARCH;
+        for dir in ["Applications", ".local/bin"] {
+            candidates.push(
+                home.join(dir)
+                    .join(format!("appimageupdatetool-{arch}.AppImage")),
+            );
+        }
+    }
+    candidates.into_iter().find(|p| only_owner_writes(p))
+}
+
+#[cfg(unix)]
+fn only_owner_writes(path: &Path) -> bool {
+    use std::os::unix::fs::MetadataExt;
+    let Ok(meta) = std::fs::metadata(path) else {
+        return false;
+    };
+    let owner_ok = meta.uid() == 0
+        || wardwatch_catalog::home_dir()
+            .and_then(|h| std::fs::metadata(h).ok())
+            .is_some_and(|h| h.uid() == meta.uid());
+    meta.is_file() && meta.mode() & 0o022 == 0 && meta.mode() & 0o100 != 0 && owner_ok
+}
+
+#[cfg(not(unix))]
+fn only_owner_writes(_: &Path) -> bool {
+    false
 }
 
 /// How the update happens. The UI sends back the method it showed, and
@@ -92,6 +151,10 @@ pub enum Tool {
     Dnf,
     Snap,
     Flatpak,
+    #[serde(rename = "macports")]
+    MacPorts,
+    #[serde(rename = "appimageupdate")]
+    AppImageUpdate,
 }
 
 impl Tool {
@@ -103,6 +166,8 @@ impl Tool {
             Tool::Dnf => "dnf",
             Tool::Snap => "Snap",
             Tool::Flatpak => "Flatpak",
+            Tool::MacPorts => "MacPorts",
+            Tool::AppImageUpdate => "AppImageUpdate",
         }
     }
 }
@@ -112,7 +177,7 @@ impl Tool {
 #[serde(rename_all = "snake_case")]
 pub enum Admin {
     No,
-    /// The OS shows its own password prompt (pkexec, snapd, flatpak system installs).
+    /// The OS shows its own password prompt (pkexec, snapd, MacPorts through macOS).
     Asks,
     /// The installer may show the OS's permission prompt (winget machine-wide installs).
     MayAsk,
@@ -163,6 +228,20 @@ impl std::fmt::Display for NoPlan {
 const MACOS_SOFTWARE_UPDATE: &str =
     "x-apple.systempreferences:com.apple.Software-Update-Settings.extension";
 const WINDOWS_UPDATE: &str = "ms-settings:windowsupdate";
+
+/// Runs `port sync` (MacPorts' signed list of ports) and `port upgrade` for
+/// the ports given as arguments, through macOS's administrator prompt. `do
+/// shell script` takes a shell command, so the script is fixed and each port
+/// name is quoted by AppleScript itself.
+const MACPORTS_SCRIPT: &[&str] = &[
+    "on run argv",
+    "set cmd to \"/opt/local/bin/port -N sync && /opt/local/bin/port -N upgrade\"",
+    "repeat with p in argv",
+    "set cmd to cmd & \" \" & quoted form of (p as text)",
+    "end repeat",
+    "do shell script cmd with administrator privileges",
+    "end run",
+];
 
 /// winget package ids for catalog apps. The scanner reads DisplayName from
 /// the registry, which winget can't upgrade by; this maps the catalog's app
@@ -261,6 +340,35 @@ pub fn plan(finding: &Finding, os: OsFamily, tools: &Tools) -> Result<Plan, NoPl
                 argv(&[&bin, "update", "--noninteractive"], &[id])?,
                 Admin::MayAsk,
             ))
+        } else if let (false, Some(port), Some(osascript)) = (
+            installs("macports").is_empty(),
+            path(&tools.port),
+            path(&tools.osascript),
+        ) {
+            // The script hard-codes MacPorts' path; only run it if that's the `port` we found.
+            if port != wardwatch_catalog::macports::PORT {
+                return Err(NoPlan::Unsupported(
+                    "MacPorts isn't in its usual place, so Wardwatch won't run it.".into(),
+                ));
+            }
+            let mut base = vec![osascript.as_str()];
+            for line in MACPORTS_SCRIPT {
+                base.extend(["-e", line]);
+            }
+            Some((
+                Tool::MacPorts,
+                argv(&base, &installs("macports"))?,
+                Admin::Asks,
+            ))
+        } else if let (Some(tool), Some(file)) =
+            (path(&tools.appimageupdatetool), signed_appimage(finding))
+        {
+            Some((
+                Tool::AppImageUpdate,
+                // Swap in the new file and remove the old copy, which still has the hole.
+                vec![tool, "--remove-old".into(), file],
+                Admin::No,
+            ))
         } else if let (false, Some(pkexec), Some(apt)) = (
             installs("dpkg").is_empty(),
             path(&tools.pkexec),
@@ -337,6 +445,14 @@ pub fn plan(finding: &Finding, os: OsFamily, tools: &Tools) -> Result<Plan, NoPl
                 format!("From the {by} store"),
                 format!("{by} checks the publisher's signature"),
             ),
+            Tool::MacPorts => (
+                "From MacPorts' own servers".to_owned(),
+                "MacPorts checks its signature and each file's fingerprint".to_owned(),
+            ),
+            Tool::AppImageUpdate => (
+                format!("From where {name}'s maker publishes it, as {name} says"),
+                "AppImageUpdate checks the maker's signature matches your copy's".to_owned(),
+            ),
         };
         let verifies = match tool {
             Tool::Homebrew => {
@@ -349,11 +465,20 @@ pub fn plan(finding: &Finding, os: OsFamily, tools: &Tools) -> Result<Plan, NoPl
             Tool::Dnf => "dnf only installs packages signed by your distribution's keys.",
             Tool::Snap => "snapd only installs snaps signed by the Snap Store.",
             Tool::Flatpak => "Flatpak only installs updates signed by the remote's key.",
+            Tool::MacPorts => {
+                "MacPorts checks its signature on the list of ports and on its prebuilt packages, and checks every download's fingerprint against that list."
+            }
+            Tool::AppImageUpdate => {
+                "AppImageUpdate keeps the new version only if it's signed with the same key as the copy you have now; otherwise it puts your copy back."
+            }
         };
-        let install_detail = match admin {
-            Admin::Asks => "Your system asks for your password. Wardwatch never sees it",
-            Admin::MayAsk => "Your system may ask for permission",
-            Admin::No => "Nothing to type",
+        let install_detail = match (tool, admin) {
+            (Tool::AppImageUpdate, _) => {
+                "Replaces the old file with the new one, in the same folder. Nothing to type"
+            }
+            (_, Admin::Asks) => "Your system asks for your password. Wardwatch never sees it",
+            (_, Admin::MayAsk) => "Your system may ask for permission",
+            (_, Admin::No) => "Nothing to type",
         };
         let install = if restart_note.is_some() {
             format!("Install it, then restart {name}")
@@ -402,6 +527,9 @@ pub fn plan(finding: &Finding, os: OsFamily, tools: &Tools) -> Result<Plan, NoPl
         Some(_) => format!(
             "Open {name}'s menu, choose Help or About {name}, and let it update. Then restart {name}."
         ),
+        None if one("appimage").is_some() => format!(
+            "Open {name} and use its Check for Updates menu item if it has one. Otherwise download {target} from the maker's website, put it where the old one is, and delete the old file."
+        ),
         None => format!(
             "Open {name} and use its Check for Updates menu item, or download {target} from the maker's website."
         ),
@@ -448,6 +576,27 @@ pub fn check(after: Option<&Finding>) -> Check {
         Some(f) if f.vulns.iter().all(|v| v.fixed.is_none()) => Check::OnlyUnfixedLeft,
         Some(_) => Check::StillOpen,
     }
+}
+
+/// The first AppImage of `finding` that AppImageUpdate may update: in the
+/// person's home folder (so it's theirs to replace), with update information
+/// from its maker, and signed, so the new version must carry the same key.
+fn signed_appimage(finding: &Finding) -> Option<String> {
+    let home = wardwatch_catalog::home_dir()?;
+    // The scanner records real paths, so compare against the real home folder.
+    let home = std::fs::canonicalize(&home).unwrap_or(home);
+    finding
+        .installs
+        .iter()
+        .filter(|i| i.source == "appimage")
+        .filter_map(|i| i.location.as_deref())
+        .filter(|p| p.is_absolute() && p.starts_with(&home))
+        .find(|p| {
+            let e = wardwatch_catalog::appimage::embedded(p);
+            e.signed && e.update_info.is_some()
+        })
+        .and_then(|p| p.to_str())
+        .map(str::to_owned)
 }
 
 fn step(label: &str, detail: &str) -> Step {

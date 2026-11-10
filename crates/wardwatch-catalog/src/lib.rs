@@ -207,7 +207,7 @@ pub(crate) fn run(tool: &str, args: &[&str]) -> Result<String, String> {
 }
 
 /// The current user's home folder.
-pub(crate) fn home_dir() -> Option<PathBuf> {
+pub fn home_dir() -> Option<PathBuf> {
     std::env::home_dir().filter(|h| !h.as_os_str().is_empty())
 }
 

@@ -168,6 +168,9 @@ fn run_command(tool: Tool, argv: &[String], progress: &mut impl FnMut(Progress))
         if tool == Tool::Apt && says(&tail, &["is already the newest version"]) {
             return Outcome::NothingNewer { tail };
         }
+        if tool == Tool::AppImageUpdate && says(&tail, &["update not required"]) {
+            return Outcome::NothingNewer { tail };
+        }
         for step in 0..3 {
             progress(Progress::Step {
                 step,
@@ -196,6 +199,13 @@ fn run_command(tool: Tool, argv: &[String], progress: &mut impl FnMut(Progress))
         {
             Outcome::Cancelled
         }
+        // macOS's administrator prompt was dismissed: "User canceled. (-128)".
+        (Tool::MacPorts, _) if says(&tail, &["(-128)"]) => Outcome::Cancelled,
+        // The new file wasn't signed by the same key; AppImageUpdate put the old one back.
+        (Tool::AppImageUpdate, _) if says(&tail, &["validation error"]) => failed(
+            "the new version isn't signed by the same maker as your copy, so AppImageUpdate kept your copy".into(),
+            tail,
+        ),
         // APPINSTALLER_CLI_ERROR_UPDATE_NOT_APPLICABLE: winget has nothing newer yet.
         (Tool::Winget, Some(-1_978_335_189)) => Outcome::NothingNewer { tail },
         (_, code) => failed(
@@ -210,12 +220,12 @@ fn run_command(tool: Tool, argv: &[String], progress: &mut impl FnMut(Progress))
 }
 
 /// After [`TIMEOUT`]: stop waiting, and say honestly what happened. An
-/// updater running as root (through pkexec) can't be stopped by us, and an
+/// updater running as root (through pkexec or macOS's prompt) can't be stopped by us, and an
 /// updater's own child processes may outlive it, so the reader threads are
 /// left to finish on their own rather than joined.
 fn timed_out(tool: Tool, child: &mut std::process::Child, tail: Vec<String>) -> Outcome {
     let message = match tool {
-        Tool::Apt | Tool::Dnf => format!(
+        Tool::Apt | Tool::Dnf | Tool::MacPorts => format!(
             "{} is still running after 30 minutes. We stopped waiting; it will finish on its own",
             tool.label()
         ),
@@ -338,6 +348,42 @@ mod tests {
             run(&removes, |_| {}),
             Outcome::NeedsMoreChanges { .. }
         ));
+    }
+
+    #[cfg(unix)]
+    fn as_tool(tool: Tool, script: &str) -> Plan {
+        let mut plan = plan_running(script);
+        plan.method = Method::Command {
+            tool,
+            argv: vec!["/bin/sh".into(), "-c".into(), script.into()],
+        };
+        plan
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn macports_and_appimageupdate_messages_map_to_honest_outcomes() {
+        let dismissed = as_tool(
+            Tool::MacPorts,
+            "echo '0:93: execution error: User canceled. (-128)' >&2; exit 1",
+        );
+        assert_eq!(run(&dismissed, |_| {}), Outcome::Cancelled);
+        let current = as_tool(
+            Tool::AppImageUpdate,
+            "echo 'Checking for updates...'; echo '... done!'; echo 'Update not required, exiting.'",
+        );
+        assert!(matches!(
+            run(&current, |_| {}),
+            Outcome::NothingNewer { .. }
+        ));
+        let other_key = as_tool(
+            Tool::AppImageUpdate,
+            "echo 'Validation error: Key changed for signing AppImages' >&2; echo 'Restoring original file' >&2; exit 1",
+        );
+        match run(&other_key, |_| {}) {
+            Outcome::Failed { message, .. } => assert!(message.contains("same maker"), "{message}"),
+            other => panic!("{other:?}"),
+        }
     }
 
     #[test]
