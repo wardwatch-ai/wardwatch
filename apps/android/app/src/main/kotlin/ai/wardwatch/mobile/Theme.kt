@@ -35,6 +35,7 @@ data class WardwatchColors(
     val actEdge: Color?,
     /** Outline for quiet buttons and empty severity bars (ui.json `edge`, 3:1 on every surface). */
     val edge: Color,
+    val isDark: Boolean,
 )
 
 val LightColors = WardwatchColors(
@@ -52,6 +53,7 @@ val LightColors = WardwatchColors(
     onAct = Color(0xFF23211F),
     actEdge = Color(0xFF23211F),
     edge = Color(0xFF857B6D),
+    isDark = false,
 )
 
 val DarkColors = WardwatchColors(
@@ -69,6 +71,7 @@ val DarkColors = WardwatchColors(
     onAct = Color(0xFF23211F),
     actEdge = null,
     edge = Color(0xFF8A8072),
+    isDark = true,
 )
 
 val Inter = FontFamily(

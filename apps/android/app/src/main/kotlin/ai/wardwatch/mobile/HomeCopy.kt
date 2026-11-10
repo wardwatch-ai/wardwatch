@@ -3,10 +3,13 @@ package ai.wardwatch.mobile
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
-import java.time.format.FormatStyle
+import java.util.Locale
 
 /** What the status card's button looks like. Amber only when the phone must act now. */
 enum class StatusButton { ActNow, Quiet, None }
+
+/** The card's mood: amber with beams on, all clear, or neither. */
+enum class StatusTone { ActNow, Clear, Neutral }
 
 /** The words on the home screen's status card (approved mobile design, 2026-11-10). */
 data class StatusCopy(
@@ -15,14 +18,17 @@ data class StatusCopy(
     val body: String,
     val detail: String?,
     val button: StatusButton,
-    /** Lighthouse beams on: the card needs the person. */
-    val beams: Boolean,
-    /** Shows the eyebrow in the all-clear color. */
-    val allClear: Boolean = false,
-)
+    val tone: StatusTone,
+    /** Severity-meter bars on a quiet button; 0 when we can't say how serious it is. */
+    val bars: Int = 0,
+) {
+    /** Lighthouse beams on: the card needs the person now. */
+    val beams: Boolean get() = tone == StatusTone.ActNow
+}
 
 object HomeCopy {
-    private val defaultDates: DateTimeFormatter = DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)
+    // The sentences are English only, so the dates are too, until the app is translated.
+    private val defaultDates: DateTimeFormatter = DateTimeFormatter.ofPattern("MMM d, yyyy", Locale.US)
 
     fun status(check: OsCheck, securityPatch: String?, dates: DateTimeFormatter = defaultDates): StatusCopy {
         val age = check.patchAgeDays
@@ -33,7 +39,7 @@ object HomeCopy {
                 body = "Its security patch is ${days(age)} old, so it's missing fixes for attacks that are happening now.",
                 detail = "About 15 minutes. Plug it in first.",
                 button = StatusButton.ActNow,
-                beams = true,
+                tone = StatusTone.ActNow,
             )
             OsStatus.Due -> StatusCopy(
                 eyebrow = "DUE THIS WEEK",
@@ -43,16 +49,16 @@ object HomeCopy {
                     ". A newer one is likely waiting.",
                 detail = null,
                 button = StatusButton.Quiet,
-                beams = false,
+                tone = StatusTone.Neutral,
+                bars = 2,
             )
             OsStatus.Current -> StatusCopy(
                 eyebrow = "ALL CLEAR",
                 title = "This phone is up to date.",
-                body = "It has a recent security patch. We'll tell you when the next one is waiting.",
+                body = "It has a recent security patch. Open Wardwatch now and then to check again.",
                 detail = null,
                 button = StatusButton.None,
-                beams = false,
-                allClear = true,
+                tone = StatusTone.Clear,
             )
             OsStatus.Unknown -> StatusCopy(
                 eyebrow = null,
@@ -60,7 +66,7 @@ object HomeCopy {
                 body = "This phone didn't say how old its security patch is. Open Settings to see if an update is waiting.",
                 detail = null,
                 button = StatusButton.Quiet,
-                beams = false,
+                tone = StatusTone.Neutral,
             )
         }
     }

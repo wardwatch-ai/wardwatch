@@ -28,19 +28,22 @@ class HomeCopyTest {
     @Test fun dueUsesTheQuietButtonAndNamesThePatchDate() {
         val c = copy("2026-09-19")
         assertEquals(StatusButton.Quiet, c.button)
+        assertEquals(2, c.bars)
         assertEquals("The security patch is 52 days old (Sep 19, 2026). A newer one is likely waiting.", c.body)
     }
 
     @Test fun currentHasNoButton() {
         val c = copy("2026-11-01")
         assertEquals(StatusButton.None, c.button)
-        assertTrue(c.allClear)
+        assertEquals(StatusTone.Clear, c.tone)
     }
 
     @Test fun unknownAsksToCheck() {
         val c = copy("")
         assertNull(c.eyebrow)
         assertEquals(StatusButton.Quiet, c.button)
+        // We can't say how serious it is, so no severity meter.
+        assertEquals(0, c.bars)
     }
 
     @Test fun deviceLineSkipsAMissingPatch() {

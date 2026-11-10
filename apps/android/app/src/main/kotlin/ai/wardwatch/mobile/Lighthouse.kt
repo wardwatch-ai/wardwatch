@@ -21,8 +21,9 @@ import androidx.compose.ui.unit.Dp
 @Composable
 fun Lighthouse(size: Dp, beams: Boolean, modifier: Modifier = Modifier) {
     val c = LocalWardwatchColors.current
-    val dark = c == DarkColors
+    val dark = c.isDark
     val frame = if (dark) c.textMuted else c.text
+    // Old Barney's white lower half; on dark it takes the sand text color, as the brand mark does.
     val lowerTower = if (dark) c.text else Color.White
     val lamp = if (beams) c.act else if (dark) c.line else c.textMuted
     Canvas(modifier.size(size)) {

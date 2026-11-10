@@ -1,3 +1,6 @@
+/// The card's mood: amber with beams on, all clear, or neither.
+public enum StatusTone: Equatable, Sendable { case actNow, clear, neutral }
+
 /// The words on the home screen's status card (approved mobile design, 2026-11-10).
 /// Kept here, without SwiftUI, so `swift test` checks them on macOS and Linux.
 public struct StatusCopy: Equatable, Sendable {
@@ -6,8 +9,10 @@ public struct StatusCopy: Equatable, Sendable {
     public let body: String
     /// Numbered steps to follow in Settings. iOS doesn't let apps start an update.
     public let steps: [String]
+    public let tone: StatusTone
+
     /// Amber card with lighthouse beams on: the device must act now.
-    public let actNow: Bool
+    public var actNow: Bool { tone == .actNow }
 }
 
 public enum HomeCopy {
@@ -21,15 +26,15 @@ public enum HomeCopy {
                 title: "Update to \(systemName) \(latest.description).",
                 body: "It fixes security holes. Install it today.",
                 steps: [softwareUpdatePath, "Tap Update Now."],
-                actNow: true
+                tone: .actNow
             )
         case .current:
             return StatusCopy(
                 eyebrow: "ALL CLEAR",
                 title: "This device is up to date.",
-                body: "It runs the newest \(systemName). We'll tell you when the next update is out.",
+                body: "It runs the newest \(systemName). Open Wardwatch now and then to check again.",
                 steps: [],
-                actNow: false
+                tone: .clear
             )
         case .unknown:
             return StatusCopy(
@@ -37,7 +42,7 @@ public enum HomeCopy {
                 title: "Check for an \(systemName) update.",
                 body: "Most \(systemName) updates fix security holes. It takes a minute to check.",
                 steps: [softwareUpdatePath, "If an update is waiting, tap Update Now.", "Come back here when it's done."],
-                actNow: false
+                tone: .neutral
             )
         }
     }

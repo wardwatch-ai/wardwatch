@@ -65,6 +65,8 @@ struct HomeView: View {
 
 private struct StatusCard: View {
     let copy: StatusCopy
+    /// Step badges grow with Dynamic Type.
+    @ScaledMetric(relativeTo: .body) private var badge: CGFloat = 28
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -74,7 +76,7 @@ private struct StatusCard: View {
                     Text(eyebrow)
                         .font(Typeface.eyebrow)
                         .tracking(1)
-                        .foregroundStyle(copy.actNow ? Ink.actInk : Ink.ok)
+                        .foregroundStyle(copy.tone == .actNow ? Ink.actInk : copy.tone == .clear ? Ink.ok : Ink.textMuted)
                 }
             }
             Text(copy.title)
@@ -89,7 +91,7 @@ private struct StatusCard: View {
                             Text("\(index + 1)")
                                 .font(Typeface.label)
                                 .foregroundStyle(copy.actNow ? Ink.onAct : Ink.text)
-                                .frame(width: 28, height: 28)
+                                .frame(width: badge, height: badge)
                                 .background(copy.actNow ? Ink.act : Ink.bg, in: Circle())
                                 .accessibilityHidden(true)
                             Text(step).font(Typeface.body).foregroundStyle(Ink.text)

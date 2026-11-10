@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.semantics.contentDescription
@@ -95,8 +96,9 @@ fun HomeScreen() {
             .background(c.bg)
             .windowInsetsPadding(WindowInsets.safeDrawing),
         contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
+        // Explicit gaps, not spacedBy, so the app rows below join into one card.
+        val gap = @Composable { Spacer(Modifier.height(14.dp)) }
         item {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -112,31 +114,32 @@ fun HomeScreen() {
                 )
             }
         }
+        item { gap() }
         item { StatusCard(HomeCopy.status(check, device.securityPatch), onUpdate = { openSystemUpdate(context) }) }
+        item { gap() }
         item { DeviceRow(device, check) }
+        item { gap() }
         item {
             Text(
                 apps?.let { "APPS ON THIS PHONE · ${it.size}" } ?: "APPS ON THIS PHONE",
                 style = MaterialTheme.typography.labelSmall,
                 color = c.textMuted,
-                modifier = Modifier.padding(top = 6.dp).semantics { heading() },
+                modifier = Modifier.padding(top = 6.dp, bottom = 10.dp).semantics { heading() },
             )
         }
         val list = apps.orEmpty()
         if (list.isNotEmpty()) {
-            item {
-                Column(
-                    Modifier
-                        .fillMaxWidth()
-                        .background(c.surface, CardShape)
-                        .border(1.dp, c.line, CardShape),
-                ) {
-                    list.forEachIndexed { i, app ->
-                        if (i > 0) HorizontalDivider(color = c.line)
-                        AppRow(app)
-                    }
+            // One lazy row per app, drawn as one card: rounded ends on the first and last.
+            itemsIndexed(list, key = { _, app -> app.packageName }) { i, app ->
+                val top = if (i == 0) 12.dp else 0.dp
+                val bottom = if (i == list.lastIndex) 12.dp else 0.dp
+                val shape = RoundedCornerShape(top, top, bottom, bottom)
+                Column(Modifier.fillMaxWidth().background(c.surface, shape)) {
+                    if (i > 0) HorizontalDivider(color = c.line)
+                    AppRow(app)
                 }
             }
+            item { gap() }
             item {
                 Text(
                     "The Play Store updates these apps. To keep them current, turn on auto-update in the Play Store settings.",
@@ -154,7 +157,7 @@ private fun StatusCard(copy: StatusCopy, onUpdate: () -> Unit) {
     val actNow = copy.button == StatusButton.ActNow
     val eyebrowColor = when {
         actNow -> c.actInk
-        copy.allClear -> c.ok
+        copy.tone == StatusTone.Clear -> c.ok
         else -> c.textMuted
     }
     Column(
@@ -186,17 +189,19 @@ private fun StatusCard(copy: StatusCopy, onUpdate: () -> Unit) {
                 colors = ButtonDefaults.buttonColors(containerColor = c.act, contentColor = c.onAct),
                 border = c.actEdge?.let { BorderStroke(2.dp, it) },
                 shape = ButtonShape,
-                modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp).padding(top = 6.dp),
+                modifier = Modifier.padding(top = 6.dp).fillMaxWidth().heightIn(min = 52.dp),
             ) { Text("Open system update", style = MaterialTheme.typography.labelLarge) }
-            // Not urgent: quiet outline with the 3-bar severity meter at 2 bars (moderate).
+            // Not urgent: quiet outline, with the 3-bar severity meter when we know how serious it is.
             StatusButton.Quiet -> OutlinedButton(
                 onClick = onUpdate,
                 border = BorderStroke(1.dp, c.edge),
                 shape = ButtonShape,
-                modifier = Modifier.heightIn(min = 48.dp).padding(top = 4.dp),
+                modifier = Modifier.padding(top = 4.dp).heightIn(min = 48.dp),
             ) {
-                SeverityMeter(bars = 2)
-                Spacer(Modifier.width(10.dp))
+                if (copy.bars > 0) {
+                    SeverityMeter(bars = copy.bars)
+                    Spacer(Modifier.width(10.dp))
+                }
                 Text("Open system update", style = MaterialTheme.typography.labelLarge, color = c.text)
             }
             StatusButton.None -> Unit
