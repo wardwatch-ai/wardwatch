@@ -107,6 +107,24 @@
     "at": "2026-11-08T20:02:58.332Z",
     "review": "https://claude.ai/artifact/FN7ZHAuDbyvsSZiGmVwMr7 (round 3 for home, tray, plan; round 4 for score)"
   },
+  "settings-dark": {
+    "verdict": "ok",
+    "note": "",
+    "mock": null,
+    "app": "c1cfd6a2b4c465a4f06fae648be8bf449d7d35701769199a15991df932dfc346",
+    "by": "Matt",
+    "at": "2026-11-10T02:41:06.529Z",
+    "review": "https://claude.ai/artifact/FN7ZHAuDbyvsSZiGmVwMr7 (Settings, PR #21)"
+  },
+  "settings-light": {
+    "verdict": "ok",
+    "note": "",
+    "mock": null,
+    "app": "29f74da46e5bcb97d122524207754236409d485818298a44fa559d1d1b345865",
+    "by": "Matt",
+    "at": "2026-11-10T02:41:06.529Z",
+    "review": "https://claude.ai/artifact/FN7ZHAuDbyvsSZiGmVwMr7 (Settings, PR #21)"
+  },
   "tray-dark": {
     "verdict": "ok",
     "note": "",
