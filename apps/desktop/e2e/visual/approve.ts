@@ -20,7 +20,7 @@ interface ReportRow {
   id: string;
   commit: string;
   app: string;
-  mock: string;
+  mock: string | null;
 }
 
 const file = process.argv[2];

@@ -4,7 +4,7 @@
 import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { captureApp, cases, dir, mockPng, readApprovals, sha256, themes } from "./cases.ts";
+import { captureApp, cases, dir, mockHash, readApprovals, sha256, themes } from "./cases.ts";
 
 const approvals = readApprovals();
 
@@ -14,10 +14,17 @@ for (const c of cases) {
     test(id, async ({ page }) => {
       const approval = approvals[id];
       expect(approval, `${id} has not been reviewed yet; run pnpm visual:review`).toBeDefined();
+      const mock = mockHash(c, theme);
+      const why =
+        approval?.mock === null
+          ? "now has a mock"
+          : mock === null
+            ? "no longer has a mock"
+            : "mock changed";
       expect(
         approval?.mock,
-        `the ${c.title} mock changed since it was reviewed; run pnpm visual:review`,
-      ).toBe(sha256(readFileSync(mockPng(c.id, theme))));
+        `${c.title} ${why} since it was reviewed; run pnpm visual:review`,
+      ).toBe(mock);
 
       expect(
         sha256(readFileSync(join(dir, "approved", `${id}.png`))),

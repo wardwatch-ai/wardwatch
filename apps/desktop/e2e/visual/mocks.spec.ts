@@ -29,6 +29,9 @@ const fontCss = [
 test.skip(!runtime, "set DC_RUNTIME to the canvas runtime to render mocks");
 
 for (const c of cases) {
+  const mockFile = c.mock;
+  // Screens built after the design canvas have no artboard to render.
+  if (!mockFile) continue;
   for (const theme of themes) {
     test(`${c.id}-${theme}`, async ({ page }) => {
       await page.route("**/*", async (route) => {
@@ -49,18 +52,18 @@ for (const c of cases) {
             body: readFileSync(join(fonts, url.pathname.slice("/fonts/".length))),
           });
         }
-        let html = readFileSync(join(dir, "mocks/src", c.mock), "utf8");
+        let html = readFileSync(join(dir, "mocks/src", mockFile), "utf8");
         // Each artboard has a "dark" prop; flip its default for the dark render.
         if (theme === "dark") {
           const light = `"dark":{"editor":"boolean","default":false}`;
-          if (!html.includes(light)) throw new Error(`${c.mock} has no dark prop to switch on`);
+          if (!html.includes(light)) throw new Error(`${mockFile} has no dark prop to switch on`);
           html = html.replace(light, `"dark":{"editor":"boolean","default":true}`);
         }
         return route.fulfill({ contentType: "text/html", body: html });
       });
       await page.clock.setFixedTime(fixedNow);
       await page.setViewportSize(c.viewport);
-      await page.goto(`${origin}/${c.mock}`, { waitUntil: "networkidle" });
+      await page.goto(`${origin}/${mockFile}`, { waitUntil: "networkidle" });
       await expect(page.locator(".ww").first()).toBeVisible();
       await page.evaluate(() => document.fonts.ready);
       const png = await page.screenshot({ fullPage: true, animations: "disabled", caret: "hide" });
