@@ -30,6 +30,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -38,6 +39,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.time.LocalDate
@@ -46,7 +48,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        setContent { WardwatchTheme { HomeScreen(DeviceInfo.current()) } }
+        setContent { WardwatchTheme { HomeScreen() } }
     }
 }
 
@@ -57,13 +59,24 @@ private val CardShape = RoundedCornerShape(12.dp)
  * Placeholder layout until the mobile screens get their own approved design.
  */
 @Composable
-fun HomeScreen(device: DeviceInfo) {
+fun HomeScreen() {
     val c = LocalWardwatchColors.current
     val context = LocalContext.current
+    var device by remember { mutableStateOf(DeviceInfo.current()) }
     val check = remember(device) { OsNudge.check(device.securityPatch, LocalDate.now()) }
     var apps by remember { mutableStateOf<List<InstalledApp>?>(null) }
-    LaunchedEffect(Unit) {
-        apps = withContext(Dispatchers.Default) { InstalledApps.list(context.packageManager) }
+    // Re-read on every return to the app, such as coming back from a system or app update.
+    var resumes by remember { mutableIntStateOf(0) }
+    LifecycleResumeEffect(Unit) {
+        resumes++
+        onPauseOrDispose { }
+    }
+    LaunchedEffect(resumes) {
+        if (resumes == 0) return@LaunchedEffect
+        device = DeviceInfo.current()
+        apps = withContext(Dispatchers.Default) {
+            runCatching { InstalledApps.list(context.packageManager) }.getOrDefault(emptyList())
+        }
     }
 
     LazyColumn(
@@ -102,7 +115,10 @@ private fun DeviceCard(device: DeviceInfo) {
     Card {
         Text(device.name, style = MaterialTheme.typography.titleMedium, color = c.text)
         Text(
-            "Android ${device.androidVersion} · security patch ${device.securityPatch}",
+            listOfNotNull(
+                "Android ${device.androidVersion}",
+                device.securityPatch.takeIf { it.isNotBlank() }?.let { "security patch $it" },
+            ).joinToString(" · "),
             style = MaterialTheme.typography.bodyMedium,
             color = c.textMuted,
         )
@@ -115,7 +131,7 @@ private fun SystemUpdateCard(check: OsCheck, onUpdate: () -> Unit) {
     val actNow = check.status == OsStatus.ActNow
     val (title, detail) = when (check.status) {
         OsStatus.Current -> "✓ Security updates are current" to
-            "This phone has a recent security patch. Wardwatch checks again every day."
+            "This phone has a recent security patch."
         OsStatus.Due -> "• A security update is due" to
             "Your security patch is ${check.patchAgeDays} days old. Check for a system update this week."
         OsStatus.ActNow -> "▲ Update now" to

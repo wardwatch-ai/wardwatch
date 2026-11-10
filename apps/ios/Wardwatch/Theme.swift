@@ -14,9 +14,9 @@ enum Ink {
     static let actInk = dynamic(\.actInk)
 
     private static func dynamic(_ token: KeyPath<BrandPalette, String>) -> Color {
-        Color(UIColor { traits in
-            uiColor(traits.userInterfaceStyle == .dark ? BrandPalette.dark[keyPath: token] : BrandPalette.light[keyPath: token])
-        })
+        let light = uiColor(BrandPalette.light[keyPath: token])
+        let dark = uiColor(BrandPalette.dark[keyPath: token])
+        return Color(UIColor { $0.userInterfaceStyle == .dark ? dark : light })
     }
 
     private static func uiColor(_ hex: String) -> UIColor {

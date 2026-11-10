@@ -21,6 +21,8 @@ fun openSystemUpdate(context: Context) {
             return
         } catch (_: ActivityNotFoundException) {
             // Try the next screen.
+        } catch (_: SecurityException) {
+            // Some phones protect their update screen. Try the next one.
         }
     }
 }

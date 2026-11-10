@@ -11,7 +11,7 @@ struct HomeView: View {
     private let version = OSVersion(UIDevice.current.systemVersion)
 
     /// The newest iOS release will come from the signed catalog. Until then: guidance only.
-    private var status: OSStatus {
+    private var status: UpdateStatus {
         guard let version else { return .unknown }
         return OSNudge.check(current: version, latest: nil)
     }
@@ -40,7 +40,7 @@ struct HomeView: View {
 }
 
 private struct UpdateCard: View {
-    let status: OSStatus
+    let status: UpdateStatus
     let systemName: String
 
     var body: some View {
@@ -48,21 +48,20 @@ private struct UpdateCard: View {
         case .current:
             Card {
                 Text("✓ \(systemName) is up to date").font(Typeface.title).foregroundStyle(Ink.text)
-                Text("Wardwatch checks again every day.").font(Typeface.caption).foregroundStyle(Ink.textMuted)
             }
         case .updateAvailable(let latest):
             Card(background: Ink.actTint) {
                 Text("▲ Update to \(systemName) \(latest.description)").font(Typeface.title).foregroundStyle(Ink.actInk)
                 Text("This update fixes security problems. Install it today.")
                     .font(Typeface.caption).foregroundStyle(Ink.textMuted)
-                Steps(systemName: systemName)
+                Steps()
             }
         case .unknown:
             Card {
                 Text("Keep \(systemName) up to date").font(Typeface.title).foregroundStyle(Ink.text)
                 Text("Most \(systemName) updates fix security problems. Check for one now, and let your device install them by itself.")
                     .font(Typeface.caption).foregroundStyle(Ink.textMuted)
-                Steps(systemName: systemName)
+                Steps()
             }
         }
     }
@@ -70,8 +69,6 @@ private struct UpdateCard: View {
 
 /// iOS doesn't let apps open the Software Update screen, so we show the path.
 private struct Steps: View {
-    let systemName: String
-
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("1. Open Settings, then General, then Software Update.")

@@ -7,7 +7,6 @@ data class DeviceInfo(
     val manufacturer: String,
     val model: String,
     val androidVersion: String,
-    val sdkInt: Int,
     val securityPatch: String,
 ) {
     val name: String
@@ -22,7 +21,6 @@ data class DeviceInfo(
             manufacturer = Build.MANUFACTURER,
             model = Build.MODEL,
             androidVersion = Build.VERSION.RELEASE,
-            sdkInt = Build.VERSION.SDK_INT,
             securityPatch = Build.VERSION.SECURITY_PATCH,
         )
     }

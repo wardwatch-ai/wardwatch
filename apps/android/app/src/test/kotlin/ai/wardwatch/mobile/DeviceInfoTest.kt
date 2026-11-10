@@ -7,7 +7,7 @@ import org.junit.Test
 
 class DeviceInfoTest {
     private fun device(manufacturer: String, model: String) =
-        DeviceInfo(manufacturer, model, "16", 36, "2026-11-05")
+        DeviceInfo(manufacturer, model, "16", "2026-11-05")
 
     @Test fun prefixesManufacturer() = assertEquals("Samsung SM-S918B", device("samsung", "SM-S918B").name)
 
