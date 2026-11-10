@@ -128,8 +128,9 @@ fn read_sections(path: &Path, names: &[&str]) -> std::io::Result<Vec<Option<Vec<
             u16_at(&h, 0x32),
         )
     };
-    let min_entsize = if wide { 0x28 } else { 0x18 };
-    if entsize < min_entsize || count == 0 || count > 1024 || strndx >= count {
+    // The ELF standard's entry sizes, so a crafted header can't make us allocate much.
+    let want_entsize = if wide { 0x40 } else { 0x28 };
+    if entsize != want_entsize || count == 0 || count > 1024 || strndx >= count {
         return Err(bad());
     }
     let mut table = vec![0u8; usize::try_from(entsize * count).map_err(|_| bad())?];
@@ -177,7 +178,7 @@ fn read_sections(path: &Path, names: &[&str]) -> std::io::Result<Vec<Option<Vec<
 
 /// A minimal 64-bit type 2 AppImage header with the given ELF sections, for
 /// tests here and in the updater.
-#[doc(hidden)]
+#[cfg(any(test, feature = "test-support"))]
 pub fn test_image(sections: &[(&str, &[u8])]) -> Vec<u8> {
     let mut out = b"\x7fELF\x02\x01\x01\x00AI\x02".to_vec();
     out.resize(64, 0);

@@ -16,6 +16,7 @@ wardwatch-feed = { path = "../wardwatch-feed" }
 [dev-dependencies]
 serde_json = "1.0"
 tempfile = "3"
+wardwatch-catalog = { path = "../wardwatch-catalog", features = ["test-support"] }
 
 [lints]
 workspace = true

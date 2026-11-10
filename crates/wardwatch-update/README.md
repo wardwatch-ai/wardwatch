@@ -22,7 +22,7 @@ First match wins:
 | Snap | `snap refresh <name>` | snapd shows the system prompt |
 | Flatpak | `flatpak update --noninteractive <id>` | System installs show the system prompt |
 | MacPorts port | `osascript` with a fixed script that runs `port -N sync && port -N upgrade <ports>` `with administrator privileges` | Yes, macOS's own prompt |
-| AppImage that its maker signed, with update information, in the home folder, when AppImageUpdate is installed | `appimageupdatetool --remove-old <file>` | No |
+| AppImage that its maker signed, with update information, in the home folder, when AppImageUpdate is installed | `appimageupdatetool <file>`, then Wardwatch removes the old file on a clean signature pass | No (and never run by Auto) |
 | Debian/Ubuntu package | `pkexec apt-get install --only-upgrade --no-remove -y -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold <every binary package from that source>` | Yes, the system's own prompt |
 | RPM package | `pkexec dnf upgrade -y --refresh <packages>` | Yes, the system's own prompt |
 | Windows program winget knows | `winget upgrade --exact --source winget --silent --disable-interactivity --accept-source-agreements --accept-package-agreements --id <id>` | The installer may show Windows' prompt |
@@ -39,22 +39,32 @@ with administrator privileges`). That prompt takes a shell command, so the
 AppleScript is a constant (`MACPORTS_SCRIPT`) and port names arrive as
 `osascript` arguments, each quoted with AppleScript's `quoted form of`, after
 the usual name check. `port sync` first refreshes MacPorts' list of ports
-(MacPorts checks its signature), so `upgrade` sees the fixed version. It never
-runs `selfupdate`, which would also upgrade MacPorts itself.
+(MacPorts checks its signature), so `upgrade` sees the fixed version.
+`upgrade` also upgrades out-of-date ports it depends on, possibly building
+them from source; the plan says so. It never runs `selfupdate`, which would
+also upgrade MacPorts itself.
 
 **AppImages** have no package manager. AppImageUpdate reads the update
 information the maker embedded (`.upd_info`, usually their GitHub releases)
 and downloads the new version with zsync. That source is only as trustworthy
 as the maker's server, so Wardwatch offers it only for AppImages whose maker
-signed them (`.sha256_sig` and `.sig_key` filled in): AppImageUpdate then
-keeps the new file only if the same key signed it, and otherwise deletes it
-and puts the old one back. Unsigned AppImages (most of them, including
-AppImageUpdate's own) get instructions instead. `--remove-old` deletes the old
-copy once the new one passes, since it still has the hole; the new file lands
-in the same folder. Only AppImages in the home folder qualify (system folders
-need root), and only an `appimageupdatetool` in `/usr/bin`, `/usr/local/bin`
-or the person's `~/.local/bin` or `~/Applications` that nobody else can write
-to is used. Wardwatch never downloads AppImageUpdate itself.
+signed them (`.sha256_sig` and `.sig_key` filled in), and only for the
+install that has the hole (the oldest). AppImageUpdate deletes the new file
+and keeps the old one when the key changed, the signature is bad or missing.
+It also exits 0 on a signature *warning* (for example a key it couldn't
+check), so Wardwatch accepts only output that says "Signature validation
+passed" with no warning; then it removes the old copy, which still has the
+hole. Otherwise it removes the new file and reports a failure. We don't use
+`--overwrite`, because the version lives in the file name: the new version
+gets a new name in the same folder, and a menu shortcut to the old file may
+need adding again. Unsigned AppImages (most of them, including
+AppImageUpdate's own) get instructions instead. Only AppImages in the home
+folder qualify (system folders need root), and only an `appimageupdatetool`
+in `/usr/bin`, `/usr/local/bin` or the person's `~/.local/bin` or
+`~/Applications` that nobody else can write to is used. Wardwatch never
+downloads AppImageUpdate itself. Auto never runs AppImage updates: it
+downloads from wherever the AppImage says and replaces the person's own file,
+so a person presses the button.
 
 ## Trust rules
 
@@ -72,7 +82,8 @@ to is used. Wardwatch never downloads AppImageUpdate itself.
 - **Never close an open app.** If it's running, the plan says to restart it.
 - **Never remove anything.** apt runs with `--no-remove`; an upgrade that
   needs removals stops and points to Software Updater. The one exception is
-  an updated AppImage's old file, removed only after the new one passes.
+  an updated AppImage's old file, removed only after the new one passes its
+  signature check cleanly.
 - **Only run what was shown.** The UI sends back the plan method it showed,
   and the core refuses to run a fresh plan that differs.
 - **Only call it fixed on evidence.** After an update the core rescans:

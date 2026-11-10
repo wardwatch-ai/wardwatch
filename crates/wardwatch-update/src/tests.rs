@@ -54,6 +54,7 @@ fn all_tools() -> Tools {
         port: Some("/opt/local/bin/port".into()),
         osascript: Some("/usr/bin/osascript".into()),
         appimageupdatetool: Some("/usr/bin/appimageupdatetool".into()),
+        home: Some("/home/a".into()),
     }
 }
 
@@ -381,7 +382,7 @@ fn macports_asks_macos_for_admin_rights_and_passes_ports_as_arguments() {
     let argv = argv_of(&p);
     assert_eq!(argv[0], "/usr/bin/osascript");
     assert_eq!(&argv[argv.len() - 2..], ["curl", "curl-ca-bundle"]);
-    // The script is fixed: every line is an `-e` statement from MACPORTS_SCRIPT.
+    // The script is fixed: every line is an `-e` statement from macports_script().
     let script: Vec<&str> = argv[1..argv.len() - 2]
         .chunks(2)
         .map(|c| {
@@ -389,7 +390,8 @@ fn macports_asks_macos_for_admin_rights_and_passes_ports_as_arguments() {
             c[1]
         })
         .collect();
-    assert_eq!(script, MACPORTS_SCRIPT);
+    assert_eq!(script, macports_script());
+    assert!(script[1].contains("/opt/local/bin/port -N upgrade"));
     assert!(script.iter().any(|l| l.contains("quoted form of")));
     assert!(
         script
@@ -403,13 +405,6 @@ fn macports_asks_macos_for_admin_rights_and_passes_ports_as_arguments() {
     let json = serde_json::to_value(&p).unwrap();
     assert_eq!(json["method"]["tool"], "macports");
 
-    // Only MacPorts' own prefix, which the script names.
-    let mut elsewhere = all_tools();
-    elsewhere.port = Some("/usr/local/bin/port".into());
-    assert!(matches!(
-        plan(&f, OsFamily::Macos, &elsewhere),
-        Err(NoPlan::Unsupported(_))
-    ));
     // Without the port tool, the person gets instructions.
     let mut none = all_tools();
     none.port = None;
@@ -419,15 +414,12 @@ fn macports_asks_macos_for_admin_rights_and_passes_ports_as_arguments() {
     ));
 }
 
-/// An AppImage file in a temporary folder inside the home folder, which is
-/// where Wardwatch lets AppImageUpdate replace files.
-fn appimage_in_home(signed: bool, update_info: bool) -> (tempfile::TempDir, PathBuf) {
-    let home = std::fs::canonicalize(wardwatch_catalog::home_dir().unwrap()).unwrap();
-    let dir = tempfile::Builder::new()
-        .prefix(".ww-test")
-        .tempdir_in(home)
-        .unwrap();
-    let path = dir.path().join("Obsidian-1.7.7.AppImage");
+/// A temporary folder standing in for the home folder, with an AppImage in
+/// it, and tools that know it as home.
+fn appimage_at_home(signed: bool, update_info: bool) -> (tempfile::TempDir, PathBuf, Tools) {
+    let dir = tempfile::tempdir().unwrap();
+    let home = std::fs::canonicalize(dir.path()).unwrap();
+    let path = home.join("Obsidian-1.7.7.AppImage");
     let mut info = if update_info {
         b"zsync|https://example.org/Obsidian.AppImage.zsync".to_vec()
     } else {
@@ -441,7 +433,11 @@ fn appimage_in_home(signed: bool, update_info: bool) -> (tempfile::TempDir, Path
         (".sig_key", &sig),
     ]);
     std::fs::write(&path, bytes).unwrap();
-    (dir, path)
+    let tools = Tools {
+        home: Some(home),
+        ..all_tools()
+    };
+    (dir, path, tools)
 }
 
 fn appimage_finding(path: &std::path::Path) -> Finding {
@@ -452,21 +448,17 @@ fn appimage_finding(path: &std::path::Path) -> Finding {
 
 #[test]
 fn signed_appimages_update_through_appimageupdate() {
-    let (_dir, path) = appimage_in_home(true, true);
-    let p = plan(&appimage_finding(&path), OsFamily::Linux, &all_tools()).unwrap();
+    let (_dir, path, tools) = appimage_at_home(true, true);
+    let p = plan(&appimage_finding(&path), OsFamily::Linux, &tools).unwrap();
     assert_eq!(
         argv_of(&p),
-        [
-            "/usr/bin/appimageupdatetool",
-            "--remove-old",
-            path.to_str().unwrap()
-        ]
+        ["/usr/bin/appimageupdatetool", path.to_str().unwrap()]
     );
     assert_eq!(p.by, "AppImageUpdate");
     assert_eq!(p.admin, Admin::No);
     assert!(p.one_click);
     assert!(p.verifies.contains("same key"));
-    assert!(p.steps[2].detail.contains("Replaces the old file"));
+    assert!(p.steps[2].detail.contains("removes the old file"));
     let json = serde_json::to_value(&p).unwrap();
     assert_eq!(json["method"]["tool"], "appimageupdate");
 }
@@ -474,8 +466,8 @@ fn signed_appimages_update_through_appimageupdate() {
 #[test]
 fn unsigned_or_unannounced_appimages_get_instructions() {
     for (signed, info) in [(false, true), (true, false), (false, false)] {
-        let (_dir, path) = appimage_in_home(signed, info);
-        let p = plan(&appimage_finding(&path), OsFamily::Linux, &all_tools()).unwrap();
+        let (_dir, path, tools) = appimage_at_home(signed, info);
+        let p = plan(&appimage_finding(&path), OsFamily::Linux, &tools).unwrap();
         assert_eq!(
             p.method,
             Method::AppUpdater { open_bundle: None },
@@ -483,33 +475,41 @@ fn unsigned_or_unannounced_appimages_get_instructions() {
         );
         assert!(!p.one_click);
         assert!(p.manual.unwrap().contains("delete the old file"));
+        assert!(p.verifies.starts_with("Nothing checks"));
     }
     // Signed, but AppImageUpdate isn't installed.
-    let (_dir, path) = appimage_in_home(true, true);
-    let mut no_tool = all_tools();
-    no_tool.appimageupdatetool = None;
-    let p = plan(&appimage_finding(&path), OsFamily::Linux, &no_tool).unwrap();
-    assert!(!p.one_click);
+    let (_dir, path, mut tools) = appimage_at_home(true, true);
+    tools.appimageupdatetool = None;
+    assert!(
+        !plan(&appimage_finding(&path), OsFamily::Linux, &tools)
+            .unwrap()
+            .one_click
+    );
 }
 
 #[test]
 fn appimages_outside_the_home_folder_are_left_alone() {
-    let dir = tempfile::tempdir().unwrap();
-    let home = std::fs::canonicalize(wardwatch_catalog::home_dir().unwrap()).unwrap();
-    if dir.path().starts_with(&home) {
-        return; // this machine keeps temp files in the home folder
-    }
-    let path = dir.path().join("App.AppImage");
-    let sig = [b'-'; 64];
-    std::fs::write(
-        &path,
-        wardwatch_catalog::appimage::test_image(&[
-            (".upd_info", b"zsync|https://example.org/a.zsync"),
-            (".sha256_sig", &sig),
-            (".sig_key", &sig),
-        ]),
-    )
-    .unwrap();
-    let p = plan(&appimage_finding(&path), OsFamily::Linux, &all_tools()).unwrap();
-    assert!(!p.one_click);
+    let (_dir, path, mut tools) = appimage_at_home(true, true);
+    tools.home = Some("/home/someone-else".into());
+    assert!(
+        !plan(&appimage_finding(&path), OsFamily::Linux, &tools)
+            .unwrap()
+            .one_click
+    );
+}
+
+#[test]
+fn a_distro_package_with_the_hole_wins_over_an_up_to_date_appimage() {
+    let (_dir, path, tools) = appimage_at_home(true, true);
+    let mut app = install("appimage", "obsidian");
+    app.location = Some(path);
+    app.version = "1.2".into();
+    // The oldest install comes first: the deb has the hole.
+    let f = finding(
+        "obsidian",
+        "Obsidian",
+        AppKind::App,
+        vec![install("dpkg", "obsidian"), app],
+    );
+    assert_eq!(plan(&f, OsFamily::Linux, &tools).unwrap().by, "apt");
 }
