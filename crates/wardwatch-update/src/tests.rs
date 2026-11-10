@@ -251,6 +251,22 @@ fn windows_registry_maps_to_a_winget_id() {
 }
 
 #[test]
+fn winget_portables_update_by_their_own_id() {
+    let f = finding(
+        "ffmpeg",
+        "FFmpeg",
+        AppKind::App,
+        vec![install("winget", "Gyan.FFmpeg")],
+    );
+    let p = plan(&f, OsFamily::Windows, &all_tools()).unwrap();
+    assert_eq!(
+        &argv_of(&p)[argv_of(&p).len() - 2..],
+        ["--id", "Gyan.FFmpeg"]
+    );
+    assert!(p.one_click);
+}
+
+#[test]
 fn system_updates_open_the_os_update_screen() {
     let f = finding("macos", "macOS", AppKind::Os, vec![install("os", "macos")]);
     let p = plan(&f, OsFamily::Macos, &all_tools()).unwrap();
