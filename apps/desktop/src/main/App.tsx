@@ -1,7 +1,14 @@
 import { AccountPill, OkGlyph, ActGlyph, TopBar } from "@wardwatch/ui";
 import { useEffect, useId, useRef, useState } from "react";
 import { Link, Navigate, NavLink, Route, Routes, useNavigate } from "react-router";
-import { accounts, useDevice, useDevices, useMe, useScore } from "../lib/data";
+import {
+  useAccountsSource,
+  useAccountStatus,
+  useDevice,
+  useDevices,
+  useMe,
+  useScore,
+} from "../lib/data";
 import { onNavigate } from "../lib/ipc";
 import { useAppInfo } from "../lib/useAppInfo";
 import { tabs } from "./routes";
@@ -72,11 +79,12 @@ function Account() {
           <div>
             <div className="font-semibold">{name}</div>
             <div className="text-sm text-text-muted">
-              Signed in · {devices.length} {devices.length === 1 ? "device" : "devices"} on this
-              account
+              Signed in
+              {devices.length > 0 &&
+                ` · ${String(devices.length)} ${devices.length === 1 ? "device" : "devices"} on this account`}
             </div>
           </div>
-          <div className="ww-eyebrow mt-2">Your devices</div>
+          {devices.length > 0 && <div className="ww-eyebrow mt-2">Your devices</div>}
           <ul className="m-0 flex list-none flex-col gap-1 p-0">
             {devices.map((d) => (
               <li key={d.id} className="flex min-h-11 items-center gap-2.5">
@@ -111,6 +119,8 @@ export function App() {
   const { data: info, error } = useAppInfo();
   const navigate = useNavigate();
   const urgent = (useDevice().status?.attack.length ?? 0) > 0;
+  useAccountsSource();
+  const account = useAccountStatus().data;
 
   // The tray opens screens here (Update now, Score, Update plan).
   // Subscribe once: navigate's identity changes with the location, and re-subscribing
@@ -149,7 +159,10 @@ export function App() {
           : info
             ? `${info.name} ${info.version} on ${info.os}`
             : "Loading"}
-        {accounts.preview && " · Score and groups show sample data until sign-in is live."}
+        {!account?.signed_in &&
+          (account?.configured
+            ? " · Score and groups show sample data until you sign in (Settings)."
+            : " · Score and groups show sample data until sign-in is live.")}
       </footer>
     </div>
   );

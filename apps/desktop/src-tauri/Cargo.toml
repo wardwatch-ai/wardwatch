@@ -19,20 +19,29 @@ crate-type = ["rlib"]
 tauri-build = { version = "2.7", features = [] }
 
 [dependencies]
+base64 = "0.22"
+getrandom = "0.3"
 jiff = "0.2"
+# The session token lives in the OS keychain. Secret Service over zbus on Linux
+# (pure Rust, no libdbus).
+keyring = { version = "3.6", features = ["apple-native", "windows-native", "async-secret-service", "tokio", "crypto-rust"] }
+reqwest = { version = "0.13", default-features = false, features = ["rustls", "json", "system-proxy"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+sha2 = "0.10"
 tauri = { version = "2.12", features = ["tray-icon"] }
 tauri-plugin-notification = "2"
 tauri-plugin-positioner = { version = "2.4", features = ["tray-icon"] }
 tauri-plugin-single-instance = "2.5"
-tokio = { version = "1", features = ["time", "sync", "macros"] }
+tokio = { version = "1", features = ["time", "sync", "macros", "net", "io-util"] }
+url = "2"
 wardwatch-catalog = { path = "../../../crates/wardwatch-catalog" }
 wardwatch-feed = { path = "../../../crates/wardwatch-feed" }
 wardwatch-nudge = { path = "../../../crates/wardwatch-nudge" }
 wardwatch-update = { path = "../../../crates/wardwatch-update" }
 
 [dev-dependencies]
+reqwest = { version = "0.13", default-features = false, features = ["form"] }
 tempfile = "3"
 tauri = { version = "2.12", features = ["tray-icon", "test"] }
 

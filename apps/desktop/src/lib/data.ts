@@ -1,9 +1,12 @@
 // React Query hooks the screens read from. Each source is cached under one key,
 // so screens that show the same thing (Home, tray, Score) stay in step.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo } from "react";
-import { createSampleAccounts, type AccountsClient } from "./accounts";
+import { useEffect, useMemo } from "react";
+import { createHttpAccounts, createSampleAccounts, type AccountsClient } from "./accounts";
 import {
+  accountsRequest,
+  accountsStatus,
+  onAccountsChanged,
   getNudges,
   getPlan,
   getSettings,
@@ -17,7 +20,59 @@ import {
 import type { Period, UpdatePlan } from "./model";
 import { buildPrograms, summarize } from "./programs";
 
-export const accounts: AccountsClient = createSampleAccounts();
+const sampleAccounts = createSampleAccounts();
+const httpAccounts = createHttpAccounts(accountsRequest);
+let current: AccountsClient = sampleAccounts;
+
+/**
+ * The accounts client screens call: the real backend once this device is signed in
+ * (useAccountsSource switches it), sample data otherwise.
+ */
+export const accounts: AccountsClient = {
+  get preview() {
+    return current.preview;
+  },
+  me: () => current.me(),
+  setUsername: (username) => current.setUsername(username),
+  score: () => current.score(),
+  devices: () => current.devices(),
+  groups: () => current.groups(),
+  group: (id) => current.group(id),
+  leaderboard: (id, period) => current.leaderboard(id, period),
+  stakeIdeas: () => current.stakeIdeas(),
+  setStake: (id, text) => current.setStake(id, text),
+  setStakesEnabled: (id, enabled) => current.setStakesEnabled(id, enabled),
+  createGroup: (name) => current.createGroup(name),
+  joinGroup: (code) => current.joinGroup(code),
+};
+
+const ACCOUNT_KEYS = ["me", "score", "devices", "groups", "group", "leaderboard", "stake-ideas"];
+
+/** Whether an accounts server is set up, and whether this device is signed in to it. */
+export const useAccountStatus = () =>
+  useQuery({ queryKey: ["account-status"], queryFn: accountsStatus, staleTime: Infinity });
+
+/**
+ * Points `accounts` at the backend while signed in and at the samples otherwise, and
+ * refetches everything account-shaped when that changes. Mounted once, in App.
+ */
+export function useAccountsSource() {
+  const client = useQueryClient();
+  const signedIn = useAccountStatus().data?.signed_in ?? false;
+  useEffect(
+    () =>
+      onAccountsChanged(() => {
+        void client.invalidateQueries({ queryKey: ["account-status"] });
+      }),
+    [client],
+  );
+  useEffect(() => {
+    const next = signedIn ? httpAccounts : sampleAccounts;
+    if (next === current) return;
+    current = next;
+    for (const key of ACCOUNT_KEYS) void client.resetQueries({ queryKey: [key] });
+  }, [signedIn, client]);
+}
 
 export function useInventory() {
   return useQuery({

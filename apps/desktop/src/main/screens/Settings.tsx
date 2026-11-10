@@ -8,6 +8,7 @@ import { buildDate, releaseLabel } from "../../lib/format";
 import type { AppInfo, AutoInstall, ReleaseChannel } from "../../lib/ipc";
 import { useAppInfo } from "../../lib/useAppInfo";
 import { Failed, Loading } from "../parts";
+import { AccountCard } from "./AccountCard";
 
 const channels: { id: ReleaseChannel; label: string; hint: string }[] = [
   {
@@ -122,6 +123,7 @@ export function Settings() {
     <div className="flex max-w-[720px] flex-col gap-5">
       <h1 className="text-3xl">Settings</h1>
       <ThisApp info={info} linux={linux} />
+      <AccountCard />
 
       {linux ? (
         <Card className="flex flex-col gap-2">

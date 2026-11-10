@@ -12,6 +12,7 @@ use wardwatch_feed::Finding;
 use wardwatch_nudge::NudgePlan;
 use wardwatch_update::{Method, Progress};
 
+use crate::accounts::{self, Accounts, Reply, Status};
 use crate::auto;
 use crate::fix::{self, FixResult, FixView};
 use crate::nudge;
@@ -252,6 +253,75 @@ pub async fn run_fix<R: Runtime>(
 #[tauri::command]
 pub fn list_auto_installs<R: Runtime>(app: AppHandle<R>) -> Result<Vec<auto::Entry>, String> {
     auto::entries(&app)
+}
+
+/// Whether an accounts server is set up and this device is signed in to it.
+#[tauri::command]
+pub fn accounts_status(accounts: State<'_, Accounts>) -> Status {
+    accounts.status()
+}
+
+/// What the main window hears when signing in finishes, fails or ends.
+#[derive(Clone, Serialize)]
+struct AccountsChanged {
+    signed_in: bool,
+    error: Option<String>,
+}
+
+fn accounts_changed<R: Runtime>(app: &AppHandle<R>, error: Option<String>) {
+    let signed_in = app.state::<Accounts>().status().signed_in;
+    // The window may be closed; Settings reads the status again when it opens.
+    let _ = app.emit_to(
+        windows::MAIN,
+        accounts::CHANGED_EVENT,
+        AccountsChanged { signed_in, error },
+    );
+}
+
+/// Emails a sign-in link to `email` and returns once it's sent. Signing in
+/// finishes in the background when the link is used, with an `accounts-changed` event.
+#[tauri::command]
+pub async fn accounts_sign_in<R: Runtime>(app: AppHandle<R>, email: String) -> Result<(), String> {
+    let accounts = app.state::<Accounts>();
+    let sign_in = accounts.start_sign_in(email.trim()).await?;
+    let handle = app.clone();
+    let task = tauri::async_runtime::spawn(async move {
+        let result = handle.state::<Accounts>().finish_sign_in(sign_in).await;
+        accounts_changed(&handle, result.err());
+    });
+    accounts.set_pending(task);
+    Ok(())
+}
+
+/// Stops waiting for a sign-in link.
+#[tauri::command]
+pub fn accounts_cancel_sign_in(accounts: State<'_, Accounts>) {
+    accounts.cancel_sign_in();
+}
+
+#[tauri::command]
+pub async fn accounts_sign_out<R: Runtime>(app: AppHandle<R>) -> Result<(), String> {
+    let result = app.state::<Accounts>().sign_out().await;
+    accounts_changed(&app, None);
+    result
+}
+
+/// One accounts API call (profile, score, groups) with this device's session.
+#[tauri::command]
+pub async fn accounts_request<R: Runtime>(
+    app: AppHandle<R>,
+    method: String,
+    path: String,
+    body: Option<serde_json::Value>,
+) -> Result<Reply, String> {
+    let reply = app
+        .state::<Accounts>()
+        .request(&method, &path, body)
+        .await?;
+    if reply.status == 401 {
+        accounts_changed(&app, None);
+    }
+    Ok(reply)
 }
 
 #[cfg(test)]

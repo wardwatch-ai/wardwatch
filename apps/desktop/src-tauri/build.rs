@@ -14,6 +14,11 @@ fn main() {
         "get_settings",
         "set_settings",
         "list_auto_installs",
+        "accounts_status",
+        "accounts_sign_in",
+        "accounts_cancel_sign_in",
+        "accounts_sign_out",
+        "accounts_request",
     ]);
     stamp_build();
 
