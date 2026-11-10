@@ -352,3 +352,62 @@ export async function listAutoInstalls(): Promise<AutoInstall[]> {
   if (!isTauri()) return structuredClone(sampleAutoInstalls);
   return invoke<AutoInstall[]>("list_auto_installs");
 }
+
+// ---- Accounts server (src-tauri/src/accounts.rs) ----
+// Off unless the core was started with WARDWATCH_ACCOUNTS_URL. The session token
+// stays in the core (OS keychain); the UI asks for API calls by path.
+
+export interface AccountStatus {
+  configured: boolean;
+  signed_in: boolean;
+  server: string | null;
+}
+
+export interface AccountsReply {
+  status: number;
+  body: unknown;
+}
+
+export async function accountsStatus(): Promise<AccountStatus> {
+  if (!isTauri()) return { configured: false, signed_in: false, server: null };
+  return invoke<AccountStatus>("accounts_status");
+}
+
+/** Emails a sign-in link. Resolves once it's sent; `onAccountsChanged` says when it's used. */
+export async function accountsSignIn(email: string): Promise<void> {
+  await invoke("accounts_sign_in", { email });
+}
+
+export async function accountsCancelSignIn(): Promise<void> {
+  await invoke("accounts_cancel_sign_in");
+}
+
+export async function accountsSignOut(): Promise<void> {
+  await invoke("accounts_sign_out");
+}
+
+export async function accountsRequest(
+  method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE",
+  path: string,
+  body?: unknown,
+): Promise<AccountsReply> {
+  return invoke<AccountsReply>(
+    "accounts_request",
+    body === undefined ? { method, path } : { method, path, body },
+  );
+}
+
+/** Signing in finished (or failed), or the session ended. */
+export function onAccountsChanged(
+  handler: (e: { signed_in: boolean; error: string | null }) => void,
+): () => void {
+  if (!isTauri()) return () => undefined;
+  const stop = listen<{ signed_in: boolean; error: string | null }>("accounts-changed", (e) => {
+    handler(e.payload);
+  });
+  return () => {
+    void stop.then((unlisten) => {
+      unlisten();
+    });
+  };
+}

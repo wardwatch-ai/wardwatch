@@ -4,6 +4,7 @@
 //! Scanning, the update feed and scoring live in their own crates under
 //! `crates/` and are exposed to the UI only through `commands`.
 
+mod accounts;
 mod auto;
 mod commands;
 mod fix;
@@ -32,6 +33,7 @@ pub fn run() {
         .manage(commands::SettingsLock::default())
         .manage(fix::FixState::default())
         .manage(nudge::NudgeState::default())
+        .manage(accounts::Accounts::from_env())
         .invoke_handler(tauri::generate_handler![
             commands::app_info,
             commands::show_main_window,
@@ -44,7 +46,12 @@ pub fn run() {
             commands::get_nudges,
             commands::get_settings,
             commands::set_settings,
-            commands::list_auto_installs
+            commands::list_auto_installs,
+            commands::accounts_status,
+            commands::accounts_sign_in,
+            commands::accounts_cancel_sign_in,
+            commands::accounts_sign_out,
+            commands::accounts_request
         ])
         .setup(|app| {
             tray::create(app.handle())?;
