@@ -15,8 +15,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
 /**
- * Brand tokens from packages/ui/src/tokens/brand.json, the single source of truth.
- * BrandTokensTest fails if these drift from it.
+ * Brand tokens from packages/ui/src/tokens/brand.json (plus `edge` from ui.json), the
+ * single source of truth. BrandTokensTest fails if these drift from it.
  */
 data class WardwatchColors(
     val bg: Color,
@@ -33,6 +33,9 @@ data class WardwatchColors(
     val onAct: Color,
     /** Null in dark mode, where the act-now button has no outline. */
     val actEdge: Color?,
+    /** Outline for quiet buttons and empty severity bars (ui.json `edge`, 3:1 on every surface). */
+    val edge: Color,
+    val isDark: Boolean,
 )
 
 val LightColors = WardwatchColors(
@@ -49,6 +52,8 @@ val LightColors = WardwatchColors(
     actInk = Color(0xFF8A5300),
     onAct = Color(0xFF23211F),
     actEdge = Color(0xFF23211F),
+    edge = Color(0xFF857B6D),
+    isDark = false,
 )
 
 val DarkColors = WardwatchColors(
@@ -65,6 +70,8 @@ val DarkColors = WardwatchColors(
     actInk = Color(0xFFF7C76A),
     onAct = Color(0xFF23211F),
     actEdge = null,
+    edge = Color(0xFF8A8072),
+    isDark = true,
 )
 
 val Inter = FontFamily(
@@ -85,11 +92,14 @@ fun WardwatchTheme(dark: Boolean = isSystemInDarkTheme(), content: @Composable (
     }
     val body = TextStyle(fontFamily = Inter, fontSize = 16.sp, lineHeight = 24.sp)
     val typography = Typography(
-        displaySmall = TextStyle(fontFamily = Manrope, fontWeight = FontWeight.ExtraBold, fontSize = 28.sp),
+        displaySmall = TextStyle(fontFamily = Manrope, fontWeight = FontWeight.ExtraBold, fontSize = 28.sp, lineHeight = 32.sp),
+        titleLarge = TextStyle(fontFamily = Manrope, fontWeight = FontWeight.ExtraBold, fontSize = 20.sp),
         titleMedium = TextStyle(fontFamily = Inter, fontWeight = FontWeight.SemiBold, fontSize = 17.sp),
         bodyLarge = body,
         bodyMedium = body.copy(fontSize = 14.sp, lineHeight = 20.sp),
         labelLarge = TextStyle(fontFamily = Inter, fontWeight = FontWeight.SemiBold, fontSize = 15.sp),
+        // Eyebrows such as "NEEDS YOU TODAY".
+        labelSmall = TextStyle(fontFamily = Inter, fontWeight = FontWeight.SemiBold, fontSize = 12.sp, letterSpacing = 1.sp),
     )
     androidx.compose.runtime.CompositionLocalProvider(LocalWardwatchColors provides c) {
         MaterialTheme(colorScheme = scheme, typography = typography, content = content)

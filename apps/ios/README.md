@@ -8,7 +8,7 @@ What it does today, all on the device (nothing is sent anywhere yet):
 - Shows how to check for and install iOS updates and turn on Automatic Updates. iOS doesn't let apps read other apps' versions or open the Software Update screen, so guidance is the whole job here.
 - `OSNudge` already compares the running version with the newest release. Once the signed catalog carries the newest iOS version, the app turns that into the amber act-now nudge.
 
-The logic lives in `WardwatchKit`, a Swift package with no UIKit, so its tests run on macOS and Linux. The screen is a placeholder until the mobile design is approved.
+The logic lives in `WardwatchKit`, a Swift package with no UIKit, so its tests run on macOS and Linux. The home screen follows the approved mobile design (2026-11-10). Its words live in `WardwatchKit` (`HomeCopy.swift`) so they are tested there.
 
 ## Build
 

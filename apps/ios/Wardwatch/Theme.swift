@@ -12,6 +12,9 @@ enum Ink {
     static let brand = dynamic(\.brand)
     static let actTint = dynamic(\.actTint)
     static let actInk = dynamic(\.actInk)
+    static let ok = dynamic(\.ok)
+    static let act = dynamic(\.act)
+    static let onAct = dynamic(\.onAct)
 
     private static func dynamic(_ token: KeyPath<BrandPalette, String>) -> Color {
         let light = uiColor(BrandPalette.light[keyPath: token])
@@ -31,4 +34,8 @@ enum Typeface {
     static let title = Font.custom("Inter-SemiBold", size: 17, relativeTo: .headline)
     static let body = Font.custom("Inter-Regular", size: 16, relativeTo: .body)
     static let caption = Font.custom("Inter-Regular", size: 14, relativeTo: .subheadline)
+    static let brandName = Font.custom("Manrope-ExtraBold", size: 20, relativeTo: .title3)
+    static let label = Font.custom("Inter-SemiBold", size: 15, relativeTo: .subheadline)
+    /// Eyebrows such as "NEEDS YOU TODAY".
+    static let eyebrow = Font.custom("Inter-SemiBold", size: 12, relativeTo: .caption)
 }

@@ -29,6 +29,15 @@ class BrandTokensTest {
         assertEquals(tokens.mapValues { it.value.uppercase().replace("TRANSPARENT", "transparent") }, ours)
     }
 
+    /** `edge` comes from the app-only tokens in ui.json. */
+    @Test fun edgeMatchesUiTokens() {
+        val ui = File(System.getProperty("wardwatch.repoRoot"), "packages/ui/src/tokens/ui.json").readText()
+        fun edge(theme: String) = Regex("\"$theme\"\\s*:\\s*\\{[^}]*\"edge\"\\s*:\\s*\"(#[0-9A-Fa-f]{6})\"")
+            .find(ui)!!.groupValues[1].uppercase()
+        assertEquals(edge("light"), hex(LightColors.edge))
+        assertEquals(edge("dark"), hex(DarkColors.edge))
+    }
+
     @Test fun lightMatchesBrand() = assertMatches(theme("light"), LightColors)
 
     @Test fun darkMatchesBrand() = assertMatches(theme("dark"), DarkColors)
