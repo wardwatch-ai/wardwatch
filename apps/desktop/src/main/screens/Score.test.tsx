@@ -41,9 +41,10 @@ describe("Score", () => {
         "section",
       );
       if (!moves) throw new Error("no moves section");
-      const points = within(moves)
-        .getAllByTitle("Estimated points")
-        .map((e) => e.textContent);
+      // The score (and so the estimates) can arrive after the section renders.
+      const points = (await within(moves).findAllByTitle("Estimated points")).map(
+        (e) => e.textContent,
+      );
       expect(points).toEqual(["About +2 points", "About +1 point", "About +1 point"]);
     } finally {
       vi.useRealTimers();

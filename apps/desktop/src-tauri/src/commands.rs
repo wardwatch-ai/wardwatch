@@ -256,9 +256,11 @@ pub fn list_auto_installs<R: Runtime>(app: AppHandle<R>) -> Result<Vec<auto::Ent
 }
 
 /// Whether an accounts server is set up and this device is signed in to it.
+/// Async so a slow keychain (a locked collection, a permission prompt) never
+/// holds the main thread.
 #[tauri::command]
-pub fn accounts_status(accounts: State<'_, Accounts>) -> Status {
-    accounts.status()
+pub async fn accounts_status<R: Runtime>(app: AppHandle<R>) -> Result<Status, String> {
+    Ok(app.state::<Accounts>().status())
 }
 
 /// What the main window hears when signing in finishes, fails or ends.

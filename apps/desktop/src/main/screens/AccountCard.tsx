@@ -3,46 +3,38 @@
 // app runs on sample data and this card stays hidden.
 import { Button, Card, Eyebrow } from "@wardwatch/ui";
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect, useId, useState, type SyntheticEvent } from "react";
-import { accounts, useAccountStatus, useMe } from "../../lib/data";
+import { useId, useState, type SyntheticEvent } from "react";
 import {
-  accountsCancelSignIn,
-  accountsSignIn,
-  accountsSignOut,
-  onAccountsChanged,
-} from "../../lib/ipc";
+  accounts,
+  useAccountStatus,
+  useMe,
+  useSignInState,
+  type SignInState,
+} from "../../lib/data";
+import { accountsCancelSignIn, accountsSignIn, accountsSignOut } from "../../lib/ipc";
 
 const inputClass = "min-h-11 rounded-[10px] border border-edge bg-surface px-3 text-text";
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 function SignIn() {
   const id = useId();
+  const client = useQueryClient();
   const [email, setEmail] = useState("");
-  const [sentTo, setSentTo] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  // The link was used (we're signed in and this card swaps out), or the wait failed.
-  useEffect(
-    () =>
-      onAccountsChanged((e) => {
-        if (e.error) {
-          setSentTo(null);
-          setError(e.error);
-        }
-      }),
-    [],
-  );
+  // Kept outside this card (App hears when the link is used or fails), so leaving
+  // Settings while the link is on its way loses nothing.
+  const { sentTo, error } = useSignInState().data ?? { sentTo: null, error: null };
+  const set = (state: SignInState) => client.setQueryData(["sign-in"], state);
 
   const send = async (e: SyntheticEvent) => {
     e.preventDefault();
     setBusy(true);
-    setError(null);
+    set({ sentTo: null, error: null });
     try {
       await accountsSignIn(email);
-      setSentTo(email.trim());
+      set({ sentTo: email.trim(), error: null });
     } catch (err) {
-      setError(message(err));
+      set({ sentTo: null, error: message(err) });
     } finally {
       setBusy(false);
     }
@@ -60,7 +52,7 @@ function SignIn() {
             variant="quiet"
             onClick={() => {
               void accountsCancelSignIn();
-              setSentTo(null);
+              set({ sentTo: null, error: null });
             }}
           >
             Use a different email
@@ -106,14 +98,18 @@ function PickUsername() {
   const id = useId();
   const client = useQueryClient();
   const [name, setName] = useState("");
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const save = async (e: SyntheticEvent) => {
     e.preventDefault();
+    setBusy(true);
     try {
       await accounts.setUsername(name.trim());
       await client.invalidateQueries({ queryKey: ["me"] });
     } catch (err) {
       setError(message(err));
+    } finally {
+      setBusy(false);
     }
   };
   return (
@@ -139,7 +135,7 @@ function PickUsername() {
         </p>
       )}
       <div>
-        <Button variant="brand" type="submit">
+        <Button variant="brand" type="submit" disabled={busy}>
           Save username
         </Button>
       </div>

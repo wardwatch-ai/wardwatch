@@ -131,6 +131,9 @@ pub struct Accounts {
     server: Option<Url>,
     http: reqwest::Client,
     store: Option<Box<dyn TokenStore>>,
+    /// The token as last read from or written to the store, so the keychain is
+    /// read once, not on every call. None until the first read.
+    token: Mutex<Option<Option<String>>>,
     /// The sign-in waiting for its link, so a new one replaces it.
     pending: Mutex<Option<tauri::async_runtime::JoinHandle<()>>>,
 }
@@ -160,6 +163,7 @@ impl Accounts {
             server,
             http,
             store,
+            token: Mutex::new(None),
             pending: Mutex::new(None),
         }
     }
@@ -167,7 +171,7 @@ impl Accounts {
     pub fn status(&self) -> Status {
         Status {
             configured: self.server.is_some(),
-            signed_in: self.token().ok().flatten().is_some(),
+            signed_in: matches!(self.token(), Ok(Some(_))),
             server: self
                 .server
                 .as_ref()
@@ -188,7 +192,34 @@ impl Accounts {
     }
 
     fn token(&self) -> Result<Option<String>, String> {
-        self.store()?.get()
+        let mut cached = self.token.lock().map_err(|e| e.to_string())?;
+        if let Some(token) = &*cached {
+            return Ok(token.clone());
+        }
+        let token = self.store()?.get()?;
+        *cached = Some(token.clone());
+        Ok(token)
+    }
+
+    fn save_token(&self, token: &str) -> Result<(), String> {
+        let mut cached = self.token.lock().map_err(|e| e.to_string())?;
+        self.store()?.set(token)?;
+        *cached = Some(Some(token.to_owned()));
+        Ok(())
+    }
+
+    /// Forgets the token. With `only`, only if it's still that one, so a late 401
+    /// for an old session can't sign out a newer one.
+    fn drop_token(&self, only: Option<&str>) -> Result<(), String> {
+        let mut cached = self.token.lock().map_err(|e| e.to_string())?;
+        if let (Some(only), Some(Some(current))) = (only, &*cached)
+            && only != current
+        {
+            return Ok(());
+        }
+        self.store()?.clear()?;
+        *cached = Some(None);
+        Ok(())
     }
 
     /// One API call for the UI, with the session token added. Only the account,
@@ -200,8 +231,7 @@ impl Accounts {
         path: &str,
         body: Option<Value>,
     ) -> Result<Reply, String> {
-        let method = allowed_method(method)?;
-        let url = api_url(self.server()?, path)?;
+        let (method, url) = api_call(self.server()?, method, path)?;
         let token = self.token()?.ok_or("Sign in first.")?;
         let mut req = self.http.request(method, url).bearer_auth(&token);
         if let Some(body) = body {
@@ -211,7 +241,7 @@ impl Accounts {
         let status = res.status().as_u16();
         let text = res.text().await.map_err(offline)?;
         if status == 401 {
-            self.store()?.clear()?;
+            self.drop_token(Some(&token))?;
         }
         let body = if text.is_empty() {
             Value::Null
@@ -231,7 +261,7 @@ impl Accounts {
         {
             let _ = self.http.post(url).bearer_auth(token).send().await;
         }
-        self.store()?.clear()
+        self.drop_token(None)
     }
 
     pub fn cancel_sign_in(&self) {
@@ -253,7 +283,8 @@ impl Accounts {
     /// caller runs in the background.
     pub async fn start_sign_in(&self, email: &str) -> Result<SignIn, String> {
         let server = self.server()?.clone();
-        self.store()?;
+        // Check the keychain works before the email goes out, not after its link is used.
+        self.token()?;
         let listener = TcpListener::bind(("127.0.0.1", 0))
             .await
             .map_err(|e| format!("couldn't get ready for the sign-in link: {e}"))?;
@@ -325,7 +356,7 @@ impl Accounts {
             return Err(error_message(res).await);
         }
         let body: Exchanged = res.json().await.map_err(|e| e.to_string())?;
-        self.store()?.set(&body.session_token)
+        self.save_token(&body.session_token)
     }
 }
 
@@ -372,50 +403,50 @@ fn device_label() -> String {
     format!("Wardwatch on {os}")
 }
 
-fn allowed_method(method: &str) -> Result<reqwest::Method, String> {
-    match method {
-        "GET" => Ok(reqwest::Method::GET),
-        "POST" => Ok(reqwest::Method::POST),
-        "PUT" => Ok(reqwest::Method::PUT),
-        "PATCH" => Ok(reqwest::Method::PATCH),
-        "DELETE" => Ok(reqwest::Method::DELETE),
-        _ => Err(format!("method {method} isn't allowed")),
-    }
-}
-
-/// The API paths the UI may call: the profile, score, groups and this session.
-/// Sign-in, admin and everything else stay out of reach.
-const API_PREFIXES: &[&str] = &[
-    "/v1/me",
-    "/v1/score",
-    "/v1/groups",
-    "/v1/users/",
-    "/auth/session",
+/// The API calls the UI makes, and no others: `*` is one id segment.
+/// Sign-in, admin, deleting and everything else stay out of reach.
+const API_CALLS: &[(&str, &str)] = &[
+    ("GET", "/v1/me"),
+    ("PATCH", "/v1/me"),
+    ("GET", "/v1/score"),
+    ("GET", "/v1/groups"),
+    ("POST", "/v1/groups"),
+    ("POST", "/v1/groups/join"),
+    ("GET", "/v1/groups/stake-ideas"),
+    ("GET", "/v1/groups/*"),
+    ("PATCH", "/v1/groups/*"),
+    ("GET", "/v1/groups/*/leaderboard"),
+    ("PUT", "/v1/groups/*/stake"),
 ];
 
-fn api_url(server: &Url, path: &str) -> Result<Url, String> {
+fn api_call(server: &Url, method: &str, path: &str) -> Result<(reqwest::Method, Url), String> {
+    let refuse = || format!("{method} {path} isn't an API call the app may make");
     let (route, query) = path.split_once('?').unwrap_or((path, ""));
-    let route_ok = route
-        .bytes()
-        .all(|b| b.is_ascii_alphanumeric() || b"/_-".contains(&b))
-        && !route.contains("//")
-        && API_PREFIXES.iter().any(|p| {
-            if p.ends_with('/') {
-                route.len() > p.len() && route.starts_with(p)
-            } else {
-                route == *p
-                    || route
-                        .strip_prefix(p)
-                        .is_some_and(|rest| rest.starts_with('/'))
+    let segment_ok = |seg: &str| {
+        !seg.is_empty()
+            && seg
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b"_-".contains(&b))
+    };
+    let matches = |pattern: &str| {
+        let (mut want, mut got) = (pattern.split('/'), route.split('/'));
+        loop {
+            match (want.next(), got.next()) {
+                (None, None) => return true,
+                (Some("*"), Some(seg)) if segment_ok(seg) => {}
+                (Some(w), Some(g)) if w == g => {}
+                _ => return false,
             }
-        });
+        }
+    };
     let query_ok = query
         .bytes()
         .all(|b| b.is_ascii_alphanumeric() || b"=&_-".contains(&b));
-    if !route_ok || !query_ok {
-        return Err(format!("{path} isn't an API path the app may call"));
+    if !query_ok || !API_CALLS.iter().any(|(m, p)| *m == method && matches(p)) {
+        return Err(refuse());
     }
-    server.join(path).map_err(|e| e.to_string())
+    let method = reqwest::Method::from_bytes(method.as_bytes()).map_err(|_| refuse())?;
+    Ok((method, server.join(path).map_err(|e| e.to_string())?))
 }
 
 fn offline(e: reqwest::Error) -> String {
@@ -443,7 +474,7 @@ async fn read_callback(stream: &mut tokio::net::TcpStream, state: &str) -> Optio
     let mut buf = Vec::with_capacity(1024);
     let mut chunk = [0u8; 1024];
     while !buf.windows(4).any(|w| w == b"\r\n\r\n") && buf.len() < 8192 {
-        let n = tokio::time::timeout(Duration::from_secs(10), stream.read(&mut chunk))
+        let n = tokio::time::timeout(Duration::from_secs(2), stream.read(&mut chunk))
             .await
             .ok()?
             .ok()?;
@@ -522,36 +553,49 @@ mod tests {
     }
 
     #[test]
-    fn only_account_score_and_group_paths() {
+    fn only_the_calls_the_ui_makes() {
         let s = Url::parse("https://wardwatch.ai").unwrap();
-        for ok in [
-            "/v1/me",
-            "/v1/score",
-            "/v1/groups",
-            "/v1/groups/join",
-            "/v1/groups/g_abc/leaderboard?period=30d",
-            "/v1/users/u_abc",
-            "/auth/session",
+        for (m, ok) in [
+            ("GET", "/v1/me"),
+            ("PATCH", "/v1/me"),
+            ("GET", "/v1/score"),
+            ("POST", "/v1/groups/join"),
+            ("GET", "/v1/groups/g_abc/leaderboard?period=30d"),
+            ("PUT", "/v1/groups/g_abc/stake"),
         ] {
-            assert_eq!(
-                api_url(&s, ok).unwrap().as_str(),
-                format!("https://wardwatch.ai{ok}")
-            );
+            let (method, url) = api_call(&s, m, ok).unwrap();
+            assert_eq!(method.as_str(), m);
+            assert_eq!(url.as_str(), format!("https://wardwatch.ai{ok}"));
         }
-        for bad in [
-            "/admin",
-            "/auth/start",
-            "/auth/token?aud=admin",
-            "/v1/score/../../admin",
-            "/v1/meow",
-            "/v1/users",
-            "//evil.example/v1/me",
-            "https://evil.example/v1/me",
-            "/v1/groups?x=%2F",
-            "/v1/groups/a b",
+        for (m, bad) in [
+            ("GET", "/admin"),
+            ("POST", "/auth/start"),
+            ("GET", "/auth/session"),
+            ("GET", "/auth/token?aud=admin"),
+            ("DELETE", "/v1/groups/g_abc"),
+            ("POST", "/v1/score/patches"),
+            ("GET", "/v1/users/u_abc"),
+            ("GET", "/v1/score/../../admin"),
+            ("GET", "/v1/meow"),
+            ("GET", "/v1/groups/"),
+            ("GET", "//evil.example/v1/me"),
+            ("GET", "https://evil.example/v1/me"),
+            ("GET", "/v1/groups?x=%2F"),
+            ("GET", "/v1/groups/a b"),
+            ("get", "/v1/me"),
         ] {
-            assert!(api_url(&s, bad).is_err(), "{bad} should be refused");
+            assert!(api_call(&s, m, bad).is_err(), "{m} {bad} should be refused");
         }
+    }
+
+    #[test]
+    fn a_late_401_only_drops_the_token_it_was_for() {
+        let a = Accounts::new(None, Some(Box::<Memory>::default()));
+        a.save_token("new").unwrap();
+        a.drop_token(Some("old")).unwrap();
+        assert_eq!(a.token().unwrap().as_deref(), Some("new"));
+        a.drop_token(Some("new")).unwrap();
+        assert_eq!(a.token().unwrap(), None);
     }
 
     #[test]

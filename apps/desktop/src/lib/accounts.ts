@@ -63,7 +63,7 @@ export type Call = (
 export function createHttpAccounts(call: Call): AccountsClient {
   const api = async <T>(method: Method, path: string, body?: unknown): Promise<T> => {
     const res = await call(method, path, body);
-    if (res.status >= 400) {
+    if (res.status < 200 || res.status > 299) {
       const err = (res.body as { error?: { code?: string; message?: string } } | null)?.error;
       throw new AccountsError(
         err?.code ?? (res.status === 401 ? "unauthorized" : "server_error"),

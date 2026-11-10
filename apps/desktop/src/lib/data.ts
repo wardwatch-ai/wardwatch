@@ -1,7 +1,7 @@
 // React Query hooks the screens read from. Each source is cached under one key,
 // so screens that show the same thing (Home, tray, Score) stay in step.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { createHttpAccounts, createSampleAccounts, type AccountsClient } from "./accounts";
 import {
   accountsRequest,
@@ -48,31 +48,63 @@ export const accounts: AccountsClient = {
 
 const ACCOUNT_KEYS = ["me", "score", "devices", "groups", "group", "leaderboard", "stake-ideas"];
 
-/** Whether an accounts server is set up, and whether this device is signed in to it. */
+/**
+ * Whether an accounts server is set up and this device is signed in to it. Reading it
+ * also points `accounts` at the backend or the samples, before any account query runs
+ * (they wait for it), so a signed-in launch never shows sample data.
+ */
 export const useAccountStatus = () =>
-  useQuery({ queryKey: ["account-status"], queryFn: accountsStatus, staleTime: Infinity });
+  useQuery({
+    queryKey: ["account-status"],
+    queryFn: async () => {
+      const status = await accountsStatus();
+      current = status.signed_in ? httpAccounts : sampleAccounts;
+      return status;
+    },
+    staleTime: Infinity,
+  });
+
+/** A sign-in link that's been emailed and not used yet, or why the last one failed. */
+export interface SignInState {
+  sentTo: string | null;
+  error: string | null;
+}
+const SIGN_IN_KEY = ["sign-in"];
+export const useSignInState = () =>
+  useQuery<SignInState>({
+    queryKey: SIGN_IN_KEY,
+    queryFn: () => ({ sentTo: null, error: null }),
+    staleTime: Infinity,
+  });
 
 /**
- * Points `accounts` at the backend while signed in and at the samples otherwise, and
- * refetches everything account-shaped when that changes. Mounted once, in App.
+ * Refetches everything account-shaped when signing in or out changes the source, and
+ * keeps the sign-in state when Settings isn't open. Mounted once, in App.
  */
 export function useAccountsSource() {
   const client = useQueryClient();
-  const signedIn = useAccountStatus().data?.signed_in ?? false;
+  const signedIn = useAccountStatus().data?.signed_in;
   useEffect(
     () =>
-      onAccountsChanged(() => {
+      onAccountsChanged((e) => {
+        client.setQueryData<SignInState>(SIGN_IN_KEY, { sentTo: null, error: e.error });
         void client.invalidateQueries({ queryKey: ["account-status"] });
       }),
     [client],
   );
+  const seen = useRef(signedIn);
   useEffect(() => {
-    const next = signedIn ? httpAccounts : sampleAccounts;
-    if (next === current) return;
-    current = next;
+    if (seen.current === undefined || seen.current === signedIn) {
+      seen.current = signedIn;
+      return;
+    }
+    seen.current = signedIn;
     for (const key of ACCOUNT_KEYS) void client.resetQueries({ queryKey: [key] });
   }, [signedIn, client]);
 }
+
+/** Account queries wait until the status says which source to read. */
+const useAccountsReady = () => useAccountStatus().isSuccess;
 
 export function useInventory() {
   return useQuery({
@@ -165,17 +197,24 @@ export function useDevice() {
   };
 }
 
-export const useMe = () => useQuery({ queryKey: ["me"], queryFn: () => accounts.me() });
-export const useScore = () => useQuery({ queryKey: ["score"], queryFn: () => accounts.score() });
+export const useMe = () =>
+  useQuery({ queryKey: ["me"], queryFn: () => accounts.me(), enabled: useAccountsReady() });
+export const useScore = () =>
+  useQuery({ queryKey: ["score"], queryFn: () => accounts.score(), enabled: useAccountsReady() });
 export const useDevices = () =>
-  useQuery({ queryKey: ["devices"], queryFn: () => accounts.devices() });
-export const useGroups = () => useQuery({ queryKey: ["groups"], queryFn: () => accounts.groups() });
+  useQuery({
+    queryKey: ["devices"],
+    queryFn: () => accounts.devices(),
+    enabled: useAccountsReady(),
+  });
+export const useGroups = () =>
+  useQuery({ queryKey: ["groups"], queryFn: () => accounts.groups(), enabled: useAccountsReady() });
 
 export function useGroup(id: string | undefined) {
   return useQuery({
     queryKey: ["group", id],
     queryFn: () => accounts.group(id ?? ""),
-    enabled: id !== undefined,
+    enabled: useAccountsReady() && id !== undefined,
   });
 }
 
@@ -183,7 +222,7 @@ export function useLeaderboard(id: string | undefined, period: Period) {
   return useQuery({
     queryKey: ["leaderboard", id, period],
     queryFn: () => accounts.leaderboard(id ?? "", period),
-    enabled: id !== undefined,
+    enabled: useAccountsReady() && id !== undefined,
   });
 }
 
@@ -191,7 +230,7 @@ export const useStakeIdeas = (enabled: boolean) =>
   useQuery({
     queryKey: ["stake-ideas"],
     queryFn: () => accounts.stakeIdeas(),
-    enabled,
+    enabled: useAccountsReady() && enabled,
     staleTime: Infinity,
   });
 
