@@ -87,5 +87,25 @@
       "DisplayName": "Hotfix for Something",
       "ReleaseType": "Hotfix"
     }
+  ],
+  [
+    "Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe",
+    {
+      "DisplayName": "FFmpeg (Essentials Build)",
+      "DisplayVersion": "7.1",
+      "Publisher": "Gyan Doshi",
+      "InstallLocation": "C:\\Users\\pat\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe",
+      "WinGetPackageIdentifier": "Gyan.FFmpeg",
+      "WinGetSourceIdentifier": "Microsoft.Winget.Source_8wekyb3d8bbwe"
+    }
+  ],
+  [
+    "Contoso.Tool_PrivateSource",
+    {
+      "DisplayName": "Contoso Tool",
+      "DisplayVersion": "2.0",
+      "WinGetPackageIdentifier": "Contoso.Tool",
+      "WinGetSourceIdentifier": "PrivateSource"
+    }
   ]
 ]

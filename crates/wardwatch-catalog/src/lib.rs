@@ -9,19 +9,21 @@
 //! The scanners read package databases and app metadata directly where they
 //! can (dpkg status, `Info.plist`, the Windows registry, Homebrew's Cellar)
 //! and only start a subprocess where a database has no stable file format
-//! (`rpm`, `flatpak`). A full scan is one pass with no background threads,
+//! (`rpm`, `flatpak`, MacPorts' `port`). A full scan is one pass with no background threads,
 //! so callers decide when to rescan; [`watch_paths`] lists what to watch.
 
 use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
+pub mod appimage;
 mod browsers;
 pub mod chocolatey;
 pub mod extensions;
 pub mod homebrew;
 pub mod linux;
 pub mod macos;
+pub mod macports;
 pub mod msstore;
 mod running;
 pub mod scoop;
@@ -33,8 +35,9 @@ pub use extensions::Extension;
 pub use services::{Service, ServiceKind};
 
 /// Version of the serialized [`Inventory`] shape. 2 added Store, Chocolatey
-/// and Scoop sources, `services` and `extensions`.
-pub const SCHEMA_VERSION: u32 = 2;
+/// and Scoop sources, `services` and `extensions`. 3 added the MacPorts,
+/// AppImage and winget sources and `systemd_user` services.
+pub const SCHEMA_VERSION: u32 = 3;
 
 /// Everything found on the device in one scan.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -108,6 +111,15 @@ pub enum Source {
     Chocolatey,
     /// Scoop app; `id` is the app (manifest) name.
     Scoop,
+    /// MacPorts port; `id` is the port name, `version` is `version_revision`.
+    Macports,
+    /// AppImage file; `id` is the app's name, lowercased with `-` for spaces:
+    /// from its menu entry if it has one, else from the file name (`obsidian`
+    /// for `Obsidian-1.7.7.AppImage`).
+    Appimage,
+    /// Program winget installed without an installer of its own (a portable
+    /// package); `id` is the winget package identifier (`Gyan.FFmpeg`).
+    Winget,
 }
 
 /// One installed piece of software.
@@ -181,6 +193,19 @@ pub(crate) fn version_key(v: &str) -> Vec<u64> {
         .collect()
 }
 
+/// Runs a package tool by absolute path with a fixed locale and returns stdout.
+pub(crate) fn run(tool: &str, args: &[&str]) -> Result<String, String> {
+    let out = std::process::Command::new(tool)
+        .args(args)
+        .env("LC_ALL", "C")
+        .output()
+        .map_err(|e| format!("could not run ({})", e.kind()))?;
+    if !out.status.success() {
+        return Err(format!("exited with {}", out.status));
+    }
+    Ok(String::from_utf8_lossy(&out.stdout).into_owned())
+}
+
 /// The current user's home folder.
 pub(crate) fn home_dir() -> Option<PathBuf> {
     std::env::home_dir().filter(|h| !h.as_os_str().is_empty())
@@ -196,6 +221,7 @@ pub fn scan() -> Inventory {
     {
         software.extend(macos::scan_apps(&macos::app_dirs(), &mut warnings));
         software.extend(homebrew::scan(&mut warnings));
+        software.extend(macports::scan(&mut warnings));
     }
     #[cfg(windows)]
     {
@@ -208,10 +234,13 @@ pub fn scan() -> Inventory {
     {
         software.extend(linux::scan_packages(&mut warnings));
         software.extend(homebrew::scan(&mut warnings));
+        software.extend(appimage::scan(&mut warnings));
     }
 
     let running_exes = running::running_executables();
     finish(&mut software, &running_exes);
+    #[cfg(target_os = "linux")]
+    linux::mark_running_flatpaks(&mut software, &mut warnings);
     let services = services::scan(&software, &running_exes, &mut warnings);
     let extensions = extensions::scan(&software, &mut warnings);
     Inventory {
@@ -277,6 +306,7 @@ pub fn watch_paths() -> Vec<PathBuf> {
     {
         paths.extend(macos::app_dirs());
         paths.push("/System/Library/CoreServices/SystemVersion.plist".into());
+        paths.push(macports::REGISTRY.into());
     }
     #[cfg(target_os = "linux")]
     paths.extend(
@@ -291,6 +321,8 @@ pub fn watch_paths() -> Vec<PathBuf> {
         ]
         .map(PathBuf::from),
     );
+    #[cfg(target_os = "linux")]
+    paths.extend(appimage::watch_paths());
     #[cfg(unix)]
     for prefix in homebrew::PREFIXES {
         paths.push(std::path::Path::new(prefix).join("Cellar"));
